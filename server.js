@@ -67,7 +67,7 @@ app.get("/api/courses", async (req, res) => {
         res.json(courses);
     } catch (error) {
         console.error("Fetch error:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Internal serv er error" });
     }
 });
 
