@@ -1,16 +1,20 @@
 {
-    "buildCommand": "next build",
-    "outputDirectory": ".next",
-    "devCommand": "next dev",
-    "installCommand": "npm ci",
+    "name": "canvas_timetable_api",
+    "version": "1.0.0",
+    "description": "Canvas Assessment Tracker — upcoming assessments at a glance",
+    "type": "module",
     "framework": "nextjs",
-    "env": {
-        "API_KEY": {
-            "description": "Canvas API authentication token"
-        },
-        "CANVAS_BASE_URL": {
-            "description": "Canvas API base URL",
-            "default": "https://rmit.instructure.com/api/v1/"
-        }
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint"
+    },
+    "license": "ISC",
+    "dependencies": {
+        "next": "^14.0.0",
+        "node-fetch": "^2.6.1",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
     }
 }
