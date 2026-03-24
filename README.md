@@ -44,6 +44,10 @@ API_KEY=your_canvas_api_token_here
 CANVAS_BASE_URL=https://rmit.instructure.com/api/v1/
 ```
 
+Notes:
+- `API_KEY` is the primary variable; `CANVAS_API_TOKEN`, `CANVAS_TOKEN`, and `CANVAS_ACCESS_TOKEN` are also supported.
+- Use the raw token only (do not include a `Bearer ` prefix or surrounding quotes).
+
 ## Running the Server
 
 ### Development Mode
