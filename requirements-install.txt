@@ -1,0 +1,14 @@
+Canvas Assessment Server - Install Requirements
+
+Prerequisites:
+- Node.js (v18 or newer recommended)
+- npm (comes with Node.js)
+
+Install dependencies:
+npm install
+
+If you prefer explicit package installation:
+npm install cors dotenv express fetch node-fetch
+
+Run the server:
+npm start
