@@ -21,8 +21,11 @@ export default async function handler(req, res) {
     if (req.method !== 'GET') return res.status(405).json({ message: 'Method not allowed' });
 
     try {
-        const { term, onlyActive, sync } = req.query;
-        const termFilter = typeof term === 'string' && term.trim() ? term.trim() : undefined;
+        const { term, search, q, onlyActive, sync } = req.query;
+        const termFilter =
+            (typeof search === 'string' && search.trim() ? search.trim() : undefined) ||
+            (typeof q === 'string' && q.trim() ? q.trim() : undefined) ||
+            (typeof term === 'string' && term.trim() ? term.trim() : undefined);
         const includeOnlyActive = onlyActive !== 'false';
         const forceSync = sync === 'true' || sync === '1';
 
