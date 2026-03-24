@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from '../styles/Home.module.css';
 
+const LOCAL_CACHE_KEY = 'canvasDueDataCache:v1';
+const LOCAL_CACHE_TTL_MS = 5 * 60 * 1000;
+
 function getUrgency(dueTimestamp) {
     const now = Date.now();
     const diff = dueTimestamp - now;
@@ -8,6 +11,15 @@ function getUrgency(dueTimestamp) {
     if (days <= 5) return 'urgent';
     if (days <= 14) return 'warning';
     return 'safe';
+}
+
+function formatAge(ms) {
+    if (typeof ms !== 'number' || ms < 0) return 'just now';
+    if (ms < 60 * 1000) return 'just now';
+    const minutes = Math.floor(ms / (60 * 1000));
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
 }
 
 function UrgencyBadge({ dueTimestamp }) {
@@ -91,29 +103,73 @@ function UrgencyLegend({ urgencyFilter, setUrgencyFilter }) {
 export default function Home() {
     const [dueData, setDueData] = useState({ terms: [], totalAssessments: 0 });
     const [urgencyFilter, setUrgencyFilter] = useState('all');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
+    const [cacheSource, setCacheSource] = useState('network');
+    const [cacheAgeMs, setCacheAgeMs] = useState(0);
 
-    const fetchDueAssessments = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const persistLocalCache = useCallback((data, savedAt) => {
         try {
-            const response = await fetch('/api/assessments/due');
-            if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch`);
-            const data = await response.json();
-            setDueData(data);
-            setLastUpdated(new Date());
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
+            localStorage.setItem(
+                LOCAL_CACHE_KEY,
+                JSON.stringify({ savedAt, data })
+            );
+        } catch {
+            // Ignore cache write failures.
         }
     }, []);
 
-    useEffect(() => {
-        fetchDueAssessments();
+    const loadLocalCache = useCallback(() => {
+        try {
+            const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed.savedAt !== 'number' || !parsed.data) return null;
+            if (Date.now() - parsed.savedAt > LOCAL_CACHE_TTL_MS) return null;
+            return parsed;
+        } catch {
+            return null;
+        }
     }, []);
+
+    const fetchDueAssessments = useCallback(async ({ forceSync = false, showLoader = true } = {}) => {
+        if (showLoader) setLoading(true);
+        setError(null);
+
+        try {
+            const url = forceSync ? '/api/assessments/due?sync=true' : '/api/assessments/due';
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch`);
+
+            const data = await response.json();
+            const fetchedAt = Date.now();
+
+            setDueData(data);
+            setLastUpdated(new Date(fetchedAt));
+            setCacheSource(data?._cache?.source === 'server-memory' ? 'server-memory' : 'network');
+            setCacheAgeMs(data?._cache?.ageMs || 0);
+            persistLocalCache(data, fetchedAt);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            if (showLoader) setLoading(false);
+        }
+    }, [persistLocalCache]);
+
+    useEffect(() => {
+        const localCache = loadLocalCache();
+
+        if (localCache) {
+            setDueData(localCache.data);
+            setLastUpdated(new Date(localCache.savedAt));
+            setCacheSource('local');
+            setCacheAgeMs(Date.now() - localCache.savedAt);
+            setLoading(false);
+        }
+
+        fetchDueAssessments({ forceSync: false, showLoader: !localCache });
+    }, [fetchDueAssessments, loadLocalCache]);
 
     // Apply urgency filter to terms
     const filteredTerms = dueData.terms.map((term) => ({
@@ -132,9 +188,17 @@ export default function Home() {
     );
 
     // Stats for legend
-    const urgentCount = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments)).filter(a => getUrgency(a.dueTimestamp) === 'urgent').length;
-    const warningCount = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments)).filter(a => getUrgency(a.dueTimestamp) === 'warning').length;
-    const safeCount = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments)).filter(a => getUrgency(a.dueTimestamp) === 'safe').length;
+    const urgentCount = dueData.terms.flatMap((t) => t.courses.flatMap((c) => c.assessments)).filter((a) => getUrgency(a.dueTimestamp) === 'urgent').length;
+    const warningCount = dueData.terms.flatMap((t) => t.courses.flatMap((c) => c.assessments)).filter((a) => getUrgency(a.dueTimestamp) === 'warning').length;
+    const safeCount = dueData.terms.flatMap((t) => t.courses.flatMap((c) => c.assessments)).filter((a) => getUrgency(a.dueTimestamp) === 'safe').length;
+
+    const cacheStatus = loading
+        ? 'Syncing...'
+        : cacheSource === 'local'
+            ? `Showing cached data (${formatAge(cacheAgeMs)})`
+            : cacheSource === 'server-memory'
+                ? `Using server cache (${formatAge(cacheAgeMs)})`
+                : 'Using live data';
 
     return (
         <div className={styles.root}>
@@ -162,9 +226,21 @@ export default function Home() {
             </header>
 
             <main className={styles.main}>
-                {/* Control panel */}
                 <section className={styles.controlPanel}>
-                    {/* Stats row */}
+                    <div className={styles.controlActions}>
+                        <button
+                            type="button"
+                            onClick={() => fetchDueAssessments({ forceSync: true, showLoader: true })}
+                            disabled={loading}
+                            className={styles.btnSecondary}
+                        >
+                            {loading ? (
+                                <><span className={styles.spinner} /> Syncing...</>
+                            ) : 'Sync now'}
+                        </button>
+                        <span className={styles.cacheMeta}>{cacheStatus}</span>
+                    </div>
+
                     {dueData.totalAssessments > 0 && (
                         <div className={styles.statsRow}>
                             <div className={`${styles.statCard} ${styles.statUrgent}`}>
@@ -186,23 +262,20 @@ export default function Home() {
                         </div>
                     )}
 
-                    {/* Urgency filter chips */}
                     {dueData.totalAssessments > 0 && (
                         <UrgencyLegend urgencyFilter={urgencyFilter} setUrgencyFilter={setUrgencyFilter} />
                     )}
                 </section>
 
-                {/* Error */}
                 {error && (
                     <div className={styles.errorBanner}>
                         <span>⚠️ {error}</span>
-                        <button onClick={() => fetchDueAssessments()} className={styles.retryBtn}>
+                        <button onClick={() => fetchDueAssessments({ forceSync: true, showLoader: true })} className={styles.retryBtn}>
                             Retry
                         </button>
                     </div>
                 )}
 
-                {/* Empty state */}
                 {!loading && !error && filteredTerms.length === 0 && (
                     <div className={styles.emptyState}>
                         <div className={styles.emptyIcon}>📭</div>
@@ -215,7 +288,6 @@ export default function Home() {
                     </div>
                 )}
 
-                {/* Results */}
                 {filteredTerms.length > 0 && (
                     <div className={styles.results}>
                         <div className={styles.resultsHeader}>
