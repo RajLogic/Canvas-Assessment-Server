@@ -477,7 +477,7 @@ export default function Home() {
             </main>
 
             <footer className={styles.footer}>
-                <p>Canvas Assessment Tracker • RMIT University</p>
+                <p>Canvas Assessment Tracker • RajLogic</p>
             </footer>
         </div>
     );
