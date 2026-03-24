@@ -10,14 +10,16 @@ export default async function handler(req, res) {
 
     try {
         const { link } = req.query;
+        const envLink = process.env.TIMETABLE_LINK;
+        const rawLink = typeof link === 'string' && link.trim() ? link : envLink;
 
-        if (!link || typeof link !== 'string') {
-            return res.status(400).json({ message: 'Missing or invalid subscription link' });
+        if (!rawLink || typeof rawLink !== 'string') {
+            return res.status(400).json({ message: 'Missing timetable subscription link. Set TIMETABLE_LINK in environment or provide ?link=...' });
         }
 
         let subscriptionUrl;
         try {
-            subscriptionUrl = new URL(link);
+            subscriptionUrl = new URL(rawLink);
         } catch {
             return res.status(400).json({ message: 'Invalid URL format' });
         }

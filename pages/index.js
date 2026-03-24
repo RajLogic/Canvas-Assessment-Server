@@ -391,9 +391,7 @@ function TimetableView({ timetableEvents, subscriptionLink, setSubscriptionLink,
     const [selectedDateKey, setSelectedDateKey] = useState(null);
 
     const handleSync = () => {
-        if (subscriptionLink) {
-            onFetchTimetable(subscriptionLink);
-        }
+        onFetchTimetable(subscriptionLink);
     };
 
     const toDateKey = (date) => {
@@ -506,13 +504,11 @@ function TimetableView({ timetableEvents, subscriptionLink, setSubscriptionLink,
     return (
         <div className={styles.timetableWrap}>
             {/* Sync button */}
-            {subscriptionLink && (
-                <div className={styles.syncButtonWrap}>
-                    <button onClick={handleSync} disabled={timetableLoading} className={styles.btnSync}>
-                        {timetableLoading ? 'Syncing...' : '🔄 Sync Timetable'}
-                    </button>
-                </div>
-            )}
+            <div className={styles.syncButtonWrap}>
+                <button onClick={handleSync} disabled={timetableLoading} className={styles.btnSync}>
+                    {timetableLoading ? 'Syncing...' : '🔄 Sync Timetable'}
+                </button>
+            </div>
 
             {timetableError && (
                 <div className={styles.errorBanner}>
@@ -527,7 +523,7 @@ function TimetableView({ timetableEvents, subscriptionLink, setSubscriptionLink,
                 </div>
             )}
 
-            {!timetableLoading && subscriptionLink && timetableEvents.length > 0 && (
+            {!timetableLoading && timetableEvents.length > 0 && (
                 <>
                     {/* Calendar Header */}
                     <div className={styles.calendarHeaderWrap}>
@@ -598,19 +594,11 @@ function TimetableView({ timetableEvents, subscriptionLink, setSubscriptionLink,
                 </>
             )}
 
-            {!timetableLoading && subscriptionLink && timetableEvents.length === 0 && !timetableError && (
+            {!timetableLoading && timetableEvents.length === 0 && !timetableError && (
                 <div className={styles.emptyState}>
                     <div className={styles.emptyIcon}>📚</div>
                     <p className={styles.emptyTitle}>No upcoming classes</p>
                     <p className={styles.emptySub}>Your timetable is synced but no events found.</p>
-                </div>
-            )}
-
-            {!subscriptionLink && !timetableLoading && (
-                <div className={styles.emptyState}>
-                    <div className={styles.emptyIcon}>📖</div>
-                    <p className={styles.emptyTitle}>Timetable not configured</p>
-                    <p className={styles.emptySub}>Add NEXT_PUBLIC_TIMETABLE_LINK to your environment to enable timetable syncing.</p>
                 </div>
             )}
         </div>
@@ -639,20 +627,6 @@ export default function Home() {
     const [timetableEvents, setTimetableEvents] = useState([]);
     const [timetableLoading, setTimetableLoading] = useState(false);
     const [timetableError, setTimetableError] = useState('');
-
-    // Load env var on mount
-    useEffect(() => {
-        const envLink = process.env.NEXT_PUBLIC_TIMETABLE_LINK;
-        if (envLink) {
-            // Only set if there's no localStorage override
-            const saved = localStorage.getItem('timetableLink');
-            if (!saved) {
-                setTimetableSubscriptionLink(envLink);
-            } else {
-                setTimetableSubscriptionLink(saved);
-            }
-        }
-    }, []);
 
     // Sync timetable subscription link to localStorage whenever it changes
     useEffect(() => {
@@ -698,9 +672,16 @@ export default function Home() {
         setTimetableLoading(true);
         setTimetableError('');
         try {
-            const validLink = parseTimetableLink(link);
-            localStorage.setItem('timetableLink', validLink);
-            const response = await fetch(`/api/timetable?link=${encodeURIComponent(validLink)}`);
+            const validLink = link ? parseTimetableLink(link) : '';
+
+            if (validLink) {
+                localStorage.setItem('timetableLink', validLink);
+            }
+
+            const requestUrl = validLink
+                ? `/api/timetable?link=${encodeURIComponent(validLink)}`
+                : '/api/timetable';
+            const response = await fetch(requestUrl);
             if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch timetable`);
             const data = await response.json();
             const now = new Date();
@@ -718,7 +699,7 @@ export default function Home() {
     }, []);
 
     useEffect(() => {
-        if (timetableSubscriptionLink && activeTab === 'timetable') {
+        if (activeTab === 'timetable') {
             fetchTimetableData(timetableSubscriptionLink);
         }
     }, [activeTab]);
