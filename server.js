@@ -16,4 +16,3 @@ console.log('\nTo start the server:');
 console.log('  Development: npm run dev');
 console.log('  Production:  npm start');
 console.log('\nNote: Next.js handles all API routing automatically.');
-});
