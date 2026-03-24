@@ -3,7 +3,6 @@
     "version": "1.0.0",
     "description": "Canvas Assessment Tracker — upcoming assessments at a glance",
     "type": "module",
-    "framework": "nextjs",
     "scripts": {
         "dev": "next dev",
         "build": "next build",
