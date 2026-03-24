@@ -7,8 +7,20 @@ Prerequisites:
 Install dependencies:
 npm install
 
-If you prefer explicit package installation:
-npm install cors dotenv express fetch node-fetch
+Core dependencies:
+- next (^14.0.0) - React framework for production
+- react (^18.2.0) - React library
+- react-dom (^18.2.0) - React DOM library
+- express (^4.21.2) - Web application framework
+- cors (^2.8.5) - Cross-Origin Resource Sharing middleware
+- dotenv (^16.5.0) - Environment variable management
+- node-fetch (^2.6.1) - Fetch API for Node.js
+- fetch (^1.1.0) - HTTP client library
 
-Run the server:
-npm start
+Development:
+npm run dev     - Start development server (http://localhost:3000)
+npm run build   - Build for production
+npm start       - Start production server
+npm run lint    - Run ESLint
+
+The server is now integrated with Next.js for both API routes and frontend.

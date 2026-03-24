@@ -1,0 +1,16 @@
+{
+    "buildCommand": "next build",
+    "outputDirectory": ".next",
+    "devCommand": "next dev",
+    "installCommand": "npm ci",
+    "framework": "nextjs",
+    "env": {
+        "API_KEY": {
+            "description": "Canvas API authentication token"
+        },
+        "CANVAS_BASE_URL": {
+            "description": "Canvas API base URL",
+            "default": "https://rmit.instructure.com/api/v1/"
+        }
+    }
+}
