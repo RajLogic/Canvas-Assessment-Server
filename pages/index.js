@@ -386,12 +386,12 @@ function getWeekDates() {
     return weekDates;
 }
 
-function TimetableView({ timetableEvents, subscriptionLink, setSubscriptionLink, timetableLoading, timetableError, setTimetableError, onFetchTimetable }) {
+function TimetableView({ timetableEvents, timetableLoading, timetableError, onFetchTimetable }) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDateKey, setSelectedDateKey] = useState(null);
 
     const handleSync = () => {
-        onFetchTimetable(subscriptionLink);
+        onFetchTimetable();
     };
 
     const toDateKey = (date) => {
@@ -615,27 +615,9 @@ export default function Home() {
     const [error, setError] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [activeTab, setActiveTab] = useState('list');
-    const [timetableSubscriptionLink, setTimetableSubscriptionLink] = useState(() => {
-        if (typeof window !== 'undefined') {
-            // Check localStorage first for user overrides, then fall back to env var
-            const saved = localStorage.getItem('timetableLink');
-            if (saved) return saved;
-        }
-        // Return env var (only available on first render)
-        return typeof window !== 'undefined' ? localStorage.getItem('timetableLink') || '' : '';
-    });
     const [timetableEvents, setTimetableEvents] = useState([]);
     const [timetableLoading, setTimetableLoading] = useState(false);
     const [timetableError, setTimetableError] = useState('');
-
-    // Sync timetable subscription link to localStorage whenever it changes
-    useEffect(() => {
-        if (timetableSubscriptionLink) {
-            localStorage.setItem('timetableLink', timetableSubscriptionLink);
-        } else {
-            localStorage.removeItem('timetableLink');
-        }
-    }, [timetableSubscriptionLink]);
 
     const fetchDueAssessments = useCallback(async (queryText = searchText) => {
         setLoading(true);
@@ -659,29 +641,11 @@ export default function Home() {
     const handleSubmit = (e) => { e.preventDefault(); fetchDueAssessments(searchText); };
     const handleClearFilter = () => { setSearchText(''); fetchDueAssessments(''); };
 
-    const parseTimetableLink = (link) => {
-        try {
-            const url = new URL(link);
-            return url.toString();
-        } catch {
-            throw new Error('Invalid subscription link');
-        }
-    };
-
-    const fetchTimetableData = useCallback(async (link) => {
+    const fetchTimetableData = useCallback(async () => {
         setTimetableLoading(true);
         setTimetableError('');
         try {
-            const validLink = link ? parseTimetableLink(link) : '';
-
-            if (validLink) {
-                localStorage.setItem('timetableLink', validLink);
-            }
-
-            const requestUrl = validLink
-                ? `/api/timetable?link=${encodeURIComponent(validLink)}`
-                : '/api/timetable';
-            const response = await fetch(requestUrl);
+            const response = await fetch('/api/timetable');
             if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch timetable`);
             const data = await response.json();
             const now = new Date();
@@ -700,7 +664,7 @@ export default function Home() {
 
     useEffect(() => {
         if (activeTab === 'timetable') {
-            fetchTimetableData(timetableSubscriptionLink);
+            fetchTimetableData();
         }
     }, [activeTab]);
 
@@ -817,11 +781,8 @@ export default function Home() {
                 {activeTab === 'timetable' && (
                     <TimetableView
                         timetableEvents={timetableEvents}
-                        subscriptionLink={timetableSubscriptionLink}
-                        setSubscriptionLink={setTimetableSubscriptionLink}
                         timetableLoading={timetableLoading}
                         timetableError={timetableError}
-                        setTimetableError={setTimetableError}
                         onFetchTimetable={fetchTimetableData}
                     />
                 )}
