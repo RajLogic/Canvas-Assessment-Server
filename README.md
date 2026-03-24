@@ -82,6 +82,12 @@ GET /api/courses/[courseId]/assignments
 ```
 Returns assignments for a specific course.
 
+### Canvas Auth Diagnostics
+```
+GET /api/health/canvas-auth
+```
+Returns safe auth diagnostics (token presence/fingerprint/source and base URL validity) without exposing the token.
+
 ## Frontend
 
 Navigate to `http://localhost:3000` to see the interactive dashboard.
