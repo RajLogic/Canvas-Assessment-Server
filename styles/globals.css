@@ -1,0 +1,16 @@
+html,
+body,
+#__next {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+}
+
+html,
+body {
+    background: #0b0f1e;
+}
+
+* {
+    box-sizing: border-box;
+}

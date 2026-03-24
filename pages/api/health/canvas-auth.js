@@ -1,4 +1,4 @@
-import { getCanvasAuthDiagnostics } from '../../../../lib/canvasApi';
+import { getCanvasAuthDiagnostics } from '../../../lib/canvasApi';
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');

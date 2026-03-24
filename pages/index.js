@@ -90,18 +90,16 @@ function UrgencyLegend({ urgencyFilter, setUrgencyFilter }) {
 
 export default function Home() {
     const [dueData, setDueData] = useState({ terms: [], totalAssessments: 0 });
-    const [termFilter, setTermFilter] = useState('First semester 2026');
     const [urgencyFilter, setUrgencyFilter] = useState('all');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
 
-    const fetchDueAssessments = useCallback(async (term = termFilter) => {
+    const fetchDueAssessments = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const query = term.trim() ? `?term=${encodeURIComponent(term.trim())}` : '';
-            const response = await fetch(`/api/assessments/due${query}`);
+            const response = await fetch('/api/assessments/due');
             if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch`);
             const data = await response.json();
             setDueData(data);
@@ -111,21 +109,11 @@ export default function Home() {
         } finally {
             setLoading(false);
         }
-    }, [termFilter]);
-
-    useEffect(() => {
-        fetchDueAssessments(termFilter);
     }, []);
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        fetchDueAssessments(termFilter);
-    };
-
-    const handleClearFilter = () => {
-        setTermFilter('');
-        fetchDueAssessments('');
-    };
+    useEffect(() => {
+        fetchDueAssessments();
+    }, []);
 
     // Apply urgency filter to terms
     const filteredTerms = dueData.terms.map((term) => ({
@@ -176,34 +164,6 @@ export default function Home() {
             <main className={styles.main}>
                 {/* Control panel */}
                 <section className={styles.controlPanel}>
-                    <form className={styles.searchForm} onSubmit={handleSubmit}>
-                        <div className={styles.inputWrapper}>
-                            <span className={styles.inputIcon}>🔍</span>
-                            <input
-                                type="text"
-                                value={termFilter}
-                                onChange={(e) => setTermFilter(e.target.value)}
-                                placeholder="Filter by semester (e.g. First semester 2026)"
-                                className={styles.searchInput}
-                            />
-                        </div>
-                        <div className={styles.btnGroup}>
-                            <button type="submit" disabled={loading} className={styles.btnPrimary}>
-                                {loading ? (
-                                    <><span className={styles.spinner} /> Loading…</>
-                                ) : 'Search'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleClearFilter}
-                                disabled={loading}
-                                className={styles.btnSecondary}
-                            >
-                                Show All
-                            </button>
-                        </div>
-                    </form>
-
                     {/* Stats row */}
                     {dueData.totalAssessments > 0 && (
                         <div className={styles.statsRow}>
@@ -236,7 +196,7 @@ export default function Home() {
                 {error && (
                     <div className={styles.errorBanner}>
                         <span>⚠️ {error}</span>
-                        <button onClick={() => fetchDueAssessments(termFilter)} className={styles.retryBtn}>
+                        <button onClick={() => fetchDueAssessments()} className={styles.retryBtn}>
                             Retry
                         </button>
                     </div>
@@ -250,7 +210,7 @@ export default function Home() {
                         <p className={styles.emptySub}>
                             {urgencyFilter !== 'all'
                                 ? 'Try selecting a different urgency filter.'
-                                : 'Try a different semester or check back later.'}
+                                : 'No upcoming assessments right now. Check back later.'}
                         </p>
                     </div>
                 )}
@@ -300,7 +260,7 @@ export default function Home() {
             </main>
 
             <footer className={styles.footer}>
-                <p>Canvas Assessment Tracker • RMIT University</p>
+                <p>Canvas Assessment Tracker • RajLogic</p>
             </footer>
         </div>
     );
