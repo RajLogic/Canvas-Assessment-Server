@@ -134,7 +134,8 @@ function parseICalDate(dateStr) {
         const year = parseInt(dateStr.substring(0, 4));
         const month = parseInt(dateStr.substring(4, 6)) - 1;
         const day = parseInt(dateStr.substring(6, 8));
-        return new Date(year, month, day).toISOString();
+        // Keep date-only values timezone-naive so the browser renders in client locale.
+        return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     } else if (dateStr.includes('T')) {
         // DATETIME format
         const isUtc = dateStr.endsWith('Z');
@@ -150,7 +151,9 @@ function parseICalDate(dateStr) {
         if (isUtc) {
             return new Date(Date.UTC(year, month, day, hour, minute, second)).toISOString();
         } else {
-            return new Date(year, month, day, hour, minute, second).toISOString();
+            // Floating iCal times (no Z) should be interpreted in the user's local timezone.
+            // Returning a timezone-naive ISO string avoids server timezone skew on deployments.
+            return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
         }
     }
 
