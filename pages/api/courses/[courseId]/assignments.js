@@ -1,4 +1,4 @@
-import { fetchAssignments } from '../../lib/canvasApi';
+import { fetchAssignments } from '../../../../lib/canvasApi';
 
 export default async function handler(req, res) {
     // Enable CORS

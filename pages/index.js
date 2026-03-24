@@ -2,18 +2,20 @@ import React, { useState, useEffect } from 'react';
 import styles from '../styles/Home.module.css';
 
 export default function Home() {
-    const [courses, setCourses] = useState([]);
+    const [dueData, setDueData] = useState({ terms: [], totalAssessments: 0 });
+    const [termFilter, setTermFilter] = useState('First semester 2026');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const fetchCourses = async () => {
+    const fetchDueAssessments = async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('/api/courses');
-            if (!response.ok) throw new Error('Failed to fetch courses');
+            const query = termFilter.trim() ? `?term=${encodeURIComponent(termFilter.trim())}` : '';
+            const response = await fetch(`/api/assessments/due${query}`);
+            if (!response.ok) throw new Error('Failed to fetch due assessments');
             const data = await response.json();
-            setCourses(data);
+            setDueData(data);
         } catch (err) {
             setError(err.message);
             console.error('Error:', err);
@@ -23,8 +25,39 @@ export default function Home() {
     };
 
     useEffect(() => {
-        fetchCourses();
+        fetchDueAssessments();
     }, []);
+
+    const formatDueDate = (dateString) => {
+        return new Date(dateString).toLocaleString('en-AU', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
+    const handleFilterSubmit = (event) => {
+        event.preventDefault();
+        fetchDueAssessments();
+    };
+
+    const clearFilter = () => {
+        setTermFilter('');
+        setLoading(true);
+        setError(null);
+
+        fetch('/api/assessments/due')
+            .then((response) => {
+                if (!response.ok) throw new Error('Failed to fetch due assessments');
+                return response.json();
+            })
+            .then((data) => setDueData(data))
+            .catch((err) => setError(err.message))
+            .finally(() => setLoading(false));
+    };
 
     return (
         <div className={styles.container}>
@@ -32,23 +65,38 @@ export default function Home() {
                 <h1 className={styles.title}>Canvas Assessment Server</h1>
 
                 <p className={styles.description}>
-                    A Next.js powered backend application for fetching Canvas course data
+                    View upcoming assessments sorted by due date and grouped by semester and class
                 </p>
 
                 <div className={styles.grid}>
                     <div className={styles.card}>
-                        <h2>Courses API &rarr;</h2>
-                        <p>Access Canvas course data through the API endpoints</p>
-                        <button onClick={fetchCourses} disabled={loading}>
-                            {loading ? 'Loading...' : 'Fetch Courses'}
-                        </button>
+                        <h2>Due Assessments &rarr;</h2>
+                        <p>Filter by active semester (for example: First semester 2026)</p>
+
+                        <form className={styles.filterForm} onSubmit={handleFilterSubmit}>
+                            <input
+                                type="text"
+                                value={termFilter}
+                                onChange={(event) => setTermFilter(event.target.value)}
+                                placeholder="e.g. First semester 2026"
+                                className={styles.input}
+                            />
+                            <div className={styles.buttonRow}>
+                                <button type="submit" disabled={loading}>
+                                    {loading ? 'Loading...' : 'Apply Filter'}
+                                </button>
+                                <button type="button" onClick={clearFilter} disabled={loading} className={styles.secondaryButton}>
+                                    Show All
+                                </button>
+                            </div>
+                        </form>
                     </div>
 
                     <div className={styles.card}>
-                        <h2>API Endpoints &rarr;</h2>
-                        <code>/api/courses</code> - Get all courses
+                        <h2>API Endpoint &rarr;</h2>
+                        <code>/api/assessments/due</code> - Upcoming due assessments
                         <br />
-                        <code>/api/courses/[courseId]/assignments</code> - Get assignments for a course
+                        <code>/api/assessments/due?term=First semester 2026</code>
                     </div>
                 </div>
 
@@ -58,16 +106,49 @@ export default function Home() {
                     </div>
                 )}
 
-                {courses.length > 0 && (
+                {!loading && dueData.terms?.length === 0 && !error && (
+                    <div className={styles.emptyState}>
+                        <p>No upcoming assessments found for this filter.</p>
+                    </div>
+                )}
+
+                {dueData.terms?.length > 0 && (
                     <div className={styles.coursesList}>
-                        <h2>Courses ({courses.length})</h2>
-                        <ul>
-                            {courses.map((course) => (
-                                <li key={course.id}>
-                                    <strong>{course.name}</strong> (ID: {course.id})
-                                </li>
-                            ))}
-                        </ul>
+                        <h2>
+                            Upcoming Assessments ({dueData.totalAssessments})
+                        </h2>
+
+                        {dueData.terms.map((termSection) => (
+                            <section key={termSection.termName} className={styles.termSection}>
+                                <h3 className={styles.termTitle}>
+                                    {termSection.termName} ({termSection.totalAssessments})
+                                </h3>
+
+                                {termSection.courses.map((course) => (
+                                    <div key={course.courseId} className={styles.courseSection}>
+                                        <h4 className={styles.courseTitle}>
+                                            {course.courseName} ({course.totalAssessments})
+                                        </h4>
+
+                                        <ul className={styles.assessmentList}>
+                                            {course.assessments.map((assessment) => (
+                                                <li key={assessment.id} className={styles.assessmentItem}>
+                                                    <div>
+                                                        <strong>{assessment.name}</strong>
+                                                        {assessment.pointsPossible !== null && assessment.pointsPossible !== undefined && (
+                                                            <span className={styles.points}> • {assessment.pointsPossible} pts</span>
+                                                        )}
+                                                    </div>
+                                                    <div className={styles.dueDate}>
+                                                        Due: {formatDueDate(assessment.dueAt)}
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </section>
+                        ))}
                     </div>
                 )}
             </main>

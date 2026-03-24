@@ -1,3 +1,4 @@
 .env
+.envlocal
 /node_modules
 /.next

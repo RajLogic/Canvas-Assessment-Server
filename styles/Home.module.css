@@ -98,6 +98,37 @@
     cursor: not-allowed;
 }
 
+.filterForm {
+    margin-top: 1rem;
+}
+
+.input {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.input:focus {
+    border-color: #667eea;
+}
+
+.buttonRow {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.secondaryButton {
+    background: #6c757d !important;
+}
+
+.secondaryButton:hover:not(:disabled) {
+    background: #5a6268 !important;
+}
+
 .coursesList {
     margin-top: 3rem;
     padding: 2rem;
@@ -125,6 +156,63 @@
 
 .coursesList li:last-child {
     border-bottom: none;
+}
+
+.termSection {
+    border-top: 1px solid #ececec;
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+
+.termTitle {
+    color: #4a56c7;
+    margin: 0 0 0.75rem;
+}
+
+.courseSection {
+    border: 1px solid #efefef;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    background: #fcfcff;
+}
+
+.courseTitle {
+    margin: 0 0 0.5rem;
+    color: #222;
+}
+
+.assessmentList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.assessmentItem {
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed #e4e4e4;
+}
+
+.assessmentItem:last-child {
+    border-bottom: none;
+}
+
+.points {
+    color: #666;
+}
+
+.dueDate {
+    color: #4e5d78;
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+.emptyState {
+    margin-top: 2rem;
+    padding: 1rem 1.25rem;
+    background: #ffffff;
+    border-radius: 8px;
+    color: #333;
 }
 
 .error {
