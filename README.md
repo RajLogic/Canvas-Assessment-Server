@@ -37,16 +37,20 @@ npm install
 
 ## Environment Setup
 
-Create a `.env.local` file with your Canvas API token:
+Create a `.env.local` file with your Canvas API token and optional timetable subscription:
 
 ```env
 API_KEY=your_canvas_api_token_here
 CANVAS_BASE_URL=https://rmit.instructure.com/api/v1/
+NEXT_PUBLIC_TIMETABLE_LINK=https://your-timetable-provider.com/calendar.ics
 ```
 
 Notes:
 - `API_KEY` is the primary variable; `CANVAS_API_TOKEN`, `CANVAS_TOKEN`, and `CANVAS_ACCESS_TOKEN` are also supported.
 - Use the raw token only (do not include a `Bearer ` prefix or surrounding quotes).
+- `NEXT_PUBLIC_TIMETABLE_LINK` (optional) pre-populates the timetable subscription link. Exposed to frontend with `NEXT_PUBLIC_` prefix.
+  - For Vercel: Set via project settings → Environment Variables
+  - Users can still override by entering a different link in the Timetable tab
 
 ## Running the Server
 

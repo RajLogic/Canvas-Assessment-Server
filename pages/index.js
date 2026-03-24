@@ -185,6 +185,11 @@ function ListView({ dueData, urgencyFilter, setUrgencyFilter }) {
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
+const QUICK_LINKS = [
+    { label: 'Canvas', href: 'https://rmit.instructure.com/' },
+    { label: 'Timetable', href: 'https://mytimetable.rmit.edu.au/even/student' },
+    { label: 'GitHub', href: 'https://github.com/RajLogic/Canvas-Assessment-Server' },
+];
 
 function CalendarView({ dueData }) {
     const today = new Date();
@@ -352,6 +357,266 @@ function CalendarView({ dueData }) {
     );
 }
 
+// ─── TIMETABLE VIEW ───────────────────────────────────────────────────────────
+
+const TIMETABLE_COLORS = [
+    '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e',
+    '#f97316', '#eab308', '#22c55e', '#10b981',
+    '#06b6d4', '#0ea5e9', '#3b82f6', '#a855f7',
+];
+
+function getSubjectColor(subjectName, index) {
+    if (!subjectName) return TIMETABLE_COLORS[index % TIMETABLE_COLORS.length];
+    const hash = subjectName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return TIMETABLE_COLORS[hash % TIMETABLE_COLORS.length];
+}
+
+function getWeekDates() {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    const monday = new Date(today.setDate(diff));
+
+    const weekDates = [];
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(monday);
+        date.setDate(date.getDate() + i);
+        weekDates.push(date);
+    }
+    return weekDates;
+}
+
+function TimetableView({ timetableEvents, subscriptionLink, setSubscriptionLink, timetableLoading, timetableError, setTimetableError, onFetchTimetable }) {
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [selectedDateKey, setSelectedDateKey] = useState(null);
+
+    const handleSync = () => {
+        if (subscriptionLink) {
+            onFetchTimetable(subscriptionLink);
+        }
+    };
+
+    const toDateKey = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const formatDateLabel = (date) => {
+        return date.toLocaleDateString('en-AU', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    const handlePrevMonth = () => {
+        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
+        setSelectedDateKey(null);
+    };
+
+    const handleNextMonth = () => {
+        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
+        setSelectedDateKey(null);
+    };
+
+    const handleToday = () => {
+        const today = new Date();
+        setCurrentMonth(today);
+        setSelectedDateKey(toDateKey(today));
+    };
+
+    const groupEventsByDate = () => {
+        const grouped = {};
+        timetableEvents
+            .sort((a, b) => new Date(a.start) - new Date(b.start))
+            .forEach((event) => {
+                const date = new Date(event.start);
+                const dateKey = toDateKey(date);
+                if (!grouped[dateKey]) {
+                    grouped[dateKey] = {
+                        label: formatDateLabel(date),
+                        events: [],
+                    };
+                }
+                grouped[dateKey].events.push(event);
+            });
+        return grouped;
+    };
+
+    const getDaysInMonth = (date) => {
+        return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    };
+
+    const getFirstDayOfMonth = (date) => {
+        return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    };
+
+    const renderCalendarGrid = (groupedEvents) => {
+        const daysInMonth = getDaysInMonth(currentMonth);
+        const firstDay = getFirstDayOfMonth(currentMonth);
+        const days = [];
+        const today = new Date();
+        const isCurrentMonth = today.getFullYear() === currentMonth.getFullYear() && today.getMonth() === currentMonth.getMonth();
+        const todayDate = isCurrentMonth ? today.getDate() : -1;
+
+        for (let i = 0; i < firstDay; i++) {
+            days.push(<div key={`empty-${i}`} className={styles.calEmptyDay}></div>);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const isToday = day === todayDate;
+            const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+            const dayKey = toDateKey(dayDate);
+            const isSelected = selectedDateKey === dayKey;
+            const hasEvents = Boolean(groupedEvents[dayKey]?.events?.length);
+            days.push(
+                <button
+                    key={day}
+                    type="button"
+                    onClick={() => setSelectedDateKey((prev) => (prev === dayKey ? null : dayKey))}
+                    className={`${styles.calDay} ${isToday ? styles.calDayToday : ''} ${isSelected ? styles.calDaySelected : ''} ${hasEvents ? styles.calDayHasEvents : ''}`}
+                    title={formatDateLabel(dayDate)}
+                >
+                    {day}
+                </button>
+            );
+        }
+
+        return days;
+    };
+
+    const groupedEvents = groupEventsByDate();
+    const visibleDateEntries = selectedDateKey
+        ? [[
+            selectedDateKey,
+            groupedEvents[selectedDateKey] || {
+                label: formatDateLabel(new Date(
+                    Number(selectedDateKey.slice(0, 4)),
+                    Number(selectedDateKey.slice(5, 7)) - 1,
+                    Number(selectedDateKey.slice(8, 10)),
+                )),
+                events: [],
+            },
+        ]]
+        : Object.entries(groupedEvents);
+
+    return (
+        <div className={styles.timetableWrap}>
+            {/* Sync button */}
+            {subscriptionLink && (
+                <div className={styles.syncButtonWrap}>
+                    <button onClick={handleSync} disabled={timetableLoading} className={styles.btnSync}>
+                        {timetableLoading ? 'Syncing...' : '🔄 Sync Timetable'}
+                    </button>
+                </div>
+            )}
+
+            {timetableError && (
+                <div className={styles.errorBanner}>
+                    <span>⚠️ {timetableError}</span>
+                </div>
+            )}
+
+            {timetableLoading && (
+                <div className={styles.loadingWrap}>
+                    <span className={styles.spinnerLarge} />
+                    <p className={styles.loadingText}>Syncing timetable…</p>
+                </div>
+            )}
+
+            {!timetableLoading && subscriptionLink && timetableEvents.length > 0 && (
+                <>
+                    {/* Calendar Header */}
+                    <div className={styles.calendarHeaderWrap}>
+                        <div className={styles.calMonthNav}>
+                            <button onClick={handlePrevMonth} className={styles.calNavBtn}>❮</button>
+                            <div className={styles.calMonthLabel}>
+                                {currentMonth.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}
+                            </div>
+                            <button onClick={handleNextMonth} className={styles.calNavBtn}>❯</button>
+                            <button onClick={handleToday} className={styles.calTodayBtn}>Today</button>
+                        </div>
+
+                        {/* Mini calendar grid */}
+                        <div className={styles.miniCalendar}>
+                            <div className={styles.calDayHeaders}>
+                                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((day) => (
+                                    <div key={day} className={styles.calHeaderDay}>{day}</div>
+                                ))}
+                            </div>
+                            <div className={styles.calDaysGrid}>
+                                {renderCalendarGrid(groupedEvents)}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Events List */}
+                    <div className={styles.eventsListWrapper}>
+                        {selectedDateKey && (
+                            <p className={styles.selectedDayHint}>
+                                Showing classes for {visibleDateEntries[0][1].label}
+                            </p>
+                        )}
+                        {visibleDateEntries.map(([dateKey, dayGroup]) => (
+                            <div key={dateKey} className={styles.dateGroup}>
+                                <h3 className={styles.dateGroupTitle}>{dayGroup.label}</h3>
+                                <div className={styles.eventsList}>
+                                    {dayGroup.events.map((event, idx) => {
+                                        const startTime = new Date(event.start);
+                                        const endTime = new Date(event.end);
+                                        const durationMs = endTime - startTime;
+                                        const durationHours = Math.round(durationMs / (1000 * 60 * 60) * 10) / 10;
+                                        return (
+                                            <div key={idx} className={styles.eventCard}>
+                                                <div className={styles.eventTimeSection}>
+                                                    <div className={styles.eventStartTime}>
+                                                        {startTime.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                    </div>
+                                                    <div className={styles.eventDuration}>
+                                                        {durationHours} hr
+                                                    </div>
+                                                </div>
+                                                <div className={styles.eventDetailsSection}>
+                                                    <div className={styles.eventName}>{event.summary}</div>
+                                                    <div className={styles.eventMeta}>
+                                                        {event.location || <span>-</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {dayGroup.events.length === 0 && (
+                                        <div className={styles.eventEmptyState}>No classes running on this day.</div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+
+            {!timetableLoading && subscriptionLink && timetableEvents.length === 0 && !timetableError && (
+                <div className={styles.emptyState}>
+                    <div className={styles.emptyIcon}>📚</div>
+                    <p className={styles.emptyTitle}>No upcoming classes</p>
+                    <p className={styles.emptySub}>Your timetable is synced but no events found.</p>
+                </div>
+            )}
+
+            {!subscriptionLink && !timetableLoading && (
+                <div className={styles.emptyState}>
+                    <div className={styles.emptyIcon}>📖</div>
+                    <p className={styles.emptyTitle}>Timetable not configured</p>
+                    <p className={styles.emptySub}>Add NEXT_PUBLIC_TIMETABLE_LINK to your environment to enable timetable syncing.</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── MAIN PAGE ──────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -362,6 +627,41 @@ export default function Home() {
     const [error, setError] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [activeTab, setActiveTab] = useState('list');
+    const [timetableSubscriptionLink, setTimetableSubscriptionLink] = useState(() => {
+        if (typeof window !== 'undefined') {
+            // Check localStorage first for user overrides, then fall back to env var
+            const saved = localStorage.getItem('timetableLink');
+            if (saved) return saved;
+        }
+        // Return env var (only available on first render)
+        return typeof window !== 'undefined' ? localStorage.getItem('timetableLink') || '' : '';
+    });
+    const [timetableEvents, setTimetableEvents] = useState([]);
+    const [timetableLoading, setTimetableLoading] = useState(false);
+    const [timetableError, setTimetableError] = useState('');
+
+    // Load env var on mount
+    useEffect(() => {
+        const envLink = process.env.NEXT_PUBLIC_TIMETABLE_LINK;
+        if (envLink) {
+            // Only set if there's no localStorage override
+            const saved = localStorage.getItem('timetableLink');
+            if (!saved) {
+                setTimetableSubscriptionLink(envLink);
+            } else {
+                setTimetableSubscriptionLink(saved);
+            }
+        }
+    }, []);
+
+    // Sync timetable subscription link to localStorage whenever it changes
+    useEffect(() => {
+        if (timetableSubscriptionLink) {
+            localStorage.setItem('timetableLink', timetableSubscriptionLink);
+        } else {
+            localStorage.removeItem('timetableLink');
+        }
+    }, [timetableSubscriptionLink]);
 
     const fetchDueAssessments = useCallback(async (queryText = searchText) => {
         setLoading(true);
@@ -385,6 +685,44 @@ export default function Home() {
     const handleSubmit = (e) => { e.preventDefault(); fetchDueAssessments(searchText); };
     const handleClearFilter = () => { setSearchText(''); fetchDueAssessments(''); };
 
+    const parseTimetableLink = (link) => {
+        try {
+            const url = new URL(link);
+            return url.toString();
+        } catch {
+            throw new Error('Invalid subscription link');
+        }
+    };
+
+    const fetchTimetableData = useCallback(async (link) => {
+        setTimetableLoading(true);
+        setTimetableError('');
+        try {
+            const validLink = parseTimetableLink(link);
+            localStorage.setItem('timetableLink', validLink);
+            const response = await fetch(`/api/timetable?link=${encodeURIComponent(validLink)}`);
+            if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch timetable`);
+            const data = await response.json();
+            const now = new Date();
+            const futureEvents = data.events
+                .filter((event) => new Date(event.end) > now)
+                .sort((a, b) => new Date(a.start) - new Date(b.start))
+                .slice(0, 20);
+            setTimetableEvents(futureEvents);
+        } catch (err) {
+            setTimetableError(err.message || 'Failed to sync timetable');
+            setTimetableEvents([]);
+        } finally {
+            setTimetableLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (timetableSubscriptionLink && activeTab === 'timetable') {
+            fetchTimetableData(timetableSubscriptionLink);
+        }
+    }, [activeTab]);
+
     return (
         <div className={styles.root}>
             <div className={styles.bgDecor} aria-hidden="true">
@@ -403,11 +741,26 @@ export default function Home() {
                             <p className={styles.siteSub}>Upcoming assessments at a glance</p>
                         </div>
                     </div>
-                    {lastUpdated && (
-                        <span className={styles.lastUpdated}>
-                            Updated {lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                    )}
+                    <div className={styles.headerRight}>
+                        <nav className={styles.topLinks} aria-label="Quick links">
+                            {QUICK_LINKS.map((link) => (
+                                <a
+                                    key={link.label}
+                                    href={link.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={styles.topLink}
+                                >
+                                    {link.label}
+                                </a>
+                            ))}
+                        </nav>
+                        {lastUpdated && (
+                            <span className={styles.lastUpdated}>
+                                Updated {lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -450,6 +803,12 @@ export default function Home() {
                     >
                         📅 Calendar
                     </button>
+                    <button
+                        className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`}
+                        onClick={() => setActiveTab('timetable')}
+                    >
+                        🕐 Timetable
+                    </button>
                 </div>
 
                 {/* Error */}
@@ -469,14 +828,38 @@ export default function Home() {
                 )}
 
                 {/* Tab content */}
-                {!loading && !error && (
+                {!loading && !error && activeTab !== 'timetable' && (
                     activeTab === 'list'
                         ? <ListView dueData={dueData} urgencyFilter={urgencyFilter} setUrgencyFilter={setUrgencyFilter} />
                         : <CalendarView dueData={dueData} />
                 )}
+                {activeTab === 'timetable' && (
+                    <TimetableView
+                        timetableEvents={timetableEvents}
+                        subscriptionLink={timetableSubscriptionLink}
+                        setSubscriptionLink={setTimetableSubscriptionLink}
+                        timetableLoading={timetableLoading}
+                        timetableError={timetableError}
+                        setTimetableError={setTimetableError}
+                        onFetchTimetable={fetchTimetableData}
+                    />
+                )}
             </main>
 
             <footer className={styles.footer}>
+                <div className={styles.footerLinks}>
+                    {QUICK_LINKS.map((link) => (
+                        <a
+                            key={`footer-${link.label}`}
+                            href={link.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.footerLink}
+                        >
+                            {link.label}
+                        </a>
+                    ))}
+                </div>
                 <p>Canvas Assessment Tracker • RajLogic</p>
             </footer>
         </div>
