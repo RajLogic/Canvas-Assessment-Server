@@ -1,7 +1,6 @@
 {
     "name": "canvas_timetable_api",
     "version": "1.0.0",
-    "description": "Canvas Assessment Tracker — upcoming assessments at a glance",
     "type": "module",
     "scripts": {
         "dev": "next dev",
