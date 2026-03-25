@@ -28,8 +28,7 @@ function formatTime(dateString) {
 
 const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp }) {
     const urgency = getUrgency(dueTimestamp);
-    const days = Math.ceil((dueTimestamp - Date.now()) / (1000 * 60 * 60 * 24));
-    const label = days === 1 ? '1 day' : `${days} days`;
+    const label = urgency === 'urgent' ? '≤5 days' : urgency === 'warning' ? '≤2 weeks' : '>2 weeks';
     return (
         <span className={`${styles.badge} ${styles[`badge_${urgency}`]}`}>
             {urgency === 'urgent' ? '🔴' : urgency === 'warning' ? '🟡' : '🟢'} {label}
@@ -619,7 +618,7 @@ export default function Home() {
     const [timetableLoading, setTimetableLoading] = useState(false);
     const [timetableError, setTimetableError] = useState('');
 
-    const fetchDueAssessments = useCallback(async (queryText = searchText) => {
+    const fetchDueAssessments = useCallback(async (queryText = '') => {
         setLoading(true);
         setError(null);
         try {
@@ -634,9 +633,9 @@ export default function Home() {
         } finally {
             setLoading(false);
         }
-    }, [searchText]);
+    }, []);
 
-    useEffect(() => { fetchDueAssessments(searchText); }, []);
+    useEffect(() => { fetchDueAssessments(''); }, [fetchDueAssessments]);
 
     const handleSubmit = (e) => { e.preventDefault(); fetchDueAssessments(searchText); };
     const handleClearFilter = () => { setSearchText(''); fetchDueAssessments(''); };
@@ -666,7 +665,7 @@ export default function Home() {
         if (activeTab === 'timetable') {
             fetchTimetableData();
         }
-    }, [activeTab]);
+    }, [activeTab, fetchTimetableData]);
 
     return (
         <div className={styles.root}>
