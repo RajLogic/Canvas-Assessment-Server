@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import styles from '../styles/Home.module.css';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ function formatTime(dateString) {
 
 // ─── Shared sub-components ─────────────────────────────────────────────────
 
-function UrgencyBadge({ dueTimestamp }) {
+const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp }) {
     const urgency = getUrgency(dueTimestamp);
     const days = Math.ceil((dueTimestamp - Date.now()) / (1000 * 60 * 60 * 24));
     const label = days === 1 ? '1 day' : `${days} days`;
@@ -35,11 +35,11 @@ function UrgencyBadge({ dueTimestamp }) {
             {urgency === 'urgent' ? '🔴' : urgency === 'warning' ? '🟡' : '🟢'} {label}
         </span>
     );
-}
+});
 
 // ─── LIST VIEW ─────────────────────────────────────────────────────────────
 
-function AssessmentCard({ assessment }) {
+const AssessmentCard = memo(function AssessmentCard({ assessment }) {
     const urgency = getUrgency(assessment.dueTimestamp);
     return (
         <li className={`${styles.assessmentItem} ${styles[`item_${urgency}`]}`}>
@@ -61,9 +61,9 @@ function AssessmentCard({ assessment }) {
             <UrgencyBadge dueTimestamp={assessment.dueTimestamp} />
         </li>
     );
-}
+});
 
-function UrgencyLegend({ urgencyFilter, setUrgencyFilter }) {
+const UrgencyLegend = memo(function UrgencyLegend({ urgencyFilter, setUrgencyFilter }) {
     const filters = [
         { key: 'all', label: 'All', icon: '📋' },
         { key: 'urgent', label: '≤5 days', icon: '🔴' },
@@ -81,9 +81,9 @@ function UrgencyLegend({ urgencyFilter, setUrgencyFilter }) {
             ))}
         </div>
     );
-}
+});
 
-function ListView({ dueData, urgencyFilter, setUrgencyFilter }) {
+const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilter }) {
     const allAssessments = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments));
     const urgentCount = allAssessments.filter(a => getUrgency(a.dueTimestamp) === 'urgent').length;
     const warningCount = allAssessments.filter(a => getUrgency(a.dueTimestamp) === 'warning').length;
@@ -178,7 +178,7 @@ function ListView({ dueData, urgencyFilter, setUrgencyFilter }) {
             )}
         </>
     );
-}
+});
 
 // ─── CALENDAR VIEW ─────────────────────────────────────────────────────────
 
@@ -191,7 +191,7 @@ const QUICK_LINKS = [
     { label: 'GitHub', href: 'https://github.com/RajLogic/Canvas-Assessment-Server' },
 ];
 
-function CalendarView({ dueData }) {
+const CalendarView = memo(function CalendarView({ dueData }) {
     const today = new Date();
     const [viewYear, setViewYear] = useState(today.getFullYear());
     const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -355,7 +355,7 @@ function CalendarView({ dueData }) {
             )}
         </div>
     );
-}
+});
 
 // ─── TIMETABLE VIEW ───────────────────────────────────────────────────────────
 
@@ -386,7 +386,7 @@ function getWeekDates() {
     return weekDates;
 }
 
-function TimetableView({ timetableEvents, timetableLoading, timetableError, onFetchTimetable }) {
+const TimetableView = memo(function TimetableView({ timetableEvents, timetableLoading, timetableError, onFetchTimetable }) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDateKey, setSelectedDateKey] = useState(null);
 
@@ -603,7 +603,7 @@ function TimetableView({ timetableEvents, timetableLoading, timetableError, onFe
             )}
         </div>
     );
-}
+});
 
 // ─── MAIN PAGE ──────────────────────────────────────────────────────────────
 
