@@ -11,6 +11,18 @@ function getUrgency(dueTimestamp) {
     return 'safe';
 }
 
+function getDaysLeftLabel(dueTimestamp) {
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const daysLeft = Math.ceil((dueTimestamp - Date.now()) / msPerDay);
+
+    if (daysLeft < 0) {
+        const overdueDays = Math.abs(daysLeft);
+        return `${overdueDays} day${overdueDays !== 1 ? 's' : ''} overdue`;
+    }
+    if (daysLeft === 0) return 'Due today';
+    return `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`;
+}
+
 function formatShortDate(dateString) {
     return new Date(dateString).toLocaleString('en-AU', {
         weekday: 'short', day: '2-digit', month: 'short',
@@ -28,7 +40,7 @@ function formatTime(dateString) {
 
 const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp }) {
     const urgency = getUrgency(dueTimestamp);
-    const label = urgency === 'urgent' ? '≤5 days' : urgency === 'warning' ? '≤2 weeks' : '>2 weeks';
+    const label = getDaysLeftLabel(dueTimestamp);
     return (
         <span className={`${styles.badge} ${styles[`badge_${urgency}`]}`}>
             {urgency === 'urgent' ? '🔴' : urgency === 'warning' ? '🟡' : '🟢'} {label}
