@@ -200,6 +200,7 @@ const QUICK_LINKS = [
     { label: 'Canvas', href: 'https://rmit.instructure.com/' },
     { label: 'Timetable', href: 'https://mytimetable.rmit.edu.au/even/student' },
     { label: 'GitHub', href: 'https://github.com/RajLogic/Canvas-Assessment-Server' },
+    { label: 'AWS Canvas', href: 'https://awsacademy.instructure.com/' },
 ];
 
 const CalendarView = memo(function CalendarView({ dueData }) {
