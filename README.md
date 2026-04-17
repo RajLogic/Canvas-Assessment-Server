@@ -43,12 +43,17 @@ Create a `.env.local` file with your Canvas API token and optional timetable sub
 API_KEY=your_canvas_api_token_here
 CANVAS_BASE_URL=https://rmit.instructure.com/api/v1/
 TIMETABLE_LINK=https://your-timetable-provider.com/calendar.ics
+DATABASE_URL=your_neon_postgres_connection_string
+# Optional (local troubleshooting only): bypass TLS cert validation for DB requests
+# ALLOW_INSECURE_DB_TLS=true
 ```
 
 Notes:
 - `API_KEY` is the primary variable; `CANVAS_API_TOKEN`, `CANVAS_TOKEN`, and `CANVAS_ACCESS_TOKEN` are also supported.
 - Use the raw token only (do not include a `Bearer ` prefix or surrounding quotes).
 - `TIMETABLE_LINK` (optional) is used server-side by the timetable API.
+- `DATABASE_URL` is required for auth/session storage in Neon Postgres.
+- `ALLOW_INSECURE_DB_TLS=true` should be used only for local debugging when your machine/proxy has a broken certificate chain.
   - For Vercel: Set via project settings → Environment Variables
   - Users can still override with a saved local link if one exists
 

@@ -1,0 +1,404 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&display=swap');
+
+/* ─── Root ─── */
+.root {
+    min-height: 100vh;
+    background: #080c14;
+    color: #e8edf6;
+    font-family: 'DM Sans', sans-serif;
+    overflow-x: hidden;
+}
+
+/* ─── Background ─── */
+.bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(99, 130, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 130, 255, 0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, black 30%, transparent 100%);
+}
+
+.glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+    animation: glowPulse 8s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+
+    0%,
+    100% {
+        transform: translate(-50%, -60%) scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: translate(-50%, -60%) scale(1.1);
+        opacity: 0.7;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .glow {
+        animation: none;
+    }
+}
+
+/* ─── Nav ─── */
+.nav {
+    position: relative;
+    z-index: 10;
+    padding: 1.5rem 2rem;
+}
+
+.navBrand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 700;
+    color: rgba(165, 180, 252, 0.8);
+    transition: color 0.2s;
+}
+
+.navBrand:hover {
+    color: #a5b4fc;
+}
+
+.navTitle {
+    letter-spacing: -0.02em;
+}
+
+/* ─── Main ─── */
+.main {
+    position: relative;
+    z-index: 5;
+    min-height: calc(100vh - 80px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem 4rem;
+}
+
+.loadingCenter {
+    position: relative;
+    z-index: 5;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ─── Card ─── */
+.card {
+    width: 100%;
+    max-width: 440px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 2.5rem;
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(99, 102, 241, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    animation: cardIn 0.5s ease both;
+}
+
+@keyframes cardIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ─── Card Header ─── */
+.cardHeader {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.iconWrap {
+    font-size: 2.5rem;
+    margin-bottom: 0.875rem;
+    display: block;
+}
+
+.cardTitle {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.85rem;
+    font-weight: 400;
+    color: #f0f4ff;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.cardSub {
+    font-size: 0.875rem;
+    color: rgba(165, 180, 252, 0.5);
+    margin: 0;
+}
+
+/* ─── Error Box ─── */
+.errorBox {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    color: #fca5a5;
+    font-size: 0.85rem;
+    margin-bottom: 1.25rem;
+    animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-4px);
+    }
+
+    75% {
+        transform: translateX(4px);
+    }
+}
+
+.errorIcon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+/* ─── Form ─── */
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.125rem;
+    margin-bottom: 1.5rem;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.label {
+    font-size: 0.825rem;
+    font-weight: 600;
+    color: rgba(165, 180, 252, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.labelHint {
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: rgba(165, 180, 252, 0.35);
+}
+
+.input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(165, 180, 252, 0.18);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    color: #e8edf6;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.925rem;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.input::placeholder {
+    color: rgba(165, 180, 252, 0.28);
+}
+
+.input:focus {
+    border-color: rgba(99, 102, 241, 0.6);
+    background: rgba(99, 102, 241, 0.05);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.inputError {
+    border-color: rgba(239, 68, 68, 0.5) !important;
+    background: rgba(239, 68, 68, 0.04) !important;
+}
+
+.inputSuccess {
+    border-color: rgba(34, 197, 94, 0.5) !important;
+    background: rgba(34, 197, 94, 0.04) !important;
+}
+
+/* ─── Password Strength ─── */
+.strengthWrap {
+    margin-top: 0.5rem;
+}
+
+.strengthBar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0.5rem;
+}
+
+.strengthSegment {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    transition: background 0.3s;
+}
+
+.strengthMeta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.strengthChecks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+}
+
+.checkOk {
+    font-size: 0.68rem;
+    color: rgba(34, 197, 94, 0.8);
+    font-weight: 500;
+}
+
+.checkNo {
+    font-size: 0.68rem;
+    color: rgba(165, 180, 252, 0.3);
+}
+
+.strengthLabel {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+/* ─── Privacy Note ─── */
+.privacyNote {
+    font-size: 0.75rem;
+    color: rgba(165, 180, 252, 0.35);
+    margin: 0;
+    line-height: 1.5;
+    padding: 0.5rem 0.875rem;
+    background: rgba(99, 102, 241, 0.04);
+    border: 1px solid rgba(99, 102, 241, 0.1);
+    border-radius: 8px;
+}
+
+/* ─── Submit Button ─── */
+.submitBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+    margin-top: 0.25rem;
+}
+
+.submitBtn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.45);
+}
+
+.submitBtn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ─── Switch Row ─── */
+.switchRow {
+    text-align: center;
+    font-size: 0.875rem;
+    color: rgba(165, 180, 252, 0.45);
+}
+
+.switchLink {
+    color: #a5b4fc;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.switchLink:hover {
+    color: #c7d2fe;
+    text-decoration: underline;
+    text-decoration-color: rgba(165, 180, 252, 0.4);
+}
+
+/* ─── Spinner ─── */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 500px) {
+    .card {
+        padding: 2rem 1.5rem;
+        border-radius: 20px;
+    }
+
+    .cardTitle {
+        font-size: 1.65rem;
+    }
+}
