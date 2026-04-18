@@ -1,11 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 /* ─── Root ─── */
 .root {
     min-height: 100vh;
-    background: #080c14;
-    color: #e8edf6;
-    font-family: 'DM Sans', sans-serif;
+    background: #f4f2ee;
+    color: #1a1814;
+    font-family: 'Bricolage Grotesque', sans-serif;
     overflow-x: hidden;
 }
 
@@ -21,42 +21,21 @@
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(99, 130, 255, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(99, 130, 255, 0.04) 1px, transparent 1px);
-    background-size: 60px 60px;
-    mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, black 30%, transparent 100%);
+        linear-gradient(rgba(26, 24, 20, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(26, 24, 20, 0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 30%, black 30%, transparent 100%);
 }
 
 .glow {
     position: absolute;
     width: 600px;
-    height: 600px;
-    top: 50%;
+    height: 400px;
+    top: 0;
     left: 50%;
-    transform: translate(-50%, -60%);
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse, rgba(212, 98, 42, 0.07) 0%, transparent 70%);
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
-    animation: glowPulse 8s ease-in-out infinite;
-}
-
-@keyframes glowPulse {
-
-    0%,
-    100% {
-        transform: translate(-50%, -60%) scale(1);
-        opacity: 1;
-    }
-
-    50% {
-        transform: translate(-50%, -60%) scale(1.1);
-        opacity: 0.7;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .glow {
-        animation: none;
-    }
 }
 
 /* ─── Nav ─── */
@@ -71,14 +50,14 @@
     align-items: center;
     gap: 0.6rem;
     text-decoration: none;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
-    color: rgba(165, 180, 252, 0.8);
-    transition: color 0.2s;
+    color: #6b6660;
+    transition: color 0.15s;
 }
 
 .navBrand:hover {
-    color: #a5b4fc;
+    color: #1a1814;
 }
 
 .navTitle {
@@ -109,21 +88,20 @@
 .card {
     width: 100%;
     max-width: 440px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 24px;
+    background: #ffffff;
+    border: 1px solid rgba(26, 24, 20, 0.1);
+    border-radius: 20px;
     padding: 2.5rem;
     box-shadow:
-        0 30px 80px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(99, 102, 241, 0.06),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    animation: cardIn 0.5s ease both;
+        0 20px 60px rgba(26, 24, 20, 0.08),
+        0 4px 12px rgba(26, 24, 20, 0.05);
+    animation: cardIn 0.4s ease both;
 }
 
 @keyframes cardIn {
     from {
         opacity: 0;
-        transform: translateY(20px) scale(0.98);
+        transform: translateY(16px) scale(0.98);
     }
 
     to {
@@ -139,23 +117,22 @@
 }
 
 .iconWrap {
-    font-size: 2.5rem;
+    font-size: 2.25rem;
     margin-bottom: 0.875rem;
     display: block;
 }
 
 .cardTitle {
-    font-family: 'Instrument Serif', serif;
-    font-size: 1.85rem;
-    font-weight: 400;
-    color: #f0f4ff;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1a1814;
     margin: 0 0 0.5rem;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
 }
 
 .cardSub {
     font-size: 0.875rem;
-    color: rgba(165, 180, 252, 0.5);
+    color: #9c9690;
     margin: 0;
 }
 
@@ -164,11 +141,11 @@
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.25);
+    background: #fef2f2;
+    border: 1px solid rgba(220, 38, 38, 0.2);
     border-radius: 10px;
     padding: 0.75rem 1rem;
-    color: #fca5a5;
+    color: #dc2626;
     font-size: 0.85rem;
     margin-bottom: 1.25rem;
     animation: shake 0.3s ease;
@@ -199,7 +176,7 @@
 .form {
     display: flex;
     flex-direction: column;
-    gap: 1.125rem;
+    gap: 1rem;
     margin-bottom: 1.5rem;
 }
 
@@ -210,53 +187,59 @@
 }
 
 .label {
-    font-size: 0.825rem;
-    font-weight: 600;
-    color: rgba(165, 180, 252, 0.75);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #6b6660;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .labelHint {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 400;
-    color: rgba(165, 180, 252, 0.35);
+    color: #9c9690;
+    text-transform: none;
+    letter-spacing: 0;
 }
 
 .input {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(165, 180, 252, 0.18);
+    background: #f4f2ee;
+    border: 1px solid rgba(26, 24, 20, 0.14);
     border-radius: 10px;
     padding: 0.75rem 1rem;
-    color: #e8edf6;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 0.925rem;
+    color: #1a1814;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
     outline: none;
-    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    transition: all 0.15s;
     width: 100%;
     box-sizing: border-box;
 }
 
 .input::placeholder {
-    color: rgba(165, 180, 252, 0.28);
+    color: #9c9690;
+    font-weight: 400;
 }
 
 .input:focus {
-    border-color: rgba(99, 102, 241, 0.6);
-    background: rgba(99, 102, 241, 0.05);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    border-color: #d4622a;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(212, 98, 42, 0.1);
 }
 
 .inputError {
-    border-color: rgba(239, 68, 68, 0.5) !important;
-    background: rgba(239, 68, 68, 0.04) !important;
+    border-color: rgba(220, 38, 38, 0.45) !important;
+    background: #fef2f2 !important;
 }
 
 .inputSuccess {
-    border-color: rgba(34, 197, 94, 0.5) !important;
-    background: rgba(34, 197, 94, 0.04) !important;
+    border-color: rgba(22, 163, 74, 0.45) !important;
+    background: #f0fdf4 !important;
 }
 
 /* ─── Password Strength ─── */
@@ -274,6 +257,7 @@
     flex: 1;
     height: 3px;
     border-radius: 2px;
+    background: rgba(26, 24, 20, 0.08);
     transition: background 0.3s;
 }
 
@@ -292,17 +276,17 @@
 
 .checkOk {
     font-size: 0.68rem;
-    color: rgba(34, 197, 94, 0.8);
-    font-weight: 500;
+    color: #16a34a;
+    font-weight: 600;
 }
 
 .checkNo {
     font-size: 0.68rem;
-    color: rgba(165, 180, 252, 0.3);
+    color: #9c9690;
 }
 
 .strengthLabel {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -312,12 +296,12 @@
 /* ─── Privacy Note ─── */
 .privacyNote {
     font-size: 0.75rem;
-    color: rgba(165, 180, 252, 0.35);
+    color: #9c9690;
     margin: 0;
     line-height: 1.5;
     padding: 0.5rem 0.875rem;
-    background: rgba(99, 102, 241, 0.04);
-    border: 1px solid rgba(99, 102, 241, 0.1);
+    background: #f4f2ee;
+    border: 1px solid rgba(26, 24, 20, 0.1);
     border-radius: 8px;
 }
 
@@ -329,26 +313,27 @@
     gap: 0.5rem;
     width: 100%;
     padding: 0.875rem 1.5rem;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: #d4622a;
     color: white;
     border: none;
-    border-radius: 12px;
-    font-family: 'DM Sans', sans-serif;
+    border-radius: 10px;
+    font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+    transition: all 0.15s;
+    box-shadow: 0 4px 16px rgba(212, 98, 42, 0.3);
     margin-top: 0.25rem;
 }
 
 .submitBtn:hover:not(:disabled) {
+    background: #c0561e;
     transform: translateY(-1px);
-    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.45);
+    box-shadow: 0 6px 20px rgba(212, 98, 42, 0.35);
 }
 
 .submitBtn:disabled {
-    opacity: 0.65;
+    opacity: 0.6;
     cursor: not-allowed;
     transform: none;
 }
@@ -357,20 +342,19 @@
 .switchRow {
     text-align: center;
     font-size: 0.875rem;
-    color: rgba(165, 180, 252, 0.45);
+    color: #9c9690;
 }
 
 .switchLink {
-    color: #a5b4fc;
+    color: #d4622a;
     text-decoration: none;
-    font-weight: 600;
-    transition: color 0.2s;
+    font-weight: 700;
+    transition: color 0.15s;
 }
 
 .switchLink:hover {
-    color: #c7d2fe;
+    color: #c0561e;
     text-decoration: underline;
-    text-decoration-color: rgba(165, 180, 252, 0.4);
 }
 
 /* ─── Spinner ─── */
@@ -378,7 +362,7 @@
     display: inline-block;
     width: 16px;
     height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.25);
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-top-color: white;
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
@@ -395,10 +379,10 @@
 @media (max-width: 500px) {
     .card {
         padding: 2rem 1.5rem;
-        border-radius: 20px;
+        border-radius: 16px;
     }
 
     .cardTitle {
-        font-size: 1.65rem;
+        font-size: 1.5rem;
     }
 }

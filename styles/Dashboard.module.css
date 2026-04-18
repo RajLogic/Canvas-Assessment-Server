@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   Dashboard.module.css — auth user elements
+   Dashboard.module.css — warm light theme
 ═══════════════════════════════════════════════ */
 
 /* ─── User Menu in Header ─── */
@@ -14,29 +14,29 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.35rem 0.75rem 0.35rem 0.4rem;
-    background: rgba(99, 102, 241, 0.1);
-    border: 1px solid rgba(99, 102, 241, 0.25);
+    background: #ffffff;
+    border: 1px solid rgba(26, 24, 20, 0.14);
     border-radius: 100px;
-    color: #c7d2fe;
-    font-family: 'Sora', sans-serif;
+    color: #1a1814;
+    font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 0.8rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
     white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(26, 24, 20, 0.07);
 }
 
 .userBtn:hover {
-    background: rgba(99, 102, 241, 0.2);
-    border-color: rgba(99, 102, 241, 0.45);
-    color: #e8edf6;
+    background: #f4f2ee;
+    border-color: rgba(26, 24, 20, 0.22);
 }
 
 .userInitial {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: #d4622a;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -54,44 +54,44 @@
 }
 
 .userBtnIcon {
-    font-size: 0.875rem;
-    opacity: 0.7;
+    font-size: 0.8rem;
+    opacity: 0.5;
 }
 
 .logoutBtn {
     padding: 0.35rem 0.75rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: transparent;
+    border: 1px solid rgba(26, 24, 20, 0.12);
     border-radius: 8px;
-    color: rgba(165, 180, 252, 0.55);
-    font-family: 'Sora', sans-serif;
+    color: #9c9690;
+    font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
     white-space: nowrap;
 }
 
 .logoutBtn:hover {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.25);
-    color: #fca5a5;
+    background: #fef2f2;
+    border-color: rgba(220, 38, 38, 0.2);
+    color: #dc2626;
 }
 
 /* ─── Welcome Banner ─── */
 .welcomeBanner {
     position: relative;
     z-index: 10;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1));
-    border-bottom: 1px solid rgba(99, 102, 241, 0.25);
+    background: #fdf0e8;
+    border-bottom: 1px solid rgba(212, 98, 42, 0.2);
     padding: 0.75rem 2rem;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 1rem;
     font-size: 0.875rem;
-    color: #c7d2fe;
-    font-weight: 500;
+    color: #d4622a;
+    font-weight: 600;
 }
 
 .welcomeClose {
@@ -99,23 +99,23 @@
     right: 1.5rem;
     background: none;
     border: none;
-    color: rgba(165, 180, 252, 0.5);
+    color: rgba(212, 98, 42, 0.5);
     cursor: pointer;
     font-size: 0.875rem;
     padding: 0.25rem;
-    transition: color 0.2s;
+    transition: color 0.15s;
 }
 
 .welcomeClose:hover {
-    color: #a5b4fc;
+    color: #d4622a;
 }
 
 /* ─── Settings Modal Overlay ─── */
 .modalOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(6px);
+    background: rgba(26, 24, 20, 0.4);
+    backdrop-filter: blur(8px);
     z-index: 1000;
     display: flex;
     align-items: center;
@@ -138,21 +138,20 @@
 .modal {
     width: 100%;
     max-width: 520px;
-    background: #0f1424;
-    border: 1px solid rgba(165, 180, 252, 0.12);
-    border-radius: 24px;
+    background: #ffffff;
+    border: 1px solid rgba(26, 24, 20, 0.1);
+    border-radius: 20px;
     overflow: hidden;
     box-shadow:
-        0 40px 100px rgba(0, 0, 0, 0.6),
-        0 0 0 1px rgba(99, 102, 241, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        0 40px 100px rgba(26, 24, 20, 0.15),
+        0 8px 24px rgba(26, 24, 20, 0.08);
     animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 @keyframes modalIn {
     from {
         opacity: 0;
-        transform: scale(0.92) translateY(20px);
+        transform: scale(0.93) translateY(16px);
     }
 
     to {
@@ -166,38 +165,38 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1.5rem 1.75rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(99, 102, 241, 0.05);
+    padding: 1.375rem 1.75rem;
+    border-bottom: 1px solid rgba(26, 24, 20, 0.08);
+    background: #f4f2ee;
 }
 
 .modalTitle {
     margin: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: #c7d2fe;
-    letter-spacing: -0.01em;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #1a1814;
+    letter-spacing: -0.02em;
 }
 
 .modalClose {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(165, 180, 252, 0.55);
-    font-size: 0.875rem;
+    border: 1px solid rgba(26, 24, 20, 0.12);
+    background: #ffffff;
+    color: #9c9690;
+    font-size: 0.8rem;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
 }
 
 .modalClose:hover {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.25);
-    color: #fca5a5;
+    background: #fef2f2;
+    border-color: rgba(220, 38, 38, 0.2);
+    color: #dc2626;
 }
 
 /* ─── Modal Body ─── */
@@ -205,45 +204,45 @@
     padding: 1.75rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.375rem;
 }
 
 /* ─── User Info Block ─── */
 .userInfo {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    background: rgba(99, 102, 241, 0.06);
-    border: 1px solid rgba(99, 102, 241, 0.15);
+    gap: 0.875rem;
+    padding: 0.875rem 1rem;
+    background: #f4f2ee;
+    border: 1px solid rgba(26, 24, 20, 0.1);
     border-radius: 12px;
 }
 
 .userAvatar {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: #d4622a;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 800;
     color: white;
     flex-shrink: 0;
 }
 
 .userName {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 700;
-    color: #c7d2fe;
+    color: #1a1814;
     letter-spacing: -0.01em;
 }
 
 .userEmail {
-    font-size: 0.78rem;
-    color: rgba(165, 180, 252, 0.45);
-    margin-top: 0.15rem;
+    font-size: 0.775rem;
+    color: #9c9690;
+    margin-top: 0.125rem;
 }
 
 /* ─── Settings Feedback ─── */
@@ -251,9 +250,9 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: rgba(239, 68, 68, 0.08);
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    color: #fca5a5;
+    background: #fef2f2;
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    color: #dc2626;
     font-size: 0.85rem;
     padding: 0.75rem 1rem;
     border-radius: 10px;
@@ -263,13 +262,13 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: rgba(34, 197, 94, 0.08);
-    border: 1px solid rgba(34, 197, 94, 0.25);
-    color: #86efac;
+    background: #f0fdf4;
+    border: 1px solid rgba(22, 163, 74, 0.2);
+    color: #16a34a;
     font-size: 0.85rem;
     padding: 0.75rem 1rem;
     border-radius: 10px;
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn 0.25s ease;
 }
 
 @keyframes fadeIn {
@@ -288,7 +287,7 @@
 .settingsForm {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1.125rem;
 }
 
 .settingsField {
@@ -298,70 +297,77 @@
 }
 
 .settingsLabel {
-    font-size: 0.825rem;
-    font-weight: 600;
-    color: rgba(165, 180, 252, 0.75);
+    font-size: 0.775rem;
+    font-weight: 700;
+    color: #6b6660;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .settingsLabelHint {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 400;
-    color: rgba(165, 180, 252, 0.35);
+    color: #9c9690;
+    text-transform: none;
+    letter-spacing: 0;
 }
 
 .settingsInput {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(165, 180, 252, 0.18);
+    background: #f4f2ee;
+    border: 1px solid rgba(26, 24, 20, 0.12);
     border-radius: 10px;
-    padding: 0.75rem 1rem;
-    color: #e8edf6;
-    font-family: 'Sora', sans-serif;
+    padding: 0.7rem 1rem;
+    color: #1a1814;
+    font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 0.875rem;
+    font-weight: 500;
     outline: none;
-    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    transition: all 0.15s;
     width: 100%;
     box-sizing: border-box;
 }
 
 .settingsInput::placeholder {
-    color: rgba(165, 180, 252, 0.28);
+    color: #9c9690;
+    font-weight: 400;
 }
 
 .settingsInput:focus {
-    border-color: rgba(99, 102, 241, 0.55);
-    background: rgba(99, 102, 241, 0.05);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    border-color: #d4622a;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(212, 98, 42, 0.1);
 }
 
 .settingsHint {
-    font-size: 0.72rem;
-    color: rgba(165, 180, 252, 0.35);
+    font-size: 0.7rem;
+    color: #9c9690;
     margin: 0;
-    line-height: 1.5;
+    line-height: 1.55;
 }
 
 .settingsSave {
     padding: 0.875rem 1.5rem;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: #d4622a;
     color: white;
     border: none;
-    border-radius: 12px;
-    font-family: 'Sora', sans-serif;
+    border-radius: 10px;
+    font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 0.95rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 4px 18px rgba(99, 102, 241, 0.3);
+    transition: all 0.15s;
+    box-shadow: 0 4px 14px rgba(212, 98, 42, 0.25);
     margin-top: 0.25rem;
 }
 
 .settingsSave:hover:not(:disabled) {
+    background: #c0561e;
     transform: translateY(-1px);
-    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.45);
+    box-shadow: 0 6px 20px rgba(212, 98, 42, 0.3);
 }
 
 .settingsSave:disabled {
@@ -372,7 +378,7 @@
 /* ─── Responsive ─── */
 @media (max-width: 600px) {
     .modal {
-        border-radius: 20px;
+        border-radius: 16px;
     }
 
     .modalBody {
@@ -398,77 +404,77 @@
     display: flex;
     align-items: flex-start;
     gap: 0.625rem;
-    background: rgba(34, 197, 94, 0.06);
-    border: 1px solid rgba(34, 197, 94, 0.18);
+    background: #f0fdf4;
+    border: 1px solid rgba(22, 163, 74, 0.18);
     border-radius: 10px;
     padding: 0.7rem 0.875rem;
-    font-size: 0.78rem;
-    color: rgba(134, 239, 172, 0.85);
+    font-size: 0.775rem;
+    color: #15803d;
     line-height: 1.55;
 }
 
 .encryptBadgeIcon {
-    font-size: 1rem;
+    font-size: 0.95rem;
     flex-shrink: 0;
     margin-top: 1px;
 }
 
 .encryptionBadge strong {
-    font-weight: 600;
-    color: #86efac;
+    font-weight: 700;
+    color: #16a34a;
 }
 
-/* ─── Divider inside modal form ─── */
+/* ─── Divider ─── */
 .settingsDivider {
     border: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    margin: 0.25rem 0;
+    border-top: 1px solid rgba(26, 24, 20, 0.08);
+    margin: 0.125rem 0;
 }
 
 /* ─── University select ─── */
 .settingsSelect {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(165, 180, 252, 0.18);
+    background: #f4f2ee;
+    border: 1px solid rgba(26, 24, 20, 0.12);
     border-radius: 10px;
-    padding: 0.75rem 1rem;
-    color: #e8edf6;
-    font-family: 'Sora', sans-serif;
+    padding: 0.7rem 2.5rem 0.7rem 1rem;
+    color: #1a1814;
+    font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 0.875rem;
+    font-weight: 500;
     outline: none;
     width: 100%;
     box-sizing: border-box;
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    transition: all 0.15s;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a5b4fc' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b6660' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.875rem center;
-    padding-right: 2.5rem;
 }
 
 .settingsSelect:focus {
-    border-color: rgba(99, 102, 241, 0.6);
-    background-color: rgba(99, 102, 241, 0.05);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    border-color: #d4622a;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(212, 98, 42, 0.1);
 }
 
 .settingsSelect option {
-    background: #0f1424;
-    color: #e8edf6;
+    background: #ffffff;
+    color: #1a1814;
 }
 
 /* ─── URL code display ─── */
 .urlCode {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.65rem;
-    color: rgba(165, 180, 252, 0.55);
-    background: rgba(165, 180, 252, 0.06);
+    color: #6b6660;
+    background: rgba(26, 24, 20, 0.06);
     padding: 1px 5px;
     border-radius: 4px;
     word-break: break-all;
 }
 
-/* ─── Input with saved badge overlay ─── */
+/* ─── Input with saved badge ─── */
 .inputWithBadge {
     position: relative;
     display: flex;
@@ -481,12 +487,12 @@
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: rgba(134, 239, 172, 0.75);
-    background: rgba(34, 197, 94, 0.08);
-    border: 1px solid rgba(34, 197, 94, 0.18);
+    font-size: 0.67rem;
+    font-weight: 700;
+    color: #16a34a;
+    background: #f0fdf4;
+    border: 1px solid rgba(22, 163, 74, 0.2);
     padding: 0.15rem 0.55rem;
     border-radius: 100px;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
 }

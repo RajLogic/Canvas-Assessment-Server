@@ -459,17 +459,17 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
 // ─── Known universities ────────────────────────────────────────────────────
 const UNIVERSITIES = [
     { label: 'RMIT University', url: 'https://rmit.instructure.com/api/v1/' },
-    { label: 'University of Melbourne', url: 'https://canvas.lms.unimelb.edu.au/api/v1/' },
-    { label: 'Monash University', url: 'https://lms.monash.edu/api/v1/' },
-    { label: 'University of Sydney', url: 'https://canvas.sydney.edu.au/api/v1/' },
-    { label: 'University of New South Wales', url: 'https://moodle.telt.unsw.edu.au/api/v1/' },
-    { label: 'University of Queensland', url: 'https://learn.uq.edu.au/api/v1/' },
-    { label: 'Australian National University', url: 'https://canvas.anu.edu.au/api/v1/' },
-    { label: 'Deakin University', url: 'https://d2l.deakin.edu.au/api/v1/' },
-    { label: 'Swinburne University', url: 'https://canvas.swinburne.edu.au/api/v1/' },
-    { label: 'University of Adelaide', url: 'https://myuni.adelaide.edu.au/api/v1/' },
-    { label: 'La Trobe University', url: 'https://latrobe.instructure.com/api/v1/' },
-    { label: 'Victoria University', url: 'https://vuonline.instructure.com/api/v1/' },
+    // { label: 'University of Melbourne', url: 'https://canvas.lms.unimelb.edu.au/api/v1/' },
+    // { label: 'Monash University', url: 'https://lms.monash.edu/api/v1/' },
+    // { label: 'University of Sydney', url: 'https://canvas.sydney.edu.au/api/v1/' },
+    // { label: 'University of New South Wales', url: 'https://moodle.telt.unsw.edu.au/api/v1/' },
+    // { label: 'University of Queensland', url: 'https://learn.uq.edu.au/api/v1/' },
+    // { label: 'Australian National University', url: 'https://canvas.anu.edu.au/api/v1/' },
+    // { label: 'Deakin University', url: 'https://d2l.deakin.edu.au/api/v1/' },
+    { label: 'Swinburne University', url: 'https://swinburne.instructure.com/api/v1/' },
+    // { label: 'University of Adelaide', url: 'https://myuni.adelaide.edu.au/api/v1/' },
+    // { label: 'La Trobe University', url: 'https://latrobe.instructure.com/api/v1/' },
+    // { label: 'Victoria University', url: 'https://vuonline.instructure.com/api/v1/' },
     { label: 'Custom / Other university', url: '' },
 ];
 
