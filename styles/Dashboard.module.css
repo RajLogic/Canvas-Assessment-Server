@@ -467,3 +467,228 @@
     padding: 0.15rem 0.55rem;
     border-radius: 100px;
 }
+
+/* ─── Tabs + Filter row ─── */
+.tabsAndFilter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* ─── Filter toggle button ─── */
+.filterToggleBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: var(--shadow-sm);
+}
+
+.filterToggleBtn:hover {
+    background: var(--bg-subtle);
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+}
+
+.filterToggleBtnActive {
+    background: var(--accent-light);
+    border-color: var(--accent-border);
+    color: var(--accent);
+}
+
+.filterBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+/* ─── Content with sidebar layout ─── */
+.contentWithSidebar {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+}
+
+.contentWithSidebarOpen .mainContent {
+    flex: 1;
+    min-width: 0;
+}
+
+.mainContent {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ─── Hidden tab ─── */
+.hiddenTab {
+    position: relative;
+}
+
+.hiddenBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: var(--text-muted);
+    color: var(--bg);
+    font-size: 0.58rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-left: 2px;
+}
+
+/* ─── Assessment card actions ─── */
+.cardActions {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+}
+
+.hideBtn {
+    padding: 0.2rem 0.5rem;
+    border-radius: 7px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+}
+
+/* Show hide button on hover of parent item */
+:global(.assessmentItem):hover .hideBtn,
+:global(.calDetailItem):hover .hideBtn {
+    opacity: 1;
+}
+
+/* Always show on touch devices */
+@media (hover: none) {
+    .hideBtn {
+        opacity: 1;
+    }
+}
+
+.hideBtn:hover {
+    background: var(--error-bg);
+    border-color: var(--error-border);
+    color: var(--error-text);
+    opacity: 1;
+}
+
+.unhideBtn {
+    padding: 0.2rem 0.5rem;
+    border-radius: 7px;
+    border: 1px solid var(--safe-border);
+    background: var(--safe-bg);
+    color: var(--safe-text);
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.unhideBtn:hover {
+    background: var(--accent-light);
+    border-color: var(--accent-border);
+    color: var(--accent);
+}
+
+/* ─── Hidden item styling ─── */
+.hiddenItem {
+    opacity: 0.7;
+}
+
+.hiddenTag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.45rem;
+    border-radius: 6px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* ─── Hidden controls bar ─── */
+.hiddenControls {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.5rem;
+}
+
+.clearHiddenBtn {
+    padding: 0.375rem 0.875rem;
+    border-radius: 8px;
+    border: 1px solid var(--error-border);
+    background: var(--error-bg);
+    color: var(--error-text);
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 0.775rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.clearHiddenBtn:hover {
+    opacity: 0.8;
+}
+
+/* ─── Hidden banner ─── */
+.hiddenBanner {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 1.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+@media (max-width: 900px) {
+    .contentWithSidebar {
+        flex-direction: column;
+    }
+
+    .tabsAndFilter {
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .tabsAndFilter {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

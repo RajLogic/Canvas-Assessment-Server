@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
 import dashStyles from '../styles/Dashboard.module.css';
+import sidebarStyles from '../styles/FilterSidebar.module.css';
 import Image from 'next/image';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -17,6 +18,7 @@ function SiteLogo({ size = 32 }) {
         />
     );
 }
+
 function getUrgency(dueTimestamp) {
     const diff = dueTimestamp - Date.now();
     const days = diff / (1000 * 60 * 60 * 24);
@@ -49,6 +51,81 @@ function formatTime(dateString) {
     });
 }
 
+// ─── Hidden assessments storage ────────────────────────────────────────────
+const HIDDEN_KEY = 'fr_hidden_assessments';
+
+function loadHidden() {
+    try {
+        const raw = localStorage.getItem(HIDDEN_KEY);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+}
+
+function saveHidden(set) {
+    try {
+        localStorage.setItem(HIDDEN_KEY, JSON.stringify([...set]));
+    } catch { /* ignore */ }
+}
+
+// ─── Filter / Sort logic ───────────────────────────────────────────────────
+function applyFiltersAndSort(dueData, filters, hiddenIds, showHidden) {
+    const allTerms = dueData.terms;
+
+    const filtered = allTerms.map(term => {
+        const courses = term.courses.map(course => {
+            let assessments = course.assessments.filter(a => {
+                const isHidden = hiddenIds.has(String(a.id));
+                if (showHidden) return isHidden;
+                return !isHidden;
+            });
+
+            // Year filter
+            if (filters.years?.length > 0) {
+                assessments = assessments.filter(a =>
+                    filters.years.includes(new Date(a.dueAt).getFullYear())
+                );
+            }
+
+            // Term filter
+            if (filters.terms?.length > 0) {
+                if (!filters.terms.includes(term.termName)) return { ...course, assessments: [] };
+            }
+
+            // Course ID filter
+            if (filters.courseIds?.length > 0) {
+                if (!filters.courseIds.includes(course.courseId)) return { ...course, assessments: [] };
+            }
+
+            // Course code filter
+            if (filters.courseCodes?.length > 0) {
+                const codeMatch = course.courseName.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/);
+                const code = codeMatch ? codeMatch[1] : null;
+                if (!code || !filters.courseCodes.includes(code)) return { ...course, assessments: [] };
+            }
+
+            // Sort
+            const sortBy = filters.sortBy || 'dueDate';
+            const sortDir = filters.sortDir || 'asc';
+            assessments = [...assessments].sort((a, b) => {
+                let av, bv;
+                if (sortBy === 'dueDate') { av = a.dueTimestamp; bv = b.dueTimestamp; }
+                else if (sortBy === 'courseName') { av = a.courseName; bv = b.courseName; }
+                else if (sortBy === 'points') { av = a.pointsPossible ?? -1; bv = b.pointsPossible ?? -1; }
+                else if (sortBy === 'name') { av = a.name; bv = b.name; }
+                if (av < bv) return sortDir === 'asc' ? -1 : 1;
+                if (av > bv) return sortDir === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            return { ...course, assessments };
+        }).filter(c => c.assessments.length > 0);
+
+        return { ...term, courses };
+    }).filter(t => t.courses.length > 0);
+
+    return filtered;
+}
+
 // ─── Shared sub-components ─────────────────────────────────────────────────
 
 const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp }) {
@@ -61,14 +138,14 @@ const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp }) {
     );
 });
 
-// ─── LIST VIEW ─────────────────────────────────────────────────────────────
+// ─── Assessment Card with hide button ─────────────────────────────────────
 
-const AssessmentCard = memo(function AssessmentCard({ assessment }) {
+const AssessmentCard = memo(function AssessmentCard({ assessment, onHide, onUnhide, isHidden }) {
     const urgency = getUrgency(assessment.dueTimestamp);
     return (
-        <li className={`${styles.assessmentItem} ${styles[`item_${urgency}`]}`}>
+        <li className={`${styles.assessmentItem} ${styles[`item_${isHidden ? 'safe' : urgency}`]} ${isHidden ? dashStyles.hiddenItem : ''}`}>
             <div className={styles.assessmentLeft}>
-                <div className={styles.urgencyStripe} data-urgency={urgency} />
+                <div className={styles.urgencyStripe} data-urgency={isHidden ? 'safe' : urgency} />
                 <div className={styles.assessmentContent}>
                     <a href={assessment.htmlUrl} target="_blank" rel="noopener noreferrer" className={styles.assessmentName}>
                         {assessment.name}
@@ -78,10 +155,21 @@ const AssessmentCard = memo(function AssessmentCard({ assessment }) {
                         {assessment.pointsPossible != null && (
                             <span className={styles.points}>⭐ {assessment.pointsPossible} pts</span>
                         )}
+                        {isHidden && <span className={dashStyles.hiddenTag}>Hidden</span>}
                     </div>
                 </div>
             </div>
-            <UrgencyBadge dueTimestamp={assessment.dueTimestamp} />
+            <div className={dashStyles.cardActions}>
+                {!isHidden && <UrgencyBadge dueTimestamp={assessment.dueTimestamp} />}
+                <button
+                    className={isHidden ? dashStyles.unhideBtn : dashStyles.hideBtn}
+                    onClick={() => isHidden ? onUnhide(assessment.id) : onHide(assessment.id)}
+                    title={isHidden ? 'Restore assessment' : 'Hide assessment'}
+                    aria-label={isHidden ? `Restore ${assessment.name}` : `Hide ${assessment.name}`}
+                >
+                    {isHidden ? '↩ Restore' : '✕ Hide'}
+                </button>
+            </div>
         </li>
     );
 });
@@ -106,29 +194,176 @@ const UrgencyLegend = memo(function UrgencyLegend({ urgencyFilter, setUrgencyFil
     );
 });
 
-const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilter }) {
+// ─── Filter Sidebar (inline, no separate file import) ─────────────────────
+
+const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersChange, isOpen, onClose }) {
     const allAssessments = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments));
-    const urgentCount = allAssessments.filter(a => getUrgency(a.dueTimestamp) === 'urgent').length;
-    const warningCount = allAssessments.filter(a => getUrgency(a.dueTimestamp) === 'warning').length;
-    const safeCount = allAssessments.filter(a => getUrgency(a.dueTimestamp) === 'safe').length;
 
-    const filteredTerms = dueData.terms.map((term) => ({
-        ...term,
-        courses: term.courses.map((course) => ({
-            ...course,
-            assessments: course.assessments.filter((a) =>
-                urgencyFilter === 'all' ? true : getUrgency(a.dueTimestamp) === urgencyFilter
-            ),
-        })).filter((c) => c.assessments.length > 0),
-    })).filter((t) => t.courses.length > 0);
+    const years = [...new Set(allAssessments.map(a => new Date(a.dueAt).getFullYear()))].sort((a, b) => b - a);
+    const terms = [...new Set(dueData.terms.map(t => t.termName))].sort();
+    const courses = [...new Map(allAssessments.map(a => [a.courseId, { id: a.courseId, name: a.courseName }])).values()]
+        .sort((a, b) => a.name.localeCompare(b.name));
+    const courseCodes = [...new Set(
+        courses.map(c => { const m = c.name.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/); return m ? m[1] : null; }).filter(Boolean)
+    )].sort();
 
-    const filteredTotal = filteredTerms.reduce(
-        (sum, t) => sum + t.courses.reduce((s, c) => s + c.assessments.length, 0), 0
-    );
+    const toggle = (key, value) => {
+        const current = filters[key] || [];
+        const next = current.includes(value) ? current.filter(v => v !== value) : [...current, value];
+        onFiltersChange({ ...filters, [key]: next });
+    };
+
+    const clearAll = () => onFiltersChange({ years: [], terms: [], courseIds: [], courseCodes: [], sortBy: 'dueDate', sortDir: 'asc' });
+
+    const activeCount = (filters.years?.length || 0) + (filters.terms?.length || 0) +
+        (filters.courseIds?.length || 0) + (filters.courseCodes?.length || 0);
 
     return (
         <>
-            {dueData.totalAssessments > 0 && (
+            {isOpen && <div className={sidebarStyles.backdrop} onClick={onClose} />}
+            <aside className={`${sidebarStyles.sidebar} ${isOpen ? sidebarStyles.sidebarOpen : ''}`}>
+                <div className={sidebarStyles.sidebarHeader}>
+                    <span className={sidebarStyles.sidebarTitle}>Filters &amp; Sort</span>
+                    {activeCount > 0 && (
+                        <button className={sidebarStyles.clearBtn} onClick={clearAll}>Clear all ({activeCount})</button>
+                    )}
+                    <button className={sidebarStyles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
+                </div>
+
+                <div className={sidebarStyles.sidebarBody}>
+                    <section className={sidebarStyles.section}>
+                        <h3 className={sidebarStyles.sectionTitle}>Sort by</h3>
+                        <div className={sidebarStyles.sortRow}>
+                            <select
+                                className={sidebarStyles.select}
+                                value={filters.sortBy || 'dueDate'}
+                                onChange={e => onFiltersChange({ ...filters, sortBy: e.target.value })}
+                            >
+                                <option value="dueDate">Due date</option>
+                                <option value="courseName">Course name</option>
+                                <option value="points">Points</option>
+                                <option value="name">Assessment name</option>
+                            </select>
+                            <button
+                                className={sidebarStyles.dirBtn}
+                                onClick={() => onFiltersChange({ ...filters, sortDir: filters.sortDir === 'asc' ? 'desc' : 'asc' })}
+                            >
+                                {filters.sortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
+                            </button>
+                        </div>
+                    </section>
+
+                    {years.length > 0 && (
+                        <section className={sidebarStyles.section}>
+                            <h3 className={sidebarStyles.sectionTitle}>
+                                Year
+                                {filters.years?.length > 0 && <span className={sidebarStyles.activeCount}>{filters.years.length}</span>}
+                            </h3>
+                            <div className={sidebarStyles.chipGroup}>
+                                {years.map(y => (
+                                    <button key={y}
+                                        className={`${sidebarStyles.chip} ${filters.years?.includes(y) ? sidebarStyles.chipActive : ''}`}
+                                        onClick={() => toggle('years', y)}>{y}</button>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {terms.length > 0 && (
+                        <section className={sidebarStyles.section}>
+                            <h3 className={sidebarStyles.sectionTitle}>
+                                Semester
+                                {filters.terms?.length > 0 && <span className={sidebarStyles.activeCount}>{filters.terms.length}</span>}
+                            </h3>
+                            <div className={sidebarStyles.chipGroup}>
+                                {terms.map(t => (
+                                    <button key={t}
+                                        className={`${sidebarStyles.chip} ${filters.terms?.includes(t) ? sidebarStyles.chipActive : ''}`}
+                                        onClick={() => toggle('terms', t)}>{t}</button>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {courseCodes.length > 0 && (
+                        <section className={sidebarStyles.section}>
+                            <h3 className={sidebarStyles.sectionTitle}>
+                                Course code
+                                {filters.courseCodes?.length > 0 && <span className={sidebarStyles.activeCount}>{filters.courseCodes.length}</span>}
+                            </h3>
+                            <div className={sidebarStyles.chipGroup}>
+                                {courseCodes.map(code => (
+                                    <button key={code}
+                                        className={`${sidebarStyles.chip} ${filters.courseCodes?.includes(code) ? sidebarStyles.chipActive : ''}`}
+                                        onClick={() => toggle('courseCodes', code)}>{code}</button>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {courses.length > 0 && (
+                        <section className={sidebarStyles.section}>
+                            <h3 className={sidebarStyles.sectionTitle}>
+                                Course
+                                {filters.courseIds?.length > 0 && <span className={sidebarStyles.activeCount}>{filters.courseIds.length}</span>}
+                            </h3>
+                            <div className={sidebarStyles.courseList}>
+                                {courses.map(c => (
+                                    <label key={c.id} className={sidebarStyles.courseRow}>
+                                        <input type="checkbox" className={sidebarStyles.checkbox}
+                                            checked={filters.courseIds?.includes(c.id) || false}
+                                            onChange={() => toggle('courseIds', c.id)} />
+                                        <span className={sidebarStyles.courseLabel}>{c.name}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+                </div>
+            </aside>
+        </>
+    );
+});
+
+// ─── LIST VIEW ─────────────────────────────────────────────────────────────
+
+const ListView = memo(function ListView({
+    dueData, urgencyFilter, setUrgencyFilter, filters, hiddenIds, onHide, onUnhide, showHidden
+}) {
+    const filteredTerms = useMemo(() => {
+        const base = applyFiltersAndSort(dueData, filters, hiddenIds, showHidden);
+        return base.map(term => ({
+            ...term,
+            courses: term.courses.map(course => ({
+                ...course,
+                assessments: course.assessments.filter(a =>
+                    urgencyFilter === 'all' || getUrgency(a.dueTimestamp) === urgencyFilter
+                ),
+            })).filter(c => c.assessments.length > 0),
+        })).filter(t => t.courses.length > 0);
+    }, [dueData, filters, hiddenIds, urgencyFilter, showHidden]);
+
+    const allVisible = filteredTerms.flatMap(t => t.courses.flatMap(c => c.assessments));
+    const allRaw = useMemo(() => applyFiltersAndSort(dueData, { ...filters, sortBy: 'dueDate', sortDir: 'asc' }, hiddenIds, showHidden)
+        .flatMap(t => t.courses.flatMap(c => c.assessments)), [dueData, filters, hiddenIds, showHidden]);
+
+    const urgentCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'urgent').length;
+    const warningCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'warning').length;
+    const safeCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'safe').length;
+
+    if (showHidden && hiddenIds.size === 0) {
+        return (
+            <div className={styles.emptyState}>
+                <div className={styles.emptyIcon}>👁</div>
+                <p className={styles.emptyTitle}>No hidden assessments</p>
+                <p className={styles.emptySub}>Assessments you hide will appear here. Click ✕ Hide on any item to hide it.</p>
+            </div>
+        );
+    }
+
+    return (
+        <>
+            {!showHidden && allRaw.length > 0 && (
                 <>
                     <div className={styles.statsRow}>
                         <div className={`${styles.statCard} ${styles.statUrgent}`}>
@@ -144,7 +379,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                             <span className={styles.statLabel}>🟢 Later</span>
                         </div>
                         <div className={`${styles.statCard} ${styles.statTotal}`}>
-                            <span className={styles.statNum}>{dueData.totalAssessments}</span>
+                            <span className={styles.statNum}>{allRaw.length}</span>
                             <span className={styles.statLabel}>📋 Total</span>
                         </div>
                     </div>
@@ -152,19 +387,25 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                 </>
             )}
 
+            {showHidden && (
+                <div className={dashStyles.hiddenBanner}>
+                    <span>👁 Showing {hiddenIds.size} hidden assessment{hiddenIds.size !== 1 ? 's' : ''}. Click ↩ Restore to bring them back.</span>
+                </div>
+            )}
+
             {filteredTerms.length === 0 ? (
                 <div className={styles.emptyState}>
                     <div className={styles.emptyIcon}>📭</div>
                     <p className={styles.emptyTitle}>No assessments found</p>
                     <p className={styles.emptySub}>
-                        {urgencyFilter !== 'all' ? 'Try a different urgency filter.' : 'Try a different semester or check back later.'}
+                        {urgencyFilter !== 'all' ? 'Try a different urgency filter.' : 'Try adjusting the filters in the sidebar.'}
                     </p>
                 </div>
             ) : (
                 <div className={styles.results}>
                     <div className={styles.resultsHeader}>
                         <h2 className={styles.resultsTitle}>
-                            {filteredTotal} assessment{filteredTotal !== 1 ? 's' : ''}
+                            {allVisible.length} assessment{allVisible.length !== 1 ? 's' : ''}
                             {urgencyFilter !== 'all' && (
                                 <span className={styles.filterTag}>
                                     {urgencyFilter === 'urgent' ? '🔴 Due soon' : urgencyFilter === 'warning' ? '🟡 Coming up' : '🟢 Later'}
@@ -189,7 +430,13 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                         </div>
                                         <ul className={styles.assessmentList}>
                                             {course.assessments.map((a) => (
-                                                <AssessmentCard key={a.id} assessment={a} />
+                                                <AssessmentCard
+                                                    key={a.id}
+                                                    assessment={a}
+                                                    isHidden={showHidden}
+                                                    onHide={onHide}
+                                                    onUnhide={onUnhide}
+                                                />
                                             ))}
                                         </ul>
                                     </div>
@@ -211,10 +458,10 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 const QUICK_LINKS = [
     { label: 'Canvas', href: 'https://rmit.instructure.com/' },
     { label: 'Timetable', href: 'https://mytimetable.rmit.edu.au/even/student' },
-    { label: 'GitHub', href: 'https://github.com/RajLogic/Canvas-Assessment-Server' },
+    { label: 'GitHub', href: 'https://github.com/RajLogic/canvasHelp' },
 ];
 
-const CalendarView = memo(function CalendarView({ dueData }) {
+const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, onUnhide }) {
     const today = new Date();
     const [viewYear, setViewYear] = useState(today.getFullYear());
     const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -224,6 +471,7 @@ const CalendarView = memo(function CalendarView({ dueData }) {
     dueData.terms.forEach((term) => {
         term.courses.forEach((course) => {
             course.assessments.forEach((a) => {
+                if (hiddenIds.has(String(a.id))) return;
                 const d = new Date(a.dueAt);
                 const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 if (!assessmentsByDate[key]) assessmentsByDate[key] = [];
@@ -325,7 +573,10 @@ const CalendarView = memo(function CalendarView({ dueData }) {
                                                 {a.pointsPossible != null && (<span className={styles.calDetailPts}>⭐ {a.pointsPossible} pts</span>)}
                                             </div>
                                         </div>
-                                        <UrgencyBadge dueTimestamp={a.dueTimestamp} />
+                                        <div className={dashStyles.cardActions}>
+                                            <UrgencyBadge dueTimestamp={a.dueTimestamp} />
+                                            <button className={dashStyles.hideBtn} onClick={() => onHide(a.id)} title="Hide">✕</button>
+                                        </div>
                                     </li>
                                 );
                             })}
@@ -343,10 +594,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDateKey, setSelectedDateKey] = useState(null);
 
-    const toDateKey = (date) => {
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    };
-
+    const toDateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const formatDateLabel = (date) => date.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     const groupEventsByDate = () => {
@@ -468,85 +716,43 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
 
 // ─── SETTINGS MODAL ────────────────────────────────────────────────────────
 
-// ─── Known universities ────────────────────────────────────────────────────
 const UNIVERSITIES = [
     { label: 'RMIT University', url: 'https://rmit.instructure.com/api/v1/' },
-    // { label: 'University of Melbourne', url: 'https://canvas.lms.unimelb.edu.au/api/v1/' },
-    // { label: 'Monash University', url: 'https://lms.monash.edu/api/v1/' },
-    // { label: 'University of Sydney', url: 'https://canvas.sydney.edu.au/api/v1/' },
-    // { label: 'University of New South Wales', url: 'https://moodle.telt.unsw.edu.au/api/v1/' },
-    // { label: 'University of Queensland', url: 'https://learn.uq.edu.au/api/v1/' },
-    // { label: 'Australian National University', url: 'https://canvas.anu.edu.au/api/v1/' },
-    // { label: 'Deakin University', url: 'https://d2l.deakin.edu.au/api/v1/' },
     { label: 'Swinburne University', url: 'https://swinburne.instructure.com/api/v1/' },
-    // { label: 'University of Adelaide', url: 'https://myuni.adelaide.edu.au/api/v1/' },
-    // { label: 'La Trobe University', url: 'https://latrobe.instructure.com/api/v1/' },
-    // { label: 'Victoria University', url: 'https://vuonline.instructure.com/api/v1/' },
     { label: 'Custom / Other university', url: '' },
 ];
 
 function SettingsModal({ user, onClose, onSaved }) {
     const defaultEnvUrl = 'https://rmit.instructure.com/api/v1/';
-
-    // Determine which university preset matches the user's saved URL (if any)
     const savedUrl = user?.canvasBaseUrl || defaultEnvUrl;
-    const matchedPreset = UNIVERSITIES.find(
-        u => u.url && u.url.toLowerCase() === savedUrl.toLowerCase()
-    );
+    const matchedPreset = UNIVERSITIES.find(u => u.url && u.url.toLowerCase() === savedUrl.toLowerCase());
     const initialPreset = matchedPreset ? matchedPreset.url : '';
 
-    const [form, setForm] = useState({
-        canvasApiToken: '',
-        timetableLink: '',
-        canvasBaseUrl: '',   // only sent when user actively changes it
-    });
+    const [form, setForm] = useState({ canvasApiToken: '', timetableLink: '', canvasBaseUrl: '' });
     const [uniPreset, setUniPreset] = useState(initialPreset);
     const [showCustomUrl, setShowCustomUrl] = useState(!matchedPreset && Boolean(user?.canvasBaseUrl));
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
 
-    const handleChange = (e) => {
-        setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-        setError('');
-        setSuccess('');
-    };
-
+    const handleChange = (e) => { setForm(f => ({ ...f, [e.target.name]: e.target.value })); setError(''); setSuccess(''); };
     const handleUniSelect = (e) => {
         const val = e.target.value;
         setUniPreset(val);
-        if (val === '') {
-            // "Custom / Other" — show manual input
-            setShowCustomUrl(true);
-            setForm(f => ({ ...f, canvasBaseUrl: '' }));
-        } else {
-            setShowCustomUrl(false);
-            setForm(f => ({ ...f, canvasBaseUrl: val }));
-        }
-        setError('');
-        setSuccess('');
+        if (val === '') { setShowCustomUrl(true); setForm(f => ({ ...f, canvasBaseUrl: '' })); }
+        else { setShowCustomUrl(false); setForm(f => ({ ...f, canvasBaseUrl: val })); }
+        setError(''); setSuccess('');
     };
 
     const handleSave = async (e) => {
-        e.preventDefault();
-        setSaving(true);
-        setError('');
-        setSuccess('');
+        e.preventDefault(); setSaving(true); setError(''); setSuccess('');
         try {
-            // Only include fields that were touched
             const payload = {};
             if (form.canvasApiToken) payload.canvasApiToken = form.canvasApiToken;
             if (form.timetableLink) payload.timetableLink = form.timetableLink;
-
-            // Canvas base URL: include if user made a selection or typed a custom one
             const resolvedUrl = showCustomUrl ? form.canvasBaseUrl : (uniPreset !== initialPreset ? uniPreset : undefined);
             if (resolvedUrl !== undefined) payload.canvasBaseUrl = resolvedUrl;
-
-            const res = await fetch('/api/auth/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+            const res = await fetch('/api/auth/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json();
             if (!res.ok) { setError(data.message || 'Failed to save.'); return; }
             setSuccess('Settings saved! All sensitive data is encrypted with AES-256-GCM.');
@@ -564,9 +770,7 @@ function SettingsModal({ user, onClose, onSaved }) {
                     <h2 className={dashStyles.modalTitle}>⚙️ Settings</h2>
                     <button className={dashStyles.modalClose} onClick={onClose}>✕</button>
                 </div>
-
                 <div className={dashStyles.modalBody}>
-                    {/* User info */}
                     <div className={dashStyles.userInfo}>
                         <div className={dashStyles.userAvatar}>{user?.username?.[0]?.toUpperCase() || '?'}</div>
                         <div>
@@ -574,118 +778,56 @@ function SettingsModal({ user, onClose, onSaved }) {
                             <div className={dashStyles.userEmail}>{user?.email}</div>
                         </div>
                     </div>
-
-                    {/* Encryption badge */}
                     <div className={dashStyles.encryptionBadge}>
                         <span className={dashStyles.encryptBadgeIcon}>🔐</span>
-                        <span>API token, timetable link, and Canvas URL are encrypted with <strong>AES-256-GCM</strong> before being stored in the database.</span>
+                        <span>API token, timetable link, and Canvas URL are encrypted with <strong>AES-256-GCM</strong> before being stored.</span>
                     </div>
-
-                    {error && <div className={dashStyles.settingsError}>  <span>⚠️</span> {error}  </div>}
+                    {error && <div className={dashStyles.settingsError}><span>⚠️</span> {error}</div>}
                     {success && <div className={dashStyles.settingsSuccess}><span>✅</span> {success}</div>}
-
                     <form onSubmit={handleSave} className={dashStyles.settingsForm}>
-
-                        {/* ── University selector ── */}
                         <div className={dashStyles.settingsField}>
                             <label className={dashStyles.settingsLabel}>
                                 University / Canvas Instance
-                                <span className={dashStyles.settingsLabelHint}>
-                                    Current: <code className={dashStyles.urlCode}>{currentDisplayUrl}</code>
-                                </span>
+                                <span className={dashStyles.settingsLabelHint}>Current: <code className={dashStyles.urlCode}>{currentDisplayUrl}</code></span>
                             </label>
-                            <select
-                                value={uniPreset}
-                                onChange={handleUniSelect}
-                                className={dashStyles.settingsSelect}
-                            >
+                            <select value={uniPreset} onChange={handleUniSelect} className={dashStyles.settingsSelect}>
                                 <option value="" disabled>Select your university…</option>
-                                {UNIVERSITIES.map((u) => (
-                                    <option key={u.label} value={u.url}>{u.label}</option>
-                                ))}
+                                {UNIVERSITIES.map((u) => (<option key={u.label} value={u.url}>{u.label}</option>))}
                             </select>
-                            <p className={dashStyles.settingsHint}>
-                                Choose your university to auto-fill the Canvas API base URL. Select &quot;Custom / Other&quot; to enter it manually.
-                            </p>
                         </div>
-
-                        {/* ── Custom Canvas URL (shown when "Custom / Other" selected) ── */}
                         {showCustomUrl && (
                             <div className={dashStyles.settingsField}>
-                                <label className={dashStyles.settingsLabel}>
-                                    Canvas API Base URL
-                                    <span className={dashStyles.settingsLabelHint}>Must include /api/v1/</span>
-                                </label>
-                                <input
-                                    name="canvasBaseUrl"
-                                    type="url"
-                                    value={form.canvasBaseUrl}
-                                    onChange={handleChange}
-                                    className={dashStyles.settingsInput}
-                                    placeholder="https://your-university.instructure.com/api/v1/"
-                                    autoComplete="off"
-                                />
-                                <p className={dashStyles.settingsHint}>
-                                    Example: <code className={dashStyles.urlCode}>https://canvas.university.edu/api/v1/</code>
-                                    <br />This URL is encrypted before being stored.
-                                </p>
+                                <label className={dashStyles.settingsLabel}>Canvas API Base URL</label>
+                                <input name="canvasBaseUrl" type="url" value={form.canvasBaseUrl} onChange={handleChange}
+                                    className={dashStyles.settingsInput} placeholder="https://your-university.instructure.com/api/v1/" autoComplete="off" />
                             </div>
                         )}
-
-                        {/* ── Divider ── */}
                         <div className={dashStyles.settingsDivider} />
-
-                        {/* ── Canvas API token ── */}
                         <div className={dashStyles.settingsField}>
                             <label className={dashStyles.settingsLabel}>
                                 Canvas API Token
-                                <span className={dashStyles.settingsLabelHint}>
-                                    Canvas → Account → Settings → New Access Token
-                                </span>
+                                <span className={dashStyles.settingsLabelHint}>Canvas → Account → Settings → New Access Token</span>
                             </label>
                             <div className={dashStyles.inputWithBadge}>
-                                <input
-                                    name="canvasApiToken"
-                                    type="password"
-                                    value={form.canvasApiToken}
-                                    onChange={handleChange}
+                                <input name="canvasApiToken" type="password" value={form.canvasApiToken} onChange={handleChange}
                                     className={dashStyles.settingsInput}
-                                    placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste new token to update)' : 'Paste your Canvas API token here'}
-                                    autoComplete="off"
-                                />
-                                {user?.hasCanvasToken && (
-                                    <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>
-                                )}
+                                    placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste new to update)' : 'Paste your Canvas API token here'}
+                                    autoComplete="off" />
+                                {user?.hasCanvasToken && <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>}
                             </div>
-                            <p className={dashStyles.settingsHint}>
-                                Stored as AES-256-GCM ciphertext. Only decrypted server-side when fetching your assignments — never sent to the browser.
-                            </p>
                         </div>
-
-                        {/* ── Timetable link ── */}
                         <div className={dashStyles.settingsField}>
                             <label className={dashStyles.settingsLabel}>
                                 Timetable iCal Link
                                 <span className={dashStyles.settingsLabelHint}>Optional</span>
                             </label>
                             <div className={dashStyles.inputWithBadge}>
-                                <input
-                                    name="timetableLink"
-                                    type="url"
-                                    value={form.timetableLink}
-                                    onChange={handleChange}
+                                <input name="timetableLink" type="url" value={form.timetableLink} onChange={handleChange}
                                     className={dashStyles.settingsInput}
-                                    placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'}
-                                />
-                                {user?.hasTimetableLink && (
-                                    <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>
-                                )}
+                                    placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'} />
+                                {user?.hasTimetableLink && <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>}
                             </div>
-                            <p className={dashStyles.settingsHint}>
-                                Your iCal subscription URL from your university timetable system. Encrypted before storage.
-                            </p>
                         </div>
-
                         <button type="submit" className={dashStyles.settingsSave} disabled={saving}>
                             {saving ? '🔐 Encrypting & saving…' : 'Save settings'}
                         </button>
@@ -715,60 +857,84 @@ export default function Dashboard() {
     const [showSettings, setShowSettings] = useState(false);
     const [showWelcome, setShowWelcome] = useState(false);
 
-    // ─── Auth check ───
+    // Sidebar state
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [filters, setFilters] = useState({
+        years: [], terms: [], courseIds: [], courseCodes: [],
+        sortBy: 'dueDate', sortDir: 'asc'
+    });
+
+    // Hidden assessments state
+    const [hiddenIds, setHiddenIds] = useState(new Set());
+    const [showHidden, setShowHidden] = useState(false);
+
+    // Load hidden IDs from localStorage on mount
+    useEffect(() => {
+        setHiddenIds(loadHidden());
+    }, []);
+
+    const hideAssessment = useCallback((id) => {
+        setHiddenIds(prev => {
+            const next = new Set(prev);
+            next.add(String(id));
+            saveHidden(next);
+            return next;
+        });
+    }, []);
+
+    const unhideAssessment = useCallback((id) => {
+        setHiddenIds(prev => {
+            const next = new Set(prev);
+            next.delete(String(id));
+            saveHidden(next);
+            return next;
+        });
+    }, []);
+
+    const clearAllHidden = useCallback(() => {
+        setHiddenIds(new Set());
+        saveHidden(new Set());
+    }, []);
+
+    // Auth check
     useEffect(() => {
         fetch('/api/auth/session')
             .then((r) => r.json())
             .then((data) => {
-                if (!data.authenticated) {
-                    router.replace('/login');
-                } else {
+                if (!data.authenticated) { router.replace('/login'); }
+                else {
                     setUser(data.user);
                     setAuthChecked(true);
-                    if (router.query.welcome === '1') {
-                        setShowWelcome(true);
-                        setShowSettings(true);
-                    }
+                    if (router.query.welcome === '1') { setShowWelcome(true); setShowSettings(true); }
                 }
             })
             .catch(() => router.replace('/login'));
     }, [router]);
 
     const fetchDueAssessments = useCallback(async (queryText = '') => {
-        setLoading(true);
-        setError(null);
+        setLoading(true); setError(null);
         try {
             const query = queryText.trim() ? `?search=${encodeURIComponent(queryText.trim())}` : '';
             const response = await fetch(`/api/assessments/due${query}`);
             if (!response.ok) {
                 const data = await response.json();
-                if (data.requiresSetup) {
-                    setError('No Canvas API token configured. Open Settings to add your token.');
-                    setShowSettings(true);
-                    return;
-                }
+                if (data.requiresSetup) { setError('No Canvas API token configured. Open Settings to add your token.'); setShowSettings(true); return; }
                 throw new Error(`Error ${response.status}: Failed to fetch`);
             }
             const data = await response.json();
             setDueData(data);
             setLastUpdated(new Date());
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
     }, []);
 
-    useEffect(() => {
-        if (authChecked) fetchDueAssessments('');
-    }, [authChecked, fetchDueAssessments]);
+    useEffect(() => { if (authChecked) fetchDueAssessments(''); }, [authChecked, fetchDueAssessments]);
 
     const handleSubmit = (e) => { e.preventDefault(); fetchDueAssessments(searchText); };
     const handleClearFilter = () => { setSearchText(''); fetchDueAssessments(''); };
 
     const fetchTimetableData = useCallback(async () => {
-        setTimetableLoading(true);
-        setTimetableError('');
+        setTimetableLoading(true); setTimetableError('');
         try {
             const response = await fetch('/api/timetable');
             if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch timetable`);
@@ -779,22 +945,20 @@ export default function Dashboard() {
                 .sort((a, b) => new Date(a.start) - new Date(b.start))
                 .slice(0, 20);
             setTimetableEvents(futureEvents);
-        } catch (err) {
-            setTimetableError(err.message || 'Failed to sync timetable');
-            setTimetableEvents([]);
-        } finally {
-            setTimetableLoading(false);
-        }
+        } catch (err) { setTimetableError(err.message || 'Failed to sync timetable'); setTimetableEvents([]); }
+        finally { setTimetableLoading(false); }
     }, []);
 
-    useEffect(() => {
-        if (activeTab === 'timetable' && authChecked) fetchTimetableData();
-    }, [activeTab, authChecked, fetchTimetableData]);
+    useEffect(() => { if (activeTab === 'timetable' && authChecked) fetchTimetableData(); }, [activeTab, authChecked, fetchTimetableData]);
 
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
         router.push('/');
     };
+
+    // Active filter count for badge
+    const activeFilterCount = (filters.years?.length || 0) + (filters.terms?.length || 0) +
+        (filters.courseIds?.length || 0) + (filters.courseCodes?.length || 0);
 
     if (!authChecked) {
         return (
@@ -803,6 +967,8 @@ export default function Dashboard() {
             </div>
         );
     }
+
+    const isListOrCalendar = activeTab === 'list' || activeTab === 'calendar' || activeTab === 'hidden';
 
     return (
         <div className={styles.root}>
@@ -813,21 +979,15 @@ export default function Dashboard() {
                     onSaved={(updatedUser) => {
                         setUser(updatedUser);
                         setShowWelcome(false);
-                        setTimeout(() => {
-                            setShowSettings(false);
-                            fetchDueAssessments('');
-                        }, 800);
+                        setTimeout(() => { setShowSettings(false); fetchDueAssessments(''); }, 800);
                     }}
                 />
             )}
 
             <div className={styles.bgDecor} aria-hidden="true">
-                <div className={styles.blob1} />
-                <div className={styles.blob2} />
-                <div className={styles.blob3} />
+                <div className={styles.blob1} /><div className={styles.blob2} /><div className={styles.blob3} />
             </div>
 
-            {/* Header */}
             <header className={styles.header}>
                 <div className={styles.headerInner}>
                     <div className={styles.logoRow}>
@@ -840,12 +1000,9 @@ export default function Dashboard() {
                     <div className={styles.headerRight}>
                         <nav className={styles.topLinks} aria-label="Quick links">
                             {QUICK_LINKS.map((link) => (
-                                <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.topLink}>
-                                    {link.label}
-                                </a>
+                                <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.topLink}>{link.label}</a>
                             ))}
                         </nav>
-
                         <div className={dashStyles.userMenu}>
                             {lastUpdated && (
                                 <span className={styles.lastUpdated}>
@@ -857,9 +1014,7 @@ export default function Dashboard() {
                                 <span className={dashStyles.userBtnName}>{user?.username}</span>
                                 <span className={dashStyles.userBtnIcon}>⚙️</span>
                             </button>
-                            <button className={dashStyles.logoutBtn} onClick={handleLogout} title="Log out">
-                                Sign out
-                            </button>
+                            <button className={dashStyles.logoutBtn} onClick={handleLogout} title="Log out">Sign out</button>
                         </div>
                     </div>
                 </div>
@@ -878,30 +1033,47 @@ export default function Dashboard() {
                     <form className={styles.searchForm} onSubmit={handleSubmit}>
                         <div className={styles.inputWrapper}>
                             <span className={styles.inputIcon}>🔍</span>
-                            <input
-                                type="text"
-                                value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
-                                placeholder="Search classes, quizzes, or semester"
-                                className={styles.searchInput}
-                            />
+                            <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
+                                placeholder="Search classes, quizzes, or semester" className={styles.searchInput} />
                         </div>
                         <div className={styles.btnGroup}>
                             <button type="submit" disabled={loading} className={styles.btnPrimary}>
                                 {loading ? <><span className={styles.spinner} /> Loading…</> : 'Search'}
                             </button>
-                            <button type="button" onClick={handleClearFilter} disabled={loading} className={styles.btnSecondary}>
-                                Show All
-                            </button>
+                            <button type="button" onClick={handleClearFilter} disabled={loading} className={styles.btnSecondary}>Show All</button>
                         </div>
                     </form>
                 </section>
 
                 {/* Tabs */}
-                <div className={styles.tabRow}>
-                    <button className={`${styles.tabBtn} ${activeTab === 'list' ? styles.tabBtnActive : ''}`} onClick={() => setActiveTab('list')}>📋 List</button>
-                    <button className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`} onClick={() => setActiveTab('calendar')}>📅 Calendar</button>
-                    <button className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`} onClick={() => setActiveTab('timetable')}>🕐 Timetable</button>
+                <div className={dashStyles.tabsAndFilter}>
+                    <div className={styles.tabRow}>
+                        <button className={`${styles.tabBtn} ${activeTab === 'list' ? styles.tabBtnActive : ''}`}
+                            onClick={() => { setActiveTab('list'); setShowHidden(false); }}>📋 List</button>
+                        <button className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`}
+                            onClick={() => { setActiveTab('calendar'); setShowHidden(false); }}>📅 Calendar</button>
+                        <button className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`}
+                            onClick={() => { setActiveTab('timetable'); setShowHidden(false); }}>🕐 Timetable</button>
+                        <button
+                            className={`${styles.tabBtn} ${activeTab === 'hidden' ? styles.tabBtnActive : ''} ${dashStyles.hiddenTab}`}
+                            onClick={() => { setActiveTab('hidden'); setShowHidden(true); }}
+                        >
+                            👁 Hidden
+                            {hiddenIds.size > 0 && <span className={dashStyles.hiddenBadge}>{hiddenIds.size}</span>}
+                        </button>
+                    </div>
+
+                    {/* Filter button — only show for list/calendar/hidden tabs */}
+                    {isListOrCalendar && (
+                        <button
+                            className={`${dashStyles.filterToggleBtn} ${activeFilterCount > 0 ? dashStyles.filterToggleBtnActive : ''}`}
+                            onClick={() => setSidebarOpen(o => !o)}
+                            aria-label="Toggle filters"
+                        >
+                            ⚡ Filters
+                            {activeFilterCount > 0 && <span className={dashStyles.filterBadge}>{activeFilterCount}</span>}
+                        </button>
+                    )}
                 </div>
 
                 {error && (
@@ -911,34 +1083,73 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {loading && (
-                    <div className={styles.loadingWrap}>
-                        <span className={styles.spinnerLarge} />
-                        <p className={styles.loadingText}>Fetching assessments…</p>
-                    </div>
-                )}
+                {/* Content area with optional sidebar */}
+                <div className={`${dashStyles.contentWithSidebar} ${sidebarOpen && isListOrCalendar ? dashStyles.contentWithSidebarOpen : ''}`}>
+                    {isListOrCalendar && (
+                        <FilterSidebar
+                            dueData={dueData}
+                            filters={filters}
+                            onFiltersChange={setFilters}
+                            isOpen={sidebarOpen}
+                            onClose={() => setSidebarOpen(false)}
+                        />
+                    )}
 
-                {!loading && !error && activeTab !== 'timetable' && (
-                    activeTab === 'list'
-                        ? <ListView dueData={dueData} urgencyFilter={urgencyFilter} setUrgencyFilter={setUrgencyFilter} />
-                        : <CalendarView dueData={dueData} />
-                )}
-                {activeTab === 'timetable' && (
-                    <TimetableView
-                        timetableEvents={timetableEvents}
-                        timetableLoading={timetableLoading}
-                        timetableError={timetableError}
-                        onFetchTimetable={fetchTimetableData}
-                    />
-                )}
+                    <div className={dashStyles.mainContent}>
+                        {loading && (
+                            <div className={styles.loadingWrap}>
+                                <span className={styles.spinnerLarge} />
+                                <p className={styles.loadingText}>Fetching assessments…</p>
+                            </div>
+                        )}
+
+                        {!loading && !error && (activeTab === 'list' || activeTab === 'hidden') && (
+                            <>
+                                {activeTab === 'hidden' && hiddenIds.size > 0 && (
+                                    <div className={dashStyles.hiddenControls}>
+                                        <button className={dashStyles.clearHiddenBtn} onClick={clearAllHidden}>
+                                            🗑 Clear all hidden ({hiddenIds.size})
+                                        </button>
+                                    </div>
+                                )}
+                                <ListView
+                                    dueData={dueData}
+                                    urgencyFilter={urgencyFilter}
+                                    setUrgencyFilter={setUrgencyFilter}
+                                    filters={filters}
+                                    hiddenIds={hiddenIds}
+                                    onHide={hideAssessment}
+                                    onUnhide={unhideAssessment}
+                                    showHidden={activeTab === 'hidden'}
+                                />
+                            </>
+                        )}
+
+                        {!loading && !error && activeTab === 'calendar' && (
+                            <CalendarView
+                                dueData={dueData}
+                                hiddenIds={hiddenIds}
+                                onHide={hideAssessment}
+                                onUnhide={unhideAssessment}
+                            />
+                        )}
+
+                        {activeTab === 'timetable' && (
+                            <TimetableView
+                                timetableEvents={timetableEvents}
+                                timetableLoading={timetableLoading}
+                                timetableError={timetableError}
+                                onFetchTimetable={fetchTimetableData}
+                            />
+                        )}
+                    </div>
+                </div>
             </main>
 
             <footer className={styles.footer}>
                 <div className={styles.footerLinks}>
                     {QUICK_LINKS.map((link) => (
-                        <a key={`footer-${link.label}`} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.footerLink}>
-                            {link.label}
-                        </a>
+                        <a key={`footer-${link.label}`} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.footerLink}>{link.label}</a>
                     ))}
                 </div>
                 <p>Final Reckoning · RajLogic</p>
