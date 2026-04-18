@@ -38,8 +38,8 @@ const FEATURES = [
 
 const STATS = [
     { value: '100%', label: 'Free to use' },
-    { value: '<1s', label: 'Load time' },
-    { value: '∞', label: 'Courses tracked' },
+    { value: 'Quick', label: 'Load time' },
+    { value: 'All', label: 'Courses tracked' },
 ];
 
 export default function Landing() {
