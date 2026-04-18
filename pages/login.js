@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import styles from '../styles/Auth.module.css';
+
+function SiteLogo({ size = 24 }) {
+    return (
+        <Image
+            src="/hell.png"
+            alt="Final Reckoning"
+            width={size}
+            height={size}
+            style={{ borderRadius: 6, objectFit: 'cover', display: 'block' }}
+            priority
+        />
+    );
+}
 
 export default function Login() {
     const router = useRouter();
@@ -70,8 +84,8 @@ export default function Login() {
 
             <nav className={styles.nav}>
                 <Link href="/" className={styles.navBrand}>
-                    <span>🎓</span>
-                    <span className={styles.navTitle}>Canvas Tracker</span>
+                    <SiteLogo size={24} />
+                    <span className={styles.navTitle}>Final Reckoning</span>
                 </Link>
             </nav>
 
@@ -80,7 +94,7 @@ export default function Login() {
                     <div className={styles.cardHeader}>
                         <div className={styles.iconWrap}>🔑</div>
                         <h1 className={styles.cardTitle}>Welcome back</h1>
-                        <p className={styles.cardSub}>Log in to your Canvas Tracker account</p>
+                        <p className={styles.cardSub}>Log in to your Final Reckoning account</p>
                     </div>
 
                     {error && (

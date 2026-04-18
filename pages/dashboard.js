@@ -2,9 +2,21 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
 import dashStyles from '../styles/Dashboard.module.css';
+import Image from 'next/image';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-
+function SiteLogo({ size = 32 }) {
+    return (
+        <Image
+            src="/hell.png"
+            alt="Final Reckoning"
+            width={size}
+            height={size}
+            style={{ borderRadius: 6, objectFit: 'cover', display: 'block' }}
+            priority
+        />
+    );
+}
 function getUrgency(dueTimestamp) {
     const diff = dueTimestamp - Date.now();
     const days = diff / (1000 * 60 * 60 * 24);
@@ -819,9 +831,9 @@ export default function Dashboard() {
             <header className={styles.header}>
                 <div className={styles.headerInner}>
                     <div className={styles.logoRow}>
-                        <span className={styles.logoIcon}>🎓</span>
+                        <SiteLogo size={32} />
                         <div>
-                            <h1 className={styles.siteTitle}>Canvas Tracker</h1>
+                            <h1 className={styles.siteTitle}>Final Reckoning</h1>
                             <p className={styles.siteSub}>Upcoming assessments at a glance</p>
                         </div>
                     </div>
@@ -833,6 +845,7 @@ export default function Dashboard() {
                                 </a>
                             ))}
                         </nav>
+
                         <div className={dashStyles.userMenu}>
                             {lastUpdated && (
                                 <span className={styles.lastUpdated}>
@@ -928,7 +941,7 @@ export default function Dashboard() {
                         </a>
                     ))}
                 </div>
-                <p>Canvas Assessment Tracker · RajLogic</p>
+                <p>Final Reckoning · RajLogic</p>
             </footer>
         </div>
     );

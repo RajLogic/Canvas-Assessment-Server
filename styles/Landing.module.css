@@ -1,26 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap');
-
-/* ─── Design Tokens ─── */
-:root {
-    --bg: #f4f2ee;
-    --bg-card: #ffffff;
-    --bg-subtle: #edeae4;
-    --text-primary: #1a1814;
-    --text-secondary: #6b6660;
-    --text-muted: #9c9690;
-    --accent: #d4622a;
-    --accent-warm: #e8834c;
-    --accent-light: #fdf0e8;
-    --border: rgba(26, 24, 20, 0.1);
-    --border-strong: rgba(26, 24, 20, 0.18);
-    --shadow-sm: 0 1px 3px rgba(26, 24, 20, 0.08), 0 1px 2px rgba(26, 24, 20, 0.06);
-    --shadow-md: 0 4px 12px rgba(26, 24, 20, 0.08), 0 2px 6px rgba(26, 24, 20, 0.06);
-    --shadow-lg: 0 16px 40px rgba(26, 24, 20, 0.1), 0 4px 12px rgba(26, 24, 20, 0.06);
-    --radius: 12px;
-    --radius-lg: 20px;
-}
-
-/* ─── Root ─── */
 .root {
     min-height: 100vh;
     background: var(--bg);
@@ -29,7 +6,6 @@
     overflow-x: hidden;
 }
 
-/* ─── Background texture ─── */
 .bg {
     position: fixed;
     inset: 0;
@@ -41,8 +17,8 @@
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(26, 24, 20, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(26, 24, 20, 0.03) 1px, transparent 1px);
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 48px 48px;
 }
 
@@ -53,7 +29,7 @@
     top: -150px;
     left: 50%;
     transform: translateX(-50%);
-    background: radial-gradient(ellipse, rgba(212, 98, 42, 0.08) 0%, transparent 70%);
+    background: radial-gradient(ellipse, var(--glow-accent) 0%, transparent 70%);
     border-radius: 50%;
 }
 
@@ -63,8 +39,9 @@
     height: 400px;
     bottom: 10%;
     left: -100px;
-    background: radial-gradient(circle, rgba(212, 98, 42, 0.05) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--glow-accent) 0%, transparent 70%);
     border-radius: 50%;
+    opacity: 0.6;
 }
 
 .glow3 {
@@ -73,11 +50,11 @@
     height: 350px;
     top: 40%;
     right: -80px;
-    background: radial-gradient(circle, rgba(212, 98, 42, 0.04) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--glow-accent) 0%, transparent 70%);
     border-radius: 50%;
+    opacity: 0.4;
 }
 
-/* ─── Nav ─── */
 .nav {
     position: fixed;
     top: 0;
@@ -85,11 +62,10 @@
     right: 0;
     z-index: 100;
     padding: 0;
-    transition: all 0.3s;
 }
 
 .navScrolled {
-    background: rgba(244, 242, 238, 0.9);
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
 }
@@ -134,7 +110,6 @@
     font-weight: 500;
     padding: 0.5rem 0.875rem;
     border-radius: 8px;
-    transition: all 0.15s;
 }
 
 .navLink:hover {
@@ -152,17 +127,15 @@
     text-decoration: none;
     font-size: 0.875rem;
     font-weight: 600;
-    transition: all 0.15s;
-    box-shadow: 0 2px 8px rgba(212, 98, 42, 0.3);
+    box-shadow: 0 2px 8px var(--accent-border);
 }
 
 .navCta:hover {
-    background: #c0561e;
+    background: var(--accent-hover);
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(212, 98, 42, 0.35);
+    box-shadow: 0 4px 14px var(--accent-border);
 }
 
-/* ─── Hero ─── */
 .hero {
     position: relative;
     z-index: 5;
@@ -182,7 +155,7 @@
     align-items: center;
     gap: 0.5rem;
     background: var(--accent-light);
-    border: 1px solid rgba(212, 98, 42, 0.2);
+    border: 1px solid var(--accent-border);
     color: var(--accent);
     font-size: 0.75rem;
     font-weight: 600;
@@ -235,7 +208,6 @@
     max-width: 560px;
     line-height: 1.7;
     margin: 0 0 2.5rem;
-    font-weight: 400;
     animation: fadeUp 0.6s ease 0.2s both;
 }
 
@@ -260,14 +232,13 @@
     text-decoration: none;
     font-size: 0.95rem;
     font-weight: 600;
-    transition: all 0.15s;
-    box-shadow: 0 4px 16px rgba(212, 98, 42, 0.3);
+    box-shadow: 0 4px 16px var(--accent-border);
 }
 
 .ctaPrimary:hover {
-    background: #c0561e;
+    background: var(--accent-hover);
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(212, 98, 42, 0.35);
+    box-shadow: 0 8px 24px var(--accent-border);
 }
 
 .ctaArrow {
@@ -289,13 +260,11 @@
     text-decoration: none;
     font-size: 0.95rem;
     font-weight: 500;
-    transition: all 0.15s;
     box-shadow: var(--shadow-sm);
 }
 
 .ctaSecondary:hover {
     background: var(--bg-subtle);
-    border-color: rgba(26, 24, 20, 0.25);
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
 }
@@ -329,7 +298,6 @@
     letter-spacing: 0.06em;
 }
 
-/* ─── Preview ─── */
 .previewSection {
     position: relative;
     z-index: 5;
@@ -367,7 +335,7 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.72rem;
     color: var(--text-muted);
-    background: rgba(26, 24, 20, 0.06);
+    background: var(--bg-subtle);
     padding: 0.2rem 0.75rem;
     border-radius: 20px;
     border: 1px solid var(--border);
@@ -377,7 +345,6 @@
     padding: 1.5rem;
 }
 
-/* ─── Mock Dashboard ─── */
 .mockDash {
     display: flex;
     flex-direction: column;
@@ -406,15 +373,15 @@
 }
 
 .mockStatU {
-    color: #dc2626;
+    color: var(--urgent-text);
 }
 
 .mockStatW {
-    color: #d97706;
+    color: var(--warning-text);
 }
 
 .mockStatS {
-    color: #16a34a;
+    color: var(--safe-text);
 }
 
 .mockList {
@@ -430,22 +397,21 @@
     padding: 0.625rem 0.75rem;
     border-radius: 8px;
     border: 1px solid transparent;
-    transition: all 0.15s;
 }
 
 .mock_urgent {
-    background: rgba(220, 38, 38, 0.04);
-    border-color: rgba(220, 38, 38, 0.08);
+    background: var(--urgent-bg);
+    border-color: var(--urgent-border);
 }
 
 .mock_warning {
-    background: rgba(217, 119, 6, 0.04);
-    border-color: rgba(217, 119, 6, 0.08);
+    background: var(--warning-bg);
+    border-color: var(--warning-border);
 }
 
 .mock_safe {
-    background: rgba(22, 163, 74, 0.03);
-    border-color: rgba(22, 163, 74, 0.06);
+    background: var(--safe-bg);
+    border-color: var(--safe-border);
 }
 
 .mockStripe {
@@ -456,15 +422,15 @@
 }
 
 .stripe_urgent {
-    background: #dc2626;
+    background: var(--urgent-stripe);
 }
 
 .stripe_warning {
-    background: #d97706;
+    background: var(--warning-stripe);
 }
 
 .stripe_safe {
-    background: #16a34a;
+    background: var(--safe-stripe);
 }
 
 .mockItemContent {
@@ -498,24 +464,23 @@
 }
 
 .mockBadge_urgent {
-    background: rgba(220, 38, 38, 0.1);
-    color: #dc2626;
-    border: 1px solid rgba(220, 38, 38, 0.2);
+    background: var(--urgent-bg);
+    color: var(--urgent-text);
+    border: 1px solid var(--urgent-border);
 }
 
 .mockBadge_warning {
-    background: rgba(217, 119, 6, 0.1);
-    color: #d97706;
-    border: 1px solid rgba(217, 119, 6, 0.2);
+    background: var(--warning-bg);
+    color: var(--warning-text);
+    border: 1px solid var(--warning-border);
 }
 
 .mockBadge_safe {
-    background: rgba(22, 163, 74, 0.08);
-    color: #16a34a;
-    border: 1px solid rgba(22, 163, 74, 0.18);
+    background: var(--safe-bg);
+    color: var(--safe-text);
+    border: 1px solid var(--safe-border);
 }
 
-/* ─── Features ─── */
 .features {
     position: relative;
     z-index: 5;
@@ -555,13 +520,12 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 1.75rem;
-    transition: all 0.2s;
     box-shadow: var(--shadow-sm);
 }
 
 .featureCard:hover {
     transform: translateY(-3px);
-    border-color: rgba(212, 98, 42, 0.2);
+    border-color: var(--accent-border);
     box-shadow: var(--shadow-md);
 }
 
@@ -585,7 +549,6 @@
     margin: 0;
 }
 
-/* ─── How it works ─── */
 .howItWorks {
     position: relative;
     z-index: 5;
@@ -614,13 +577,12 @@
 .stepNum {
     font-size: 2.5rem;
     font-weight: 800;
-    color: rgba(212, 98, 42, 0.18);
+    color: var(--accent-border);
     line-height: 1;
     flex-shrink: 0;
     width: 56px;
     text-align: right;
     letter-spacing: -0.04em;
-    font-variant-numeric: tabular-nums;
 }
 
 .stepBody {
@@ -643,7 +605,6 @@
     line-height: 1.65;
 }
 
-/* ─── CTA Banner ─── */
 .ctaBanner {
     position: relative;
     z-index: 5;
@@ -663,28 +624,21 @@
 .ctaBannerTitle {
     font-size: clamp(1.75rem, 4vw, 2.5rem);
     font-weight: 800;
-    color: #ffffff;
+    color: var(--bg);
     margin: 0 0 0.75rem;
     letter-spacing: -0.03em;
 }
 
 .ctaBannerSub {
     font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.5);
     margin: 0 0 2rem;
 }
 
-.ctaBannerInner .ctaPrimary {
-    background: var(--accent);
-    box-shadow: 0 4px 16px rgba(212, 98, 42, 0.4);
+[data-theme="dark"] .ctaBannerTitle {
+    color: var(--bg);
 }
 
-.ctaBannerInner .ctaPrimary:hover {
-    background: var(--accent-warm);
-    box-shadow: 0 8px 24px rgba(212, 98, 42, 0.5);
-}
-
-/* ─── Footer ─── */
 .footer {
     position: relative;
     z-index: 5;
@@ -725,7 +679,6 @@
     text-decoration: none;
     font-size: 0.825rem;
     color: var(--text-muted);
-    transition: color 0.15s;
     font-weight: 500;
 }
 
@@ -739,7 +692,6 @@
     color: var(--text-muted);
 }
 
-/* ─── Animations ─── */
 @keyframes fadeDown {
     from {
         opacity: 0;
@@ -764,7 +716,6 @@
     }
 }
 
-/* ─── Responsive ─── */
 @media (max-width: 900px) {
     .featureGrid {
         grid-template-columns: repeat(2, 1fr);

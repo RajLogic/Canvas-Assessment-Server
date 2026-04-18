@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import styles from '../styles/Auth.module.css';
+
+function SiteLogo({ size = 24 }) {
+    return (
+        <Image
+            src="/hell.png"
+            alt="Final Reckoning"
+            width={size}
+            height={size}
+            style={{ borderRadius: 6, objectFit: 'cover', display: 'block' }}
+            priority
+        />
+    );
+}
 
 function PasswordStrength({ password }) {
     if (!password) return null;
@@ -22,7 +36,7 @@ function PasswordStrength({ password }) {
                     <div
                         key={i}
                         className={styles.strengthSegment}
-                        style={{ background: i <= score ? colors[score] : 'rgba(255,255,255,0.08)' }}
+                        style={{ background: i <= score ? colors[score] : undefined }}
                     />
                 ))}
             </div>
@@ -66,7 +80,6 @@ export default function Register() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (!form.email || !form.username || !form.password || !form.confirm) {
             setError('Please fill in all fields.');
             return;
@@ -79,7 +92,6 @@ export default function Register() {
             setError('Password must be at least 8 characters.');
             return;
         }
-
         setLoading(true);
         setError('');
         try {
@@ -123,8 +135,8 @@ export default function Register() {
 
             <nav className={styles.nav}>
                 <Link href="/" className={styles.navBrand}>
-                    <span>🎓</span>
-                    <span className={styles.navTitle}>Canvas Tracker</span>
+                    <SiteLogo size={24} />
+                    <span className={styles.navTitle}>Final Reckoning</span>
                 </Link>
             </nav>
 

@@ -1,15 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap');
-
-/* ─── Root ─── */
 .root {
     min-height: 100vh;
-    background: #f4f2ee;
-    color: #1a1814;
+    background: var(--bg);
+    color: var(--text-primary);
     font-family: 'Bricolage Grotesque', sans-serif;
     overflow-x: hidden;
 }
 
-/* ─── Background ─── */
 .bg {
     position: fixed;
     inset: 0;
@@ -21,8 +17,8 @@
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(26, 24, 20, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(26, 24, 20, 0.03) 1px, transparent 1px);
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 48px 48px;
     mask-image: radial-gradient(ellipse 80% 80% at 50% 30%, black 30%, transparent 100%);
 }
@@ -34,11 +30,10 @@
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    background: radial-gradient(ellipse, rgba(212, 98, 42, 0.07) 0%, transparent 70%);
+    background: radial-gradient(ellipse, var(--glow-accent) 0%, transparent 70%);
     border-radius: 50%;
 }
 
-/* ─── Nav ─── */
 .nav {
     position: relative;
     z-index: 10;
@@ -52,19 +47,17 @@
     text-decoration: none;
     font-size: 0.95rem;
     font-weight: 700;
-    color: #6b6660;
-    transition: color 0.15s;
+    color: var(--text-secondary);
 }
 
 .navBrand:hover {
-    color: #1a1814;
+    color: var(--text-primary);
 }
 
 .navTitle {
     letter-spacing: -0.02em;
 }
 
-/* ─── Main ─── */
 .main {
     position: relative;
     z-index: 5;
@@ -84,17 +77,14 @@
     justify-content: center;
 }
 
-/* ─── Card ─── */
 .card {
     width: 100%;
     max-width: 440px;
-    background: #ffffff;
-    border: 1px solid rgba(26, 24, 20, 0.1);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     border-radius: 20px;
     padding: 2.5rem;
-    box-shadow:
-        0 20px 60px rgba(26, 24, 20, 0.08),
-        0 4px 12px rgba(26, 24, 20, 0.05);
+    box-shadow: var(--shadow-lg);
     animation: cardIn 0.4s ease both;
 }
 
@@ -110,7 +100,6 @@
     }
 }
 
-/* ─── Card Header ─── */
 .cardHeader {
     text-align: center;
     margin-bottom: 2rem;
@@ -125,27 +114,26 @@
 .cardTitle {
     font-size: 1.75rem;
     font-weight: 800;
-    color: #1a1814;
+    color: var(--text-primary);
     margin: 0 0 0.5rem;
     letter-spacing: -0.03em;
 }
 
 .cardSub {
     font-size: 0.875rem;
-    color: #9c9690;
+    color: var(--text-muted);
     margin: 0;
 }
 
-/* ─── Error Box ─── */
 .errorBox {
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    background: #fef2f2;
-    border: 1px solid rgba(220, 38, 38, 0.2);
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
     border-radius: 10px;
     padding: 0.75rem 1rem;
-    color: #dc2626;
+    color: var(--error-text);
     font-size: 0.85rem;
     margin-bottom: 1.25rem;
     animation: shake 0.3s ease;
@@ -172,7 +160,6 @@
     flex-shrink: 0;
 }
 
-/* ─── Form ─── */
 .form {
     display: flex;
     flex-direction: column;
@@ -189,7 +176,7 @@
 .label {
     font-size: 0.8rem;
     font-weight: 700;
-    color: #6b6660;
+    color: var(--text-secondary);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -201,48 +188,46 @@
 .labelHint {
     font-size: 0.7rem;
     font-weight: 400;
-    color: #9c9690;
+    color: var(--text-muted);
     text-transform: none;
     letter-spacing: 0;
 }
 
 .input {
-    background: #f4f2ee;
-    border: 1px solid rgba(26, 24, 20, 0.14);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
     border-radius: 10px;
     padding: 0.75rem 1rem;
-    color: #1a1814;
+    color: var(--text-primary);
     font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 0.9rem;
     font-weight: 500;
     outline: none;
-    transition: all 0.15s;
     width: 100%;
     box-sizing: border-box;
 }
 
 .input::placeholder {
-    color: #9c9690;
+    color: var(--text-muted);
     font-weight: 400;
 }
 
 .input:focus {
-    border-color: #d4622a;
-    background: #ffffff;
-    box-shadow: 0 0 0 3px rgba(212, 98, 42, 0.1);
+    border-color: var(--accent);
+    background: var(--bg-card);
+    box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .inputError {
-    border-color: rgba(220, 38, 38, 0.45) !important;
-    background: #fef2f2 !important;
+    border-color: var(--error-border) !important;
+    background: var(--error-bg) !important;
 }
 
 .inputSuccess {
-    border-color: rgba(22, 163, 74, 0.45) !important;
-    background: #f0fdf4 !important;
+    border-color: var(--success-border) !important;
+    background: var(--success-bg) !important;
 }
 
-/* ─── Password Strength ─── */
 .strengthWrap {
     margin-top: 0.5rem;
 }
@@ -257,8 +242,8 @@
     flex: 1;
     height: 3px;
     border-radius: 2px;
-    background: rgba(26, 24, 20, 0.08);
-    transition: background 0.3s;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
 }
 
 .strengthMeta {
@@ -276,13 +261,13 @@
 
 .checkOk {
     font-size: 0.68rem;
-    color: #16a34a;
+    color: var(--safe-text);
     font-weight: 600;
 }
 
 .checkNo {
     font-size: 0.68rem;
-    color: #9c9690;
+    color: var(--text-muted);
 }
 
 .strengthLabel {
@@ -293,19 +278,17 @@
     white-space: nowrap;
 }
 
-/* ─── Privacy Note ─── */
 .privacyNote {
     font-size: 0.75rem;
-    color: #9c9690;
+    color: var(--text-muted);
     margin: 0;
     line-height: 1.5;
     padding: 0.5rem 0.875rem;
-    background: #f4f2ee;
-    border: 1px solid rgba(26, 24, 20, 0.1);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
     border-radius: 8px;
 }
 
-/* ─── Submit Button ─── */
 .submitBtn {
     display: flex;
     align-items: center;
@@ -313,23 +296,22 @@
     gap: 0.5rem;
     width: 100%;
     padding: 0.875rem 1.5rem;
-    background: #d4622a;
-    color: white;
+    background: var(--accent);
+    color: var(--text-on-accent);
     border: none;
     border-radius: 10px;
     font-family: 'Bricolage Grotesque', sans-serif;
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.15s;
-    box-shadow: 0 4px 16px rgba(212, 98, 42, 0.3);
+    box-shadow: 0 4px 16px var(--accent-border);
     margin-top: 0.25rem;
 }
 
 .submitBtn:hover:not(:disabled) {
-    background: #c0561e;
+    background: var(--accent-hover);
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(212, 98, 42, 0.35);
+    box-shadow: 0 6px 20px var(--accent-border);
 }
 
 .submitBtn:disabled {
@@ -338,26 +320,23 @@
     transform: none;
 }
 
-/* ─── Switch Row ─── */
 .switchRow {
     text-align: center;
     font-size: 0.875rem;
-    color: #9c9690;
+    color: var(--text-muted);
 }
 
 .switchLink {
-    color: #d4622a;
+    color: var(--accent);
     text-decoration: none;
     font-weight: 700;
-    transition: color 0.15s;
 }
 
 .switchLink:hover {
-    color: #c0561e;
+    color: var(--accent-hover);
     text-decoration: underline;
 }
 
-/* ─── Spinner ─── */
 .spinner {
     display: inline-block;
     width: 16px;
@@ -375,7 +354,6 @@
     }
 }
 
-/* ─── Responsive ─── */
 @media (max-width: 500px) {
     .card {
         padding: 2rem 1.5rem;

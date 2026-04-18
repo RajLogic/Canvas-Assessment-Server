@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import styles from '../styles/Landing.module.css';
 
@@ -42,13 +43,25 @@ const STATS = [
     { value: 'All', label: 'Courses tracked' },
 ];
 
+function SiteLogo({ size = 28 }) {
+    return (
+        <Image
+            src="/hell.png"
+            alt="Final Reckoning"
+            width={size}
+            height={size}
+            style={{ borderRadius: 6, objectFit: 'cover', display: 'block' }}
+            priority
+        />
+    );
+}
+
 export default function Landing() {
     const router = useRouter();
     const [scrolled, setScrolled] = useState(false);
     const heroRef = useRef(null);
 
     useEffect(() => {
-        // Check if already logged in — redirect to dashboard
         fetch('/api/auth/session')
             .then((r) => r.json())
             .then((data) => {
@@ -77,8 +90,8 @@ export default function Landing() {
             <nav className={`${styles.nav} ${scrolled ? styles.navScrolled : ''}`}>
                 <div className={styles.navInner}>
                     <div className={styles.navBrand}>
-                        <span className={styles.navIcon}>🎓</span>
-                        <span className={styles.navTitle}>Canvas Tracker</span>
+                        <SiteLogo size={28} />
+                        <span className={styles.navTitle}>Final Reckoning</span>
                     </div>
                     <div className={styles.navLinks}>
                         <Link href="/login" className={styles.navLink}>Log in</Link>
@@ -101,7 +114,7 @@ export default function Landing() {
                 </h1>
 
                 <p className={styles.heroSub}>
-                    Canvas Tracker pulls every assessment from all your enrolled courses, sorts them by urgency,
+                    Final Reckoning pulls every assessment from all your enrolled courses, sorts them by urgency,
                     and puts them in one clean dashboard — alongside your class timetable.
                 </p>
 
@@ -195,8 +208,8 @@ export default function Landing() {
             <footer className={styles.footer}>
                 <div className={styles.footerInner}>
                     <div className={styles.footerBrand}>
-                        <span>🎓</span>
-                        <span className={styles.footerBrandName}>Canvas Tracker</span>
+                        <SiteLogo size={22} />
+                        <span className={styles.footerBrandName}>Final Reckoning</span>
                     </div>
                     <div className={styles.footerLinks}>
                         <Link href="/login" className={styles.footerLink}>Login</Link>
@@ -204,7 +217,7 @@ export default function Landing() {
                         <a href="https://rmit.instructure.com/" target="_blank" rel="noopener noreferrer" className={styles.footerLink}>Canvas</a>
                         <a href="https://github.com/RajLogic/Canvas-Assessment-Server" target="_blank" rel="noopener noreferrer" className={styles.footerLink}>GitHub</a>
                     </div>
-                    <p className={styles.footerCopy}>© {new Date().getFullYear()} Canvas Tracker · RajLogic</p>
+                    <p className={styles.footerCopy}>© {new Date().getFullYear()} Final Reckoning · RajLogic</p>
                 </div>
             </footer>
         </div>

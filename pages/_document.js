@@ -6,7 +6,7 @@ export default function Document() {
             <Head>
                 <meta charSet="utf-8" />
                 <meta name="description" content="Canvas Assessment Tracker — upcoming assessments at a glance" />
-                <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>" />
+                <link rel="icon" href="/hell.png" />
             </Head>
             <body>
                 <Main />
