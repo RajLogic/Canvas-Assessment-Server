@@ -91,7 +91,7 @@ export default function Landing() {
             <section className={styles.hero} ref={heroRef}>
                 <div className={styles.heroBadge}>
                     <span className={styles.heroBadgeDot} />
-                    Built for RMIT students
+                    Built for students By Students
                 </div>
 
                 <h1 className={styles.heroTitle}>
