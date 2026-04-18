@@ -456,16 +456,64 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
 
 // ─── SETTINGS MODAL ────────────────────────────────────────────────────────
 
+// ─── Known universities ────────────────────────────────────────────────────
+const UNIVERSITIES = [
+    { label: 'RMIT University', url: 'https://rmit.instructure.com/api/v1/' },
+    { label: 'University of Melbourne', url: 'https://canvas.lms.unimelb.edu.au/api/v1/' },
+    { label: 'Monash University', url: 'https://lms.monash.edu/api/v1/' },
+    { label: 'University of Sydney', url: 'https://canvas.sydney.edu.au/api/v1/' },
+    { label: 'University of New South Wales', url: 'https://moodle.telt.unsw.edu.au/api/v1/' },
+    { label: 'University of Queensland', url: 'https://learn.uq.edu.au/api/v1/' },
+    { label: 'Australian National University', url: 'https://canvas.anu.edu.au/api/v1/' },
+    { label: 'Deakin University', url: 'https://d2l.deakin.edu.au/api/v1/' },
+    { label: 'Swinburne University', url: 'https://canvas.swinburne.edu.au/api/v1/' },
+    { label: 'University of Adelaide', url: 'https://myuni.adelaide.edu.au/api/v1/' },
+    { label: 'La Trobe University', url: 'https://latrobe.instructure.com/api/v1/' },
+    { label: 'Victoria University', url: 'https://vuonline.instructure.com/api/v1/' },
+    { label: 'Custom / Other university', url: '' },
+];
+
 function SettingsModal({ user, onClose, onSaved }) {
+    const defaultEnvUrl = 'https://rmit.instructure.com/api/v1/';
+
+    // Determine which university preset matches the user's saved URL (if any)
+    const savedUrl = user?.canvasBaseUrl || defaultEnvUrl;
+    const matchedPreset = UNIVERSITIES.find(
+        u => u.url && u.url.toLowerCase() === savedUrl.toLowerCase()
+    );
+    const initialPreset = matchedPreset ? matchedPreset.url : '';
+
     const [form, setForm] = useState({
         canvasApiToken: '',
         timetableLink: '',
+        canvasBaseUrl: '',   // only sent when user actively changes it
     });
+    const [uniPreset, setUniPreset] = useState(initialPreset);
+    const [showCustomUrl, setShowCustomUrl] = useState(!matchedPreset && Boolean(user?.canvasBaseUrl));
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
 
-    const handleChange = (e) => { setForm(f => ({ ...f, [e.target.name]: e.target.value })); setError(''); setSuccess(''); };
+    const handleChange = (e) => {
+        setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+        setError('');
+        setSuccess('');
+    };
+
+    const handleUniSelect = (e) => {
+        const val = e.target.value;
+        setUniPreset(val);
+        if (val === '') {
+            // "Custom / Other" — show manual input
+            setShowCustomUrl(true);
+            setForm(f => ({ ...f, canvasBaseUrl: '' }));
+        } else {
+            setShowCustomUrl(false);
+            setForm(f => ({ ...f, canvasBaseUrl: val }));
+        }
+        setError('');
+        setSuccess('');
+    };
 
     const handleSave = async (e) => {
         e.preventDefault();
@@ -473,18 +521,29 @@ function SettingsModal({ user, onClose, onSaved }) {
         setError('');
         setSuccess('');
         try {
+            // Only include fields that were touched
+            const payload = {};
+            if (form.canvasApiToken) payload.canvasApiToken = form.canvasApiToken;
+            if (form.timetableLink) payload.timetableLink = form.timetableLink;
+
+            // Canvas base URL: include if user made a selection or typed a custom one
+            const resolvedUrl = showCustomUrl ? form.canvasBaseUrl : (uniPreset !== initialPreset ? uniPreset : undefined);
+            if (resolvedUrl !== undefined) payload.canvasBaseUrl = resolvedUrl;
+
             const res = await fetch('/api/auth/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
+                body: JSON.stringify(payload),
             });
             const data = await res.json();
             if (!res.ok) { setError(data.message || 'Failed to save.'); return; }
-            setSuccess('Settings saved!');
+            setSuccess('Settings saved! All sensitive data is encrypted with AES-256-GCM.');
             onSaved && onSaved(data.user);
-        } catch { setError('Network error.'); }
+        } catch { setError('Network error. Please try again.'); }
         finally { setSaving(false); }
     };
+
+    const currentDisplayUrl = user?.canvasBaseUrl || defaultEnvUrl;
 
     return (
         <div className={dashStyles.modalOverlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -495,6 +554,7 @@ function SettingsModal({ user, onClose, onSaved }) {
                 </div>
 
                 <div className={dashStyles.modalBody}>
+                    {/* User info */}
                     <div className={dashStyles.userInfo}>
                         <div className={dashStyles.userAvatar}>{user?.username?.[0]?.toUpperCase() || '?'}</div>
                         <div>
@@ -503,10 +563,67 @@ function SettingsModal({ user, onClose, onSaved }) {
                         </div>
                     </div>
 
-                    {error && <div className={dashStyles.settingsError}><span>⚠️</span> {error}</div>}
+                    {/* Encryption badge */}
+                    <div className={dashStyles.encryptionBadge}>
+                        <span className={dashStyles.encryptBadgeIcon}>🔐</span>
+                        <span>API token, timetable link, and Canvas URL are encrypted with <strong>AES-256-GCM</strong> before being stored in the database.</span>
+                    </div>
+
+                    {error && <div className={dashStyles.settingsError}>  <span>⚠️</span> {error}  </div>}
                     {success && <div className={dashStyles.settingsSuccess}><span>✅</span> {success}</div>}
 
                     <form onSubmit={handleSave} className={dashStyles.settingsForm}>
+
+                        {/* ── University selector ── */}
+                        <div className={dashStyles.settingsField}>
+                            <label className={dashStyles.settingsLabel}>
+                                University / Canvas Instance
+                                <span className={dashStyles.settingsLabelHint}>
+                                    Current: <code className={dashStyles.urlCode}>{currentDisplayUrl}</code>
+                                </span>
+                            </label>
+                            <select
+                                value={uniPreset}
+                                onChange={handleUniSelect}
+                                className={dashStyles.settingsSelect}
+                            >
+                                <option value="" disabled>Select your university…</option>
+                                {UNIVERSITIES.map((u) => (
+                                    <option key={u.label} value={u.url}>{u.label}</option>
+                                ))}
+                            </select>
+                            <p className={dashStyles.settingsHint}>
+                                Choose your university to auto-fill the Canvas API base URL. Select &quot;Custom / Other&quot; to enter it manually.
+                            </p>
+                        </div>
+
+                        {/* ── Custom Canvas URL (shown when "Custom / Other" selected) ── */}
+                        {showCustomUrl && (
+                            <div className={dashStyles.settingsField}>
+                                <label className={dashStyles.settingsLabel}>
+                                    Canvas API Base URL
+                                    <span className={dashStyles.settingsLabelHint}>Must include /api/v1/</span>
+                                </label>
+                                <input
+                                    name="canvasBaseUrl"
+                                    type="url"
+                                    value={form.canvasBaseUrl}
+                                    onChange={handleChange}
+                                    className={dashStyles.settingsInput}
+                                    placeholder="https://your-university.instructure.com/api/v1/"
+                                    autoComplete="off"
+                                />
+                                <p className={dashStyles.settingsHint}>
+                                    Example: <code className={dashStyles.urlCode}>https://canvas.university.edu/api/v1/</code>
+                                    <br />This URL is encrypted before being stored.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* ── Divider ── */}
+                        <div className={dashStyles.settingsDivider} />
+
+                        {/* ── Canvas API token ── */}
                         <div className={dashStyles.settingsField}>
                             <label className={dashStyles.settingsLabel}>
                                 Canvas API Token
@@ -514,40 +631,51 @@ function SettingsModal({ user, onClose, onSaved }) {
                                     Canvas → Account → Settings → New Access Token
                                 </span>
                             </label>
-                            <input
-                                name="canvasApiToken"
-                                type="password"
-                                value={form.canvasApiToken}
-                                onChange={handleChange}
-                                className={dashStyles.settingsInput}
-                                placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste to update)' : 'Paste your Canvas API token'}
-                                autoComplete="off"
-                            />
+                            <div className={dashStyles.inputWithBadge}>
+                                <input
+                                    name="canvasApiToken"
+                                    type="password"
+                                    value={form.canvasApiToken}
+                                    onChange={handleChange}
+                                    className={dashStyles.settingsInput}
+                                    placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste new token to update)' : 'Paste your Canvas API token here'}
+                                    autoComplete="off"
+                                />
+                                {user?.hasCanvasToken && (
+                                    <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>
+                                )}
+                            </div>
                             <p className={dashStyles.settingsHint}>
-                                Your token is stored securely and only used server-side to fetch your assignments. Never shared.
+                                Stored as AES-256-GCM ciphertext. Only decrypted server-side when fetching your assignments — never sent to the browser.
                             </p>
                         </div>
 
+                        {/* ── Timetable link ── */}
                         <div className={dashStyles.settingsField}>
                             <label className={dashStyles.settingsLabel}>
                                 Timetable iCal Link
                                 <span className={dashStyles.settingsLabelHint}>Optional</span>
                             </label>
-                            <input
-                                name="timetableLink"
-                                type="url"
-                                value={form.timetableLink}
-                                onChange={handleChange}
-                                className={dashStyles.settingsInput}
-                                placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'}
-                            />
+                            <div className={dashStyles.inputWithBadge}>
+                                <input
+                                    name="timetableLink"
+                                    type="url"
+                                    value={form.timetableLink}
+                                    onChange={handleChange}
+                                    className={dashStyles.settingsInput}
+                                    placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'}
+                                />
+                                {user?.hasTimetableLink && (
+                                    <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>
+                                )}
+                            </div>
                             <p className={dashStyles.settingsHint}>
-                                Your RMIT timetable subscription URL (.ics format). Used for the Timetable tab.
+                                Your iCal subscription URL from your university timetable system. Encrypted before storage.
                             </p>
                         </div>
 
                         <button type="submit" className={dashStyles.settingsSave} disabled={saving}>
-                            {saving ? 'Saving…' : 'Save settings'}
+                            {saving ? '🔐 Encrypting & saving…' : 'Save settings'}
                         </button>
                     </form>
                 </div>

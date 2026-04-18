@@ -392,3 +392,101 @@
         padding: 0.75rem 1.5rem 0.75rem 1rem;
     }
 }
+
+/* ─── Encryption badge ─── */
+.encryptionBadge {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    background: rgba(34, 197, 94, 0.06);
+    border: 1px solid rgba(34, 197, 94, 0.18);
+    border-radius: 10px;
+    padding: 0.7rem 0.875rem;
+    font-size: 0.78rem;
+    color: rgba(134, 239, 172, 0.85);
+    line-height: 1.55;
+}
+
+.encryptBadgeIcon {
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.encryptionBadge strong {
+    font-weight: 600;
+    color: #86efac;
+}
+
+/* ─── Divider inside modal form ─── */
+.settingsDivider {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin: 0.25rem 0;
+}
+
+/* ─── University select ─── */
+.settingsSelect {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(165, 180, 252, 0.18);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    color: #e8edf6;
+    font-family: 'Sora', sans-serif;
+    font-size: 0.875rem;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a5b4fc' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    padding-right: 2.5rem;
+}
+
+.settingsSelect:focus {
+    border-color: rgba(99, 102, 241, 0.6);
+    background-color: rgba(99, 102, 241, 0.05);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.settingsSelect option {
+    background: #0f1424;
+    color: #e8edf6;
+}
+
+/* ─── URL code display ─── */
+.urlCode {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: rgba(165, 180, 252, 0.55);
+    background: rgba(165, 180, 252, 0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+/* ─── Input with saved badge overlay ─── */
+.inputWithBadge {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.savedBadge {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: rgba(134, 239, 172, 0.75);
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.18);
+    padding: 0.15rem 0.55rem;
+    border-radius: 100px;
+    letter-spacing: 0.02em;
+}

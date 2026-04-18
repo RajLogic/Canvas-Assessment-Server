@@ -3,30 +3,23 @@ import { deleteSession, getSession } from '../../../lib/db.js';
 
 export default async function handler(req, res) {
     if (req.method === 'POST') {
-        // Logout
         const sessionId = getSessionIdFromRequest(req);
         if (sessionId) {
-            try {
-                await deleteSession(sessionId);
-            } catch {
-                // Ignore DB errors on logout
-            }
+            try { await deleteSession(sessionId); } catch { /* ignore */ }
         }
         clearSessionCookie(res);
         return res.status(200).json({ message: 'Logged out successfully.' });
     }
 
     if (req.method === 'GET') {
-        // Check current session
         const sessionId = getSessionIdFromRequest(req);
-        if (!sessionId) {
-            return res.status(401).json({ authenticated: false });
-        }
+        if (!sessionId) return res.status(401).json({ authenticated: false });
         try {
             const session = await getSession(sessionId);
-            if (!session) {
-                return res.status(401).json({ authenticated: false });
-            }
+            if (!session) return res.status(401).json({ authenticated: false });
+
+            const envBaseUrl = process.env.CANVAS_BASE_URL || 'https://rmit.instructure.com/api/v1/';
+
             return res.status(200).json({
                 authenticated: true,
                 user: {
@@ -35,6 +28,9 @@ export default async function handler(req, res) {
                     username: session.username,
                     hasCanvasToken: Boolean(session.canvas_api_token),
                     hasTimetableLink: Boolean(session.timetable_link),
+                    hasCanvasBaseUrl: Boolean(session.canvas_base_url),
+                    // Return the resolved URL the client can display, but NOT the raw token
+                    canvasBaseUrl: session.canvas_base_url || envBaseUrl,
                 },
             });
         } catch (err) {
