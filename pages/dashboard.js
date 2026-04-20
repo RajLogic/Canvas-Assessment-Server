@@ -455,11 +455,50 @@ const ListView = memo(function ListView({
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
-const QUICK_LINKS = [
-    { label: 'Canvas', href: 'https://rmit.instructure.com/' },
-    { label: 'Timetable', href: 'https://mytimetable.rmit.edu.au/even/student' },
-    { label: 'GitHub', href: 'https://github.com/RajLogic/canvasHelp' },
+
+
+
+const UNIVERSITY_CONFIG = [
+    {
+        label: 'RMIT University',
+        url: 'https://rmit.instructure.com/api/v1/',
+        links: [
+            { label: 'Canvas', href: 'https://rmit.instructure.com/' },
+            { label: 'Timetable', href: 'https://mytimetable.rmit.edu.au/even/student' },
+            { label: 'Student Hub', href: 'https://www.rmit.edu.au/students' },
+        ],
+    },
+    {
+        label: 'Swinburne University',
+        url: 'https://swinburne.instructure.com/api/v1/',
+        links: [
+            { label: 'Canvas', href: 'https://swinburne.instructure.com/' },
+            { label: 'Timetable', href: 'https://www.swinburne.edu.au/current-students/student-services/timetables/' },
+            { label: 'Student Portal', href: 'https://www.swinburne.edu.au/current-students/' },
+        ],
+    },
 ];
+
+const GITHUB_LINK = { label: 'GitHub', href: 'https://github.com/RajLogic/Canvas-Assessment-Server' };
+const DEFAULT_QUICK_LINKS = [
+    { label: 'Canvas', href: 'https://rmit.instructure.com/' },
+    { label: 'GitHub', href: 'https://github.com/RajLogic/Canvas-Assessment-Server' },
+];
+
+function getQuickLinks(canvasBaseUrl) {
+    if (!canvasBaseUrl) return DEFAULT_QUICK_LINKS;
+    const normalised = canvasBaseUrl.toLowerCase().replace(/\/$/, '');
+    const match = UNIVERSITY_CONFIG.find(u => u.url.toLowerCase().replace(/\/$/, '') === normalised);
+    if (match) return [...match.links, GITHUB_LINK];
+    try {
+        const parsed = new URL(canvasBaseUrl);
+        return [{ label: 'Canvas', href: `${parsed.protocol}//${parsed.hostname}/` }, GITHUB_LINK];
+    } catch {
+        return DEFAULT_QUICK_LINKS;
+    }
+}
+
+
 
 const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, onUnhide }) {
     const today = new Date();
@@ -717,8 +756,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
 // ─── SETTINGS MODAL ────────────────────────────────────────────────────────
 
 const UNIVERSITIES = [
-    { label: 'RMIT University', url: 'https://rmit.instructure.com/api/v1/' },
-    { label: 'Swinburne University', url: 'https://swinburne.instructure.com/api/v1/' },
+    ...UNIVERSITY_CONFIG,
     { label: 'Custom / Other university', url: '' },
 ];
 
@@ -960,6 +998,9 @@ export default function Dashboard() {
     const activeFilterCount = (filters.years?.length || 0) + (filters.terms?.length || 0) +
         (filters.courseIds?.length || 0) + (filters.courseCodes?.length || 0);
 
+    // ADD after the activeFilterCount line:
+    const quickLinks = useMemo(() => getQuickLinks(user?.canvasBaseUrl), [user?.canvasBaseUrl]);
+
     if (!authChecked) {
         return (
             <div style={{ minHeight: '100vh', background: '#0b0f1e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -999,7 +1040,7 @@ export default function Dashboard() {
                     </div>
                     <div className={styles.headerRight}>
                         <nav className={styles.topLinks} aria-label="Quick links">
-                            {QUICK_LINKS.map((link) => (
+                            {quickLinks.map((link) => (
                                 <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.topLink}>{link.label}</a>
                             ))}
                         </nav>
@@ -1148,7 +1189,7 @@ export default function Dashboard() {
 
             <footer className={styles.footer}>
                 <div className={styles.footerLinks}>
-                    {QUICK_LINKS.map((link) => (
+                    {quickLinks.map((link) => (
                         <a key={`footer-${link.label}`} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.footerLink}>{link.label}</a>
                     ))}
                 </div>
