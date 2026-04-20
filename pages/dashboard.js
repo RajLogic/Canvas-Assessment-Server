@@ -479,10 +479,10 @@ const UNIVERSITY_CONFIG = [
     },
 ];
 
-const GITHUB_LINK = { label: 'GitHub', href: 'https://github.com/RajLogic/Canvas-Assessment-Server' };
+const GITHUB_LINK = { label: 'GitHub', href: 'https://github.com/RajLogic/canvasHelp' };
 const DEFAULT_QUICK_LINKS = [
     { label: 'Canvas', href: 'https://rmit.instructure.com/' },
-    { label: 'GitHub', href: 'https://github.com/RajLogic/Canvas-Assessment-Server' },
+    { label: 'GitHub', href: 'https://github.com/RajLogic/canvasHelp' },
 ];
 
 function getQuickLinks(canvasBaseUrl) {

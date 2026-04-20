@@ -214,8 +214,7 @@ export default function Landing() {
                     <div className={styles.footerLinks}>
                         <Link href="/login" className={styles.footerLink}>Login</Link>
                         <Link href="/register" className={styles.footerLink}>Register</Link>
-                        <a href="https://rmit.instructure.com/" target="_blank" rel="noopener noreferrer" className={styles.footerLink}>Canvas</a>
-                        <a href="https://github.com/RajLogic/Canvas-Assessment-Server" target="_blank" rel="noopener noreferrer" className={styles.footerLink}>GitHub</a>
+                        <a href="https://github.com/RajLogic/canvasHelp" target="_blank" rel="noopener noreferrer" className={styles.footerLink}>GitHub</a>
                     </div>
                     <p className={styles.footerCopy}>© {new Date().getFullYear()} Final Reckoning · RajLogic</p>
                 </div>
