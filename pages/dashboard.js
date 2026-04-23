@@ -1043,7 +1043,7 @@ export default function Dashboard() {
     const [timetableLoading, setTimetableLoading] = useState(false);
     const [timetableError, setTimetableError] = useState('');
     const [showSettings, setShowSettings] = useState(false);
-    const [showWelcome, setShowWelcome] = useState(false);
+    const [setupBanner, setSetupBanner] = useState('');
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [filters, setFilters] = useState({
@@ -1089,7 +1089,9 @@ export default function Dashboard() {
                 else {
                     setUser(data.user);
                     setAuthChecked(true);
-                    if (router.query.welcome === '1') { setShowWelcome(true); setShowSettings(true); }
+                    if (router.query.welcome === '1') {
+                        setSetupBanner('Welcome! Add your Canvas API token in Settings to get started.');
+                    }
                 }
             })
             .catch(() => router.replace('/login'));
@@ -1102,10 +1104,14 @@ export default function Dashboard() {
             const response = await fetch(`/api/assessments/due${query}`);
             if (!response.ok) {
                 const data = await response.json();
-                if (data.requiresSetup) { setError('No Canvas API token configured. Open Settings to add your token.'); setShowSettings(true); return; }
+                if (data.requiresSetup) {
+                    setSetupBanner('No Canvas API token configured. Open Settings to add your token.');
+                    return;
+                }
                 throw new Error(`Error ${response.status}: Failed to fetch`);
             }
             const data = await response.json();
+            setSetupBanner('');
             setDueData(data);
             setLastUpdated(new Date());
         } catch (err) { setError(err.message); }
@@ -1157,10 +1163,10 @@ export default function Dashboard() {
             {showSettings && (
                 <SettingsModal
                     user={user}
-                    onClose={() => { setShowSettings(false); setShowWelcome(false); }}
+                    onClose={() => { setShowSettings(false); }}
                     onSaved={(updatedUser) => {
                         setUser(updatedUser);
-                        setShowWelcome(false);
+                        setSetupBanner('');
                         setTimeout(() => { setShowSettings(false); fetchDueAssessments(''); }, 800);
                     }}
                 />
@@ -1202,10 +1208,13 @@ export default function Dashboard() {
                 </div>
             </header>
 
-            {showWelcome && (
-                <div className={dashStyles.welcomeBanner}>
-                    <span>🎉 Welcome, {user?.username}! Add your Canvas API token below to get started.</span>
-                    <button className={dashStyles.welcomeClose} onClick={() => setShowWelcome(false)}>✕</button>
+            {setupBanner && (
+                <div className={dashStyles.setupBanner}>
+                    <span>{setupBanner}</span>
+                    <div className={dashStyles.setupBannerActions}>
+                        <button className={dashStyles.setupBannerBtn} onClick={() => setShowSettings(true)}>Open Settings</button>
+                        <button className={dashStyles.setupBannerClose} onClick={() => setSetupBanner('')}>✕</button>
+                    </div>
                 </div>
             )}
 
