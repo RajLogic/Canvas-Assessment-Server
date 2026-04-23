@@ -91,14 +91,15 @@ function parseICalEvents(icalContent) {
 function parseEvent(eventData) {
     const event = {};
 
-    const summaryMatch = eventData.match(/SUMMARY:(.+?)(?:\r?\n)/);
-    event.summary = summaryMatch ? decodeICalText(summaryMatch[1].trim()) : 'Untitled Event';
+    const summaryValue = extractICalField(eventData, 'SUMMARY');
+    event.summary = summaryValue ? decodeICalText(summaryValue.trim()) : 'Untitled Event';
+    event.className = getClassNameFromSummary(event.summary);
 
-    const locationMatch = eventData.match(/LOCATION:(.+?)(?:\r?\n)/);
-    event.location = locationMatch ? decodeICalText(locationMatch[1].trim()) : '';
+    const locationValue = extractICalField(eventData, 'LOCATION');
+    event.location = locationValue ? decodeICalText(locationValue.trim()) : '';
 
-    const descriptionMatch = eventData.match(/DESCRIPTION:(.+?)(?:\r?\n)/);
-    event.description = descriptionMatch ? decodeICalText(descriptionMatch[1].trim()) : '';
+    const descriptionValue = extractICalField(eventData, 'DESCRIPTION');
+    event.description = descriptionValue ? decodeICalText(descriptionValue.trim()) : '';
 
     const startMatch = eventData.match(/DTSTART(?:;[^:]*)?:([^\r\n]+)/);
     if (!startMatch) return null;
@@ -114,6 +115,18 @@ function parseEvent(eventData) {
     event.uid = uidMatch ? uidMatch[1].trim() : '';
 
     return event;
+}
+
+function extractICalField(eventData, fieldName) {
+    const escapedField = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^${escapedField}(?:;[^:\\r\\n]*)?:(.*(?:\\r?\\n[ \\t].*)*)`, 'mi');
+    const match = eventData.match(pattern);
+    if (!match) return '';
+    return match[1].replace(/\r?\n[ \t]/g, '');
+}
+
+function getClassNameFromSummary(summary) {
+    return (summary || 'Untitled Event').split(',')[0].trim();
 }
 
 function parseICalDate(dateStr) {

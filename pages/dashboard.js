@@ -79,31 +79,26 @@ function applyFiltersAndSort(dueData, filters, hiddenIds, showHidden) {
                 return !isHidden;
             });
 
-            // Year filter
             if (filters.years?.length > 0) {
                 assessments = assessments.filter(a =>
                     filters.years.includes(new Date(a.dueAt).getFullYear())
                 );
             }
 
-            // Term filter
             if (filters.terms?.length > 0) {
                 if (!filters.terms.includes(term.termName)) return { ...course, assessments: [] };
             }
 
-            // Course ID filter
             if (filters.courseIds?.length > 0) {
                 if (!filters.courseIds.includes(course.courseId)) return { ...course, assessments: [] };
             }
 
-            // Course code filter
             if (filters.courseCodes?.length > 0) {
                 const codeMatch = course.courseName.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/);
                 const code = codeMatch ? codeMatch[1] : null;
                 if (!code || !filters.courseCodes.includes(code)) return { ...course, assessments: [] };
             }
 
-            // Sort
             const sortBy = filters.sortBy || 'dueDate';
             const sortDir = filters.sortDir || 'asc';
             assessments = [...assessments].sort((a, b) => {
@@ -137,8 +132,6 @@ const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp }) {
         </span>
     );
 });
-
-// ─── Assessment Card with hide button ─────────────────────────────────────
 
 const AssessmentCard = memo(function AssessmentCard({ assessment, onHide, onUnhide, isHidden }) {
     const urgency = getUrgency(assessment.dueTimestamp);
@@ -193,8 +186,6 @@ const UrgencyLegend = memo(function UrgencyLegend({ urgencyFilter, setUrgencyFil
         </div>
     );
 });
-
-// ─── Filter Sidebar (inline, no separate file import) ─────────────────────
 
 const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersChange, isOpen, onClose }) {
     const allAssessments = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments));
@@ -456,8 +447,6 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-
-
 const UNIVERSITY_CONFIG = [
     {
         label: 'RMIT University',
@@ -497,8 +486,6 @@ function getQuickLinks(canvasBaseUrl) {
         return DEFAULT_QUICK_LINKS;
     }
 }
-
-
 
 const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, onUnhide }) {
     const today = new Date();
@@ -627,126 +614,289 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
     );
 });
 
-// ─── TIMETABLE VIEW ───────────────────────────────────────────────────────────
+// ─── TIMETABLE GRID HELPERS ────────────────────────────────────────────────
 
-const TimetableView = memo(function TimetableView({ timetableEvents, timetableLoading, timetableError, onFetchTimetable }) {
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [selectedDateKey, setSelectedDateKey] = useState(null);
+const TT_START_HOUR = 7;   // 7 AM
+const TT_END_HOUR = 22;    // 10 PM
+const TT_SPAN = TT_END_HOUR - TT_START_HOUR;
 
-    const toDateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    const formatDateLabel = (date) => date.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-    const groupEventsByDate = () => {
-        const grouped = {};
-        timetableEvents.sort((a, b) => new Date(a.start) - new Date(b.start)).forEach((event) => {
-            const date = new Date(event.start);
-            const dateKey = toDateKey(date);
-            if (!grouped[dateKey]) grouped[dateKey] = { label: formatDateLabel(date), events: [] };
-            grouped[dateKey].events.push(event);
-        });
-        return grouped;
+function positionBlock(startStr, endStr) {
+    const parseDecimalHour = (s) => {
+        const d = new Date(s);
+        return d.getHours() + d.getMinutes() / 60;
     };
+    const s = parseDecimalHour(startStr);
+    const e = parseDecimalHour(endStr);
+    const clampedS = Math.max(TT_START_HOUR, Math.min(TT_END_HOUR, s));
+    const clampedE = Math.max(TT_START_HOUR, Math.min(TT_END_HOUR, e));
+    const left = ((clampedS - TT_START_HOUR) / TT_SPAN) * 100;
+    const width = Math.max(0.5, ((clampedE - clampedS) / TT_SPAN) * 100);
+    return { left: `${left}%`, width: `${width}%` };
+}
 
-    const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-    const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+const TT_BLOCK_TONES = 8;
 
-    const handlePrevMonth = () => { setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)); setSelectedDateKey(null); };
-    const handleNextMonth = () => { setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)); setSelectedDateKey(null); };
-    const handleToday = () => { const t = new Date(); setCurrentMonth(t); setSelectedDateKey(toDateKey(t)); };
+function toneIndexForSummary(summary) {
+    const normalized = (summary || 'Untitled Event').replace(/\s+/g, ' ').trim().toLowerCase();
+    let hash = 0;
+    for (let i = 0; i < normalized.length; i++) hash = normalized.charCodeAt(i) + ((hash << 5) - hash);
+    return Math.abs(hash) % TT_BLOCK_TONES;
+}
 
-    const renderCalendarGrid = (groupedEvents) => {
-        const daysInMonth = getDaysInMonth(currentMonth);
-        const firstDay = getFirstDayOfMonth(currentMonth);
-        const days = [];
-        const today = new Date();
-        const isCurrentMonth = today.getFullYear() === currentMonth.getFullYear() && today.getMonth() === currentMonth.getMonth();
-        const todayDate = isCurrentMonth ? today.getDate() : -1;
-        for (let i = 0; i < firstDay; i++) days.push(<div key={`empty-${i}`} className={styles.calEmptyDay}></div>);
-        for (let day = 1; day <= daysInMonth; day++) {
-            const isToday = day === todayDate;
-            const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-            const dayKey = toDateKey(dayDate);
-            const isSelected = selectedDateKey === dayKey;
-            const hasEvents = Boolean(groupedEvents[dayKey]?.events?.length);
-            days.push(
-                <button key={day} type="button" onClick={() => setSelectedDateKey((prev) => (prev === dayKey ? null : dayKey))}
-                    className={`${styles.calDay} ${isToday ? styles.calDayToday : ''} ${isSelected ? styles.calDaySelected : ''} ${hasEvents ? styles.calDayHasEvents : ''}`}
-                    title={formatDateLabel(dayDate)}>
-                    {day}
-                </button>
-            );
+function formatHourLabel(h, use24Hour) {
+    if (use24Hour) return `${String(h).padStart(2, '0')}:00`;
+    if (h === 0 || h === 24) return '12 AM';
+    if (h === 12) return '12 PM';
+    return h < 12 ? `${h} AM` : `${h - 12} PM`;
+}
+
+// ─── TIMETABLE VIEW (horizontal: time on x-axis, days on y-axis) ──────────
+
+const TimetableView = memo(function TimetableView({ timetableEvents, timetableLoading, timetableError }) {
+    const today = new Date();
+    const [weekOffset, setWeekOffset] = useState(0);
+    const [localNow, setLocalNow] = useState(() => new Date());
+    const [selectedClass, setSelectedClass] = useState(null);
+    const [use24Hour, setUse24Hour] = useState(true);
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('fr_tt_time_format');
+            if (saved === '12') setUse24Hour(false);
+            if (saved === '24') setUse24Hour(true);
+        } catch {
+            // Ignore storage issues
         }
-        return days;
-    };
+    }, []);
 
-    const groupedEvents = groupEventsByDate();
-    const visibleDateEntries = selectedDateKey
-        ? [[selectedDateKey, groupedEvents[selectedDateKey] || {
-            label: formatDateLabel(new Date(Number(selectedDateKey.slice(0, 4)), Number(selectedDateKey.slice(5, 7)) - 1, Number(selectedDateKey.slice(8, 10)))),
-            events: [],
-        }]]
-        : Object.entries(groupedEvents);
+    useEffect(() => {
+        try {
+            localStorage.setItem('fr_tt_time_format', use24Hour ? '24' : '12');
+        } catch {
+            // Ignore storage issues
+        }
+    }, [use24Hour]);
+
+    useEffect(() => {
+        const timer = setInterval(() => setLocalNow(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    // Compute Monday of the selected week
+    const weekStart = useMemo(() => {
+        const d = new Date(today);
+        const day = d.getDay(); // 0=Sun
+        const diffToMon = day === 0 ? -6 : 1 - day;
+        d.setDate(d.getDate() + diffToMon + weekOffset * 7);
+        d.setHours(0, 0, 0, 0);
+        return d;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [weekOffset]);
+
+    const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart);
+        d.setDate(weekStart.getDate() + i);
+        return d;
+    }), [weekStart]);
+
+    const toDateKey = (d) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const todayKey = toDateKey(today);
+
+    // Group timetable events by date key
+    const eventsByDate = useMemo(() => {
+        const map = {};
+        timetableEvents.forEach((ev) => {
+            const key = toDateKey(new Date(ev.start));
+            if (!map[key]) map[key] = [];
+            map[key].push(ev);
+        });
+        return map;
+    }, [timetableEvents]);
+
+    const hours = Array.from({ length: TT_SPAN }, (_, i) => TT_START_HOUR + i);
+
+    const weekLabel = (() => {
+        const opts = { day: 'numeric', month: 'short' };
+        const s = weekDays[0].toLocaleDateString('en-AU', opts);
+        const e = weekDays[6].toLocaleDateString('en-AU', { ...opts, year: 'numeric' });
+        return `${s} – ${e}${weekOffset === 0 ? ' (current week)' : ''}`;
+    })();
+
+    const formatLocalTime = (value) => new Date(value).toLocaleTimeString('en-AU', {
+        hour: '2-digit', minute: '2-digit', hour12: !use24Hour,
+    });
+
+    const localNowLabel = localNow.toLocaleTimeString('en-AU', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: !use24Hour,
+    });
+
+    const nowDecimalHour = localNow.getHours() + (localNow.getMinutes() / 60) + (localNow.getSeconds() / 3600);
+    const isNowInTimetableRange = nowDecimalHour >= TT_START_HOUR && nowDecimalHour <= TT_END_HOUR;
+    const nowMarkerPercent = ((Math.max(TT_START_HOUR, Math.min(TT_END_HOUR, nowDecimalHour)) - TT_START_HOUR) / TT_SPAN) * 100;
+
+    const formatLocalDateTime = (value) => new Date(value).toLocaleString('en-AU', {
+        weekday: 'short', day: '2-digit', month: 'short',
+        hour: '2-digit', minute: '2-digit', hour12: !use24Hour,
+    });
 
     return (
         <div className={styles.timetableWrap}>
-            <div className={styles.syncButtonWrap}>
-                <button onClick={onFetchTimetable} disabled={timetableLoading} className={styles.btnSync}>
-                    {timetableLoading ? 'Syncing...' : '🔄 Sync Timetable'}
+            <div className={styles.ttControls}>
+                <span className={styles.ttLocalTime}>
+                    <span className={styles.ttLocalTimeValue}>{localNowLabel}</span>
+                </span>
+                <button
+                    type="button"
+                    className={styles.ttTimeFormatBtn}
+                    onClick={() => setUse24Hour(v => !v)}
+                    aria-label={`Switch to ${use24Hour ? '12-hour' : '24-hour'} time`}
+                >
+                    {use24Hour ? '24h' : '12h'}
                 </button>
             </div>
-            {timetableError && (<div className={styles.errorBanner}><span>⚠️ {timetableError}</span></div>)}
-            {timetableLoading && (<div className={styles.loadingWrap}><span className={styles.spinnerLarge} /><p className={styles.loadingText}>Syncing timetable…</p></div>)}
-            {!timetableLoading && timetableEvents.length > 0 && (
-                <>
-                    <div className={styles.calendarHeaderWrap}>
-                        <div className={styles.calMonthNav}>
-                            <button onClick={handlePrevMonth} className={styles.calNavBtn}>❮</button>
-                            <div className={styles.calMonthLabel}>{currentMonth.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}</div>
-                            <button onClick={handleNextMonth} className={styles.calNavBtn}>❯</button>
-                            <button onClick={handleToday} className={styles.calTodayBtn}>Today</button>
-                        </div>
-                        <div className={styles.miniCalendar}>
-                            <div className={styles.calDayHeaders}>
-                                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((day) => (<div key={day} className={styles.calHeaderDay}>{day}</div>))}
-                            </div>
-                            <div className={styles.calDaysGrid}>{renderCalendarGrid(groupedEvents)}</div>
-                        </div>
-                    </div>
-                    <div className={styles.eventsListWrapper}>
-                        {selectedDateKey && (<p className={styles.selectedDayHint}>Showing classes for {visibleDateEntries[0][1].label}</p>)}
-                        {visibleDateEntries.map(([dateKey, dayGroup]) => (
-                            <div key={dateKey} className={styles.dateGroup}>
-                                <h3 className={styles.dateGroupTitle}>{dayGroup.label}</h3>
-                                <div className={styles.eventsList}>
-                                    {dayGroup.events.map((event, idx) => {
-                                        const startTime = new Date(event.start);
-                                        const endTime = new Date(event.end);
-                                        const durationHours = Math.round((endTime - startTime) / (1000 * 60 * 60) * 10) / 10;
-                                        return (
-                                            <div key={idx} className={styles.eventCard}>
-                                                <div className={styles.eventTimeSection}>
-                                                    <div className={styles.eventStartTime}>{startTime.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
-                                                    <div className={styles.eventDuration}>{durationHours} hr</div>
-                                                </div>
-                                                <div className={styles.eventDetailsSection}>
-                                                    <div className={styles.eventName}>{event.summary}</div>
-                                                    <div className={styles.eventMeta}>{event.location || <span>-</span>}</div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    {dayGroup.events.length === 0 && (<div className={styles.eventEmptyState}>No classes running on this day.</div>)}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </>
+
+            {timetableError && (
+                <div className={styles.errorBanner}><span>⚠️ {timetableError}</span></div>
             )}
+
+            {timetableLoading && (
+                <div className={styles.loadingWrap}>
+                    <span className={styles.spinnerLarge} />
+                    <p className={styles.loadingText}>Syncing timetable…</p>
+                </div>
+            )}
+
             {!timetableLoading && timetableEvents.length === 0 && !timetableError && (
                 <div className={styles.emptyState}>
                     <div className={styles.emptyIcon}>📚</div>
-                    <p className={styles.emptyTitle}>No upcoming classes</p>
-                    <p className={styles.emptySub}>Click Sync Timetable to load your schedule.</p>
+                    <p className={styles.emptyTitle}>No timetable events found</p>
+                    <p className={styles.emptySub}>No timetable events are available for this account.</p>
+                </div>
+            )}
+
+            {!timetableLoading && timetableEvents.length > 0 && (
+                <div className={styles.ttOuter}>
+                    {/* Week navigator */}
+                    <div className={styles.ttWeekNav}>
+                        <button className={styles.ttNavBtn} onClick={() => setWeekOffset(o => o - 1)} aria-label="Previous week">‹</button>
+                        <span className={styles.ttWeekLabel}>{weekLabel}</span>
+                        <button className={styles.ttNavBtn} onClick={() => setWeekOffset(o => o + 1)} aria-label="Next week">›</button>
+                        {weekOffset !== 0 && (
+                            <button className={styles.ttTodayBtn} onClick={() => setWeekOffset(0)}>Today</button>
+                        )}
+                    </div>
+
+                    {/* Horizontally scrollable grid */}
+                    <div className={styles.ttScrollArea}>
+                        <div className={styles.ttGrid}>
+
+                            {/* ── Top-left corner ── */}
+                            <div className={styles.ttCorner} />
+
+                            {/* ── Hour headers ── */}
+                            <div className={styles.ttHourRow}>
+                                {hours.map((h) => (
+                                    <div key={h} className={styles.ttHourCell}>
+                                        {formatHourLabel(h, use24Hour)}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* ── Day rows ── */}
+                            {weekDays.map((day) => {
+                                const key = toDateKey(day);
+                                const isToday = key === todayKey;
+                                const dayEvents = eventsByDate[key] || [];
+
+                                return (
+                                    <React.Fragment key={key}>
+                                        {/* Day label cell */}
+                                        <div className={`${styles.ttDayLabel} ${isToday ? styles.ttDayLabelToday : ''}`}>
+                                            <span className={styles.ttDayName}>
+                                                {day.toLocaleDateString('en-AU', { weekday: 'short' })}
+                                            </span>
+                                            <span className={styles.ttDayDate}>
+                                                {day.toLocaleDateString('en-AU', { day: 'numeric', month: 'numeric' })}
+                                            </span>
+                                        </div>
+
+                                        {/* Timeline cell */}
+                                        <div className={`${styles.ttTimeline} ${isToday ? styles.ttTimelineToday : ''}`}>
+                                            {/* Hour divider lines */}
+                                            {hours.map((h) => (
+                                                <div
+                                                    key={h}
+                                                    className={styles.ttHourDivider}
+                                                    style={{
+                                                        left: `${((h - TT_START_HOUR) / TT_SPAN) * 100}%`,
+                                                        width: `${(1 / TT_SPAN) * 100}%`,
+                                                    }}
+                                                />
+                                            ))}
+
+                                            {isToday && isNowInTimetableRange && (
+                                                <div className={styles.ttNowMarker} style={{ left: `${nowMarkerPercent}%` }} aria-hidden="true" />
+                                            )}
+
+                                            {/* Event blocks */}
+                                            {dayEvents.map((ev, idx) => {
+                                                const pos = positionBlock(ev.start, ev.end);
+                                                const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                                const toneIndex = toneIndexForSummary(classKey);
+                                                const startFmt = formatLocalTime(ev.start);
+                                                const endFmt = formatLocalTime(ev.end);
+                                                const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === `${key}-${idx}`;
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        className={`${styles.ttBlock} ${styles[`ttBlockTone${toneIndex}`]} ${isSelected ? styles.ttBlockActive : ''}`}
+                                                        style={{ left: pos.left, width: pos.width }}
+                                                        title={`${ev.summary}\n${startFmt}–${endFmt}${ev.location ? '\n' + ev.location : ''}`}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey: `${key}-${idx}` })}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                setSelectedClass({ ...ev, toneIndex, eventKey: `${key}-${idx}` });
+                                                            }
+                                                        }}
+                                                    >
+                                                        <span className={styles.ttBlockName}>{ev.summary}</span>
+                                                        {ev.location && (
+                                                            <span className={styles.ttBlockLoc}>{ev.location}</span>
+                                                        )}
+                                                        <span className={styles.ttBlockTime}>{startFmt} – {endFmt}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className={styles.eventsListWrapper}>
+                        {selectedClass ? (
+                            <div className={styles.eventCard}>
+                                <div className={styles.eventTimeSection}>
+                                    <span className={styles.eventStartTime}>{formatLocalTime(selectedClass.start)}</span>
+                                    <span className={styles.eventDuration}>{formatLocalTime(selectedClass.end)}</span>
+                                </div>
+                                <div className={styles.eventDetailsSection}>
+                                    <span className={styles.eventName}>{selectedClass.className || selectedClass.summary}</span>
+                                    <span className={styles.eventMeta}>{selectedClass.summary}</span>
+                                    <span className={styles.eventMeta}>{formatLocalDateTime(selectedClass.start)} - {formatLocalDateTime(selectedClass.end)}</span>
+                                    {selectedClass.location && <span className={styles.eventMeta}>Location: {selectedClass.location}</span>}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={styles.eventEmptyState}>Click a class block in the timetable to view details.</div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
@@ -895,18 +1045,15 @@ export default function Dashboard() {
     const [showSettings, setShowSettings] = useState(false);
     const [showWelcome, setShowWelcome] = useState(false);
 
-    // Sidebar state
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [filters, setFilters] = useState({
         years: [], terms: [], courseIds: [], courseCodes: [],
         sortBy: 'dueDate', sortDir: 'asc'
     });
 
-    // Hidden assessments state
     const [hiddenIds, setHiddenIds] = useState(new Set());
     const [showHidden, setShowHidden] = useState(false);
 
-    // Load hidden IDs from localStorage on mount
     useEffect(() => {
         setHiddenIds(loadHidden());
     }, []);
@@ -934,7 +1081,6 @@ export default function Dashboard() {
         saveHidden(new Set());
     }, []);
 
-    // Auth check
     useEffect(() => {
         fetch('/api/auth/session')
             .then((r) => r.json())
@@ -977,12 +1123,9 @@ export default function Dashboard() {
             const response = await fetch('/api/timetable');
             if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch timetable`);
             const data = await response.json();
-            const now = new Date();
-            const futureEvents = data.events
-                .filter((event) => new Date(event.end) > now)
-                .sort((a, b) => new Date(a.start) - new Date(b.start))
-                .slice(0, 20);
-            setTimetableEvents(futureEvents);
+            const sortedEvents = data.events
+                .sort((a, b) => new Date(a.start) - new Date(b.start));
+            setTimetableEvents(sortedEvents);
         } catch (err) { setTimetableError(err.message || 'Failed to sync timetable'); setTimetableEvents([]); }
         finally { setTimetableLoading(false); }
     }, []);
@@ -994,11 +1137,9 @@ export default function Dashboard() {
         router.push('/');
     };
 
-    // Active filter count for badge
     const activeFilterCount = (filters.years?.length || 0) + (filters.terms?.length || 0) +
         (filters.courseIds?.length || 0) + (filters.courseCodes?.length || 0);
 
-    // ADD after the activeFilterCount line:
     const quickLinks = useMemo(() => getQuickLinks(user?.canvasBaseUrl), [user?.canvasBaseUrl]);
 
     if (!authChecked) {
@@ -1069,7 +1210,6 @@ export default function Dashboard() {
             )}
 
             <main className={styles.main}>
-                {/* Search panel */}
                 <section className={styles.controlPanel}>
                     <form className={styles.searchForm} onSubmit={handleSubmit}>
                         <div className={styles.inputWrapper}>
@@ -1086,7 +1226,6 @@ export default function Dashboard() {
                     </form>
                 </section>
 
-                {/* Tabs */}
                 <div className={dashStyles.tabsAndFilter}>
                     <div className={styles.tabRow}>
                         <button className={`${styles.tabBtn} ${activeTab === 'list' ? styles.tabBtnActive : ''}`}
@@ -1104,7 +1243,6 @@ export default function Dashboard() {
                         </button>
                     </div>
 
-                    {/* Filter button — only show for list/calendar/hidden tabs */}
                     {isListOrCalendar && (
                         <button
                             className={`${dashStyles.filterToggleBtn} ${activeFilterCount > 0 ? dashStyles.filterToggleBtnActive : ''}`}
@@ -1124,7 +1262,6 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* Content area with optional sidebar */}
                 <div className={`${dashStyles.contentWithSidebar} ${sidebarOpen && isListOrCalendar ? dashStyles.contentWithSidebarOpen : ''}`}>
                     {isListOrCalendar && (
                         <FilterSidebar
@@ -1180,7 +1317,6 @@ export default function Dashboard() {
                                 timetableEvents={timetableEvents}
                                 timetableLoading={timetableLoading}
                                 timetableError={timetableError}
-                                onFetchTimetable={fetchTimetableData}
                             />
                         )}
                     </div>
