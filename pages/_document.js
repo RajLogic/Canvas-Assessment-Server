@@ -5,7 +5,7 @@ export default function Document() {
         <Html lang="en">
             <Head>
                 <meta charSet="utf-8" />
-                <meta name="description" content="Canvas Assessment Tracker — upcoming assessments at a glance" />
+                <meta name="description" content="Final Reckoning — upcoming assessments at a glance" />
                 <link rel="icon" href="/hell.png" />
 
             </Head>

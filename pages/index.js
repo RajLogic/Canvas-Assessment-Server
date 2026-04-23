@@ -145,7 +145,7 @@ export default function Landing() {
                         <span className={styles.dot} style={{ background: '#ef4444' }} />
                         <span className={styles.dot} style={{ background: '#f59e0b' }} />
                         <span className={styles.dot} style={{ background: '#22c55e' }} />
-                        <span className={styles.previewUrl}>canvas-tracker.vercel.app/dashboard</span>
+                        <span className={styles.previewUrl}>final-reckoning.vercel.app/dashboard</span>
                     </div>
                     <div className={styles.previewContent}>
                         <MockDashboard />
