@@ -1,13 +1,31 @@
 import { useTheme } from '../lib/ThemeContext';
+import { useEffect, useState } from 'react';
 import styles from '../styles/ThemeToggle.module.css';
 
 export default function ThemeToggle() {
     const { theme, themeMode, cycleThemeMode } = useTheme();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setMounted(true);
+    }, []);
+
+    if (!mounted) return null; // 🔥 prevents hydration mismatch
+
     const isDark = theme === 'dark';
 
-    const modeLabel = themeMode === 'system' ? 'System' : (themeMode === 'dark' ? 'Dark' : 'Light');
-    const modeIcon = themeMode === 'system' ? '🖥️' : (isDark ? '🌙' : '☀️');
-    const nextModeLabel = themeMode === 'light' ? 'Dark' : (themeMode === 'dark' ? 'System' : 'Light');
+    const modeLabel =
+        themeMode === 'system' ? 'System' :
+            themeMode === 'dark' ? 'Dark' : 'Light';
+
+    const modeIcon =
+        themeMode === 'system' ? '🖥️' :
+            isDark ? '🌙' : '☀️';
+
+    const nextModeLabel =
+        themeMode === 'light' ? 'Dark' :
+            themeMode === 'dark' ? 'System' : 'Light';
 
     return (
         <button
