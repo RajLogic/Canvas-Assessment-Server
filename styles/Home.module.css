@@ -1485,8 +1485,8 @@
     border-radius: var(--radius);
     padding: 1rem;
     display: flex;
-    gap: 1.25rem;
-    align-items: center;
+    gap: 0;
+    align-items: stretch;
     box-shadow: var(--shadow-sm);
 }
 
@@ -1868,44 +1868,100 @@
     z-index: 7;
 }
 
-.ttBlockTone0 {
-    background: color-mix(in srgb, var(--accent) 74%, var(--bg-card));
-    border-color: color-mix(in srgb, var(--accent) 48%, var(--border-strong));
+[data-theme="light"] .ttBlockTone0 {
+    background: #AFA9EC;
+    border-color: #7F77DD;
+    color: #26215C;
 }
 
-.ttBlockTone1 {
-    background: color-mix(in srgb, var(--accent-warm) 72%, var(--bg-card));
-    border-color: color-mix(in srgb, var(--accent-warm) 46%, var(--border-strong));
+[data-theme="light"] .ttBlockTone1 {
+    background: #5DCAA5;
+    border-color: #1D9E75;
+    color: #04342C;
 }
 
-.ttBlockTone2 {
-    background: color-mix(in srgb, var(--warning-stripe) 68%, var(--bg-card));
-    border-color: color-mix(in srgb, var(--warning-stripe) 44%, var(--border-strong));
+[data-theme="light"] .ttBlockTone2 {
+    background: #F0997B;
+    border-color: #D85A30;
+    color: #4A1B0C;
 }
 
-.ttBlockTone3 {
-    background: color-mix(in srgb, var(--safe-stripe) 66%, var(--bg-card));
-    border-color: color-mix(in srgb, var(--safe-stripe) 42%, var(--border-strong));
+[data-theme="light"] .ttBlockTone3 {
+    background: #85B7EB;
+    border-color: #378ADD;
+    color: #042C53;
 }
 
-.ttBlockTone4 {
-    background: color-mix(in srgb, var(--urgent-stripe) 66%, var(--bg-card));
-    border-color: color-mix(in srgb, var(--urgent-stripe) 42%, var(--border-strong));
+[data-theme="light"] .ttBlockTone4 {
+    background: #ED93B1;
+    border-color: #D4537E;
+    color: #4B1528;
 }
 
-.ttBlockTone5 {
-    background: color-mix(in srgb, var(--text-secondary) 62%, var(--bg-card));
-    border-color: color-mix(in srgb, var(--text-secondary) 40%, var(--border-strong));
+[data-theme="light"] .ttBlockTone5 {
+    background: #97C459;
+    border-color: #639922;
+    color: #173404;
 }
 
-.ttBlockTone6 {
-    background: color-mix(in srgb, var(--accent-hover) 72%, var(--bg-card));
-    border-color: color-mix(in srgb, var(--accent-hover) 46%, var(--border-strong));
+[data-theme="light"] .ttBlockTone6 {
+    background: #FAC775;
+    border-color: #EF9F27;
+    color: #412402;
 }
 
-.ttBlockTone7 {
-    background: color-mix(in srgb, var(--accent) 64%, var(--safe-stripe));
-    border-color: color-mix(in srgb, var(--accent) 56%, var(--safe-stripe));
+[data-theme="light"] .ttBlockTone7 {
+    background: #9FE1CB;
+    border-color: #0F6E56;
+    color: #04342C;
+}
+
+[data-theme="dark"] .ttBlockTone0 {
+    background: #3C3489;
+    border-color: #534AB7;
+    color: #CECBF6;
+}
+
+[data-theme="dark"] .ttBlockTone1 {
+    background: #0F6E56;
+    border-color: #1D9E75;
+    color: #9FE1CB;
+}
+
+[data-theme="dark"] .ttBlockTone2 {
+    background: #993C1D;
+    border-color: #D85A30;
+    color: #F5C4B3;
+}
+
+[data-theme="dark"] .ttBlockTone3 {
+    background: #185FA5;
+    border-color: #378ADD;
+    color: #B5D4F4;
+}
+
+[data-theme="dark"] .ttBlockTone4 {
+    background: #993556;
+    border-color: #D4537E;
+    color: #F4C0D1;
+}
+
+[data-theme="dark"] .ttBlockTone5 {
+    background: #3B6D11;
+    border-color: #639922;
+    color: #C0DD97;
+}
+
+[data-theme="dark"] .ttBlockTone6 {
+    background: #854F0B;
+    border-color: #EF9F27;
+    color: #FAC775;
+}
+
+[data-theme="dark"] .ttBlockTone7 {
+    background: #085041;
+    border-color: #1D9E75;
+    color: #9FE1CB;
 }
 
 .ttBlock:hover {
@@ -1962,4 +2018,28 @@
     .ttWeekLabel {
         font-size: 0.82rem;
     }
+}
+
+.ttDetailStripe {
+    width: 4px;
+    align-self: stretch;
+    border-radius: 3px;
+    flex-shrink: 0;
+    margin-right: 0.875rem;
+}
+
+.ttDetailLabel {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.2rem;
+}
+
+.ttDetailValue {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.5;
 }
