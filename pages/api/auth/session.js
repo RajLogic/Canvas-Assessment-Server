@@ -1,5 +1,6 @@
 import { getSessionIdFromRequest, clearSessionCookie } from '../../../lib/auth.js';
 import { deleteSession, getSession } from '../../../lib/db.js';
+import { DEFAULT_CANVAS_BASE_URL, normalizeCanvasBaseUrl } from '../../../lib/canvas-url.js';
 
 export default async function handler(req, res) {
     if (req.method === 'POST') {
@@ -18,7 +19,9 @@ export default async function handler(req, res) {
             const session = await getSession(sessionId);
             if (!session) return res.status(401).json({ authenticated: false });
 
-            const envBaseUrl = process.env.CANVAS_BASE_URL || 'https://rmit.instructure.com/api/v1/';
+            const envBaseUrl = normalizeCanvasBaseUrl(process.env.CANVAS_BASE_URL, {
+                fallback: DEFAULT_CANVAS_BASE_URL,
+            });
 
             return res.status(200).json({
                 authenticated: true,

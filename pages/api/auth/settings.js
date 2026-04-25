@@ -1,33 +1,6 @@
 import { getAuthUser } from '../../../lib/middleware.js';
 import { updateUserSettings } from '../../../lib/db.js';
-
-// Known Canvas LMS university base URLs for validation hint
-const KNOWN_CANVAS_PATTERNS = [
-    'instructure.com',
-    'canvas.edu',
-    'canvaslms.com',
-];
-
-function validateCanvasBaseUrl(url) {
-    if (!url) return null; // empty = use default, that's fine
-    try {
-        const parsed = new URL(url);
-        if (!['http:', 'https:'].includes(parsed.protocol)) {
-            return 'Canvas URL must start with https://';
-        }
-        if (parsed.protocol !== 'https:') {
-            return 'Canvas URL must use HTTPS for security.';
-        }
-        // Must end in /api/v1/ or /api/v1 so we can append paths cleanly
-        const path = parsed.pathname;
-        if (!path.includes('/api/v1')) {
-            return 'Canvas URL must include /api/v1/ (e.g. https://uni.instructure.com/api/v1/)';
-        }
-        return null; // valid
-    } catch {
-        return 'Canvas URL is not a valid URL.';
-    }
-}
+import { normalizeCanvasBaseUrl, validateCanvasBaseUrl } from '../../../lib/canvas-url.js';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST' && req.method !== 'PUT') {
@@ -73,11 +46,9 @@ export default async function handler(req, res) {
             updatePayload.timetableLink = timetableLink || null;
         }
         if ('canvasBaseUrl' in (req.body || {})) {
-            // Normalise: ensure trailing slash before /api/v1
             let normalised = canvasBaseUrl || null;
             if (normalised) {
-                normalised = normalised.trim();
-                if (!normalised.endsWith('/')) normalised += '/';
+                normalised = normalizeCanvasBaseUrl(normalised);
             }
             updatePayload.canvasBaseUrl = normalised;
         }

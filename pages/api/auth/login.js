@@ -1,9 +1,31 @@
 import { verifyPassword, generateSessionId, setSessionCookie, getSessionExpiresAt } from '../../../lib/auth.js';
 import { getUserByEmail, getUserByUsername, createSession, initializeDatabase } from '../../../lib/db.js';
+import { getRequestIp, setRateLimitHeaders, takeRateLimitToken } from '../../../lib/rate-limit.js';
+
+const LOGIN_LIMIT = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method not allowed' });
+    }
+
+    const ip = getRequestIp(req);
+    const limiter = takeRateLimitToken({
+        key: `login:${ip}`,
+        limit: LOGIN_LIMIT,
+        windowMs: LOGIN_WINDOW_MS,
+    });
+    setRateLimitHeaders(res, {
+        limit: LOGIN_LIMIT,
+        remaining: limiter.remaining,
+        retryAfterSec: limiter.retryAfterSec,
+    });
+
+    if (!limiter.allowed) {
+        return res.status(429).json({
+            message: `Too many login attempts. Try again in ${limiter.retryAfterSec} seconds.`,
+        });
     }
 
     try {

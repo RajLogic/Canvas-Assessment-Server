@@ -743,6 +743,71 @@
     margin-bottom: 0.5rem;
 }
 
+.shortcutList {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.shortcutRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+}
+
+.shortcutKey {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    padding: 0.2rem 0.45rem;
+    color: var(--text-primary);
+}
+
+.shortcutAction {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.detailMetaGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.detailMetaItem {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.18rem 0.55rem;
+}
+
+.detailDescription {
+    font-size: 0.84rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 0.95rem;
+}
+
+.detailActions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
 @media (max-width: 900px) {
     .contentWithSidebar {
         flex-direction: column;

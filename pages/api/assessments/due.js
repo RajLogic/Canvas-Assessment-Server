@@ -1,18 +1,17 @@
 import { getAuthUser } from '../../../lib/middleware.js';
+import { DEFAULT_CANVAS_BASE_URL, normalizeCanvasBaseUrl } from '../../../lib/canvas-url.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cacheStore = globalThis.__canvasDueCache || new Map();
 globalThis.__canvasDueCache = cacheStore;
 
-const ENV_BASE_URL = (() => {
-    const raw = process.env.CANVAS_BASE_URL || 'https://rmit.instructure.com/api/v1/';
-    return raw.endsWith('/') ? raw : `${raw}/`;
-})();
+const ENV_BASE_URL = normalizeCanvasBaseUrl(process.env.CANVAS_BASE_URL, {
+    fallback: DEFAULT_CANVAS_BASE_URL,
+});
 
 function resolveBaseUrl(user) {
     // Priority: per-user setting → env var default
-    const raw = user?.canvasBaseUrl || ENV_BASE_URL;
-    return raw.endsWith('/') ? raw : `${raw}/`;
+    return normalizeCanvasBaseUrl(user?.canvasBaseUrl, { fallback: ENV_BASE_URL });
 }
 
 function getCacheKey(userId, baseUrl, termFilter, onlyActive) {
@@ -99,7 +98,7 @@ export default async function handler(req, res) {
         const assignmentResults = await Promise.allSettled(
             courses.map(async (course) => {
                 const assignments = await fetchPaginated(
-                    `${canvasBaseUrl}courses/${course.id}/assignments?per_page=100`,
+                    `${canvasBaseUrl}courses/${course.id}/assignments?per_page=100&include[]=submission`,
                     apiToken
                 );
                 return { course, assignments };
@@ -119,6 +118,13 @@ export default async function handler(req, res) {
                             id: a.id, name: a.name, dueAt: a.due_at,
                             dueTimestamp: dueAt.getTime(), htmlUrl: a.html_url,
                             pointsPossible: a.points_possible, courseId: course.id,
+                            hasSubmitted: Boolean(a.has_submitted_submissions),
+                            grade: a?.submission?.grade ?? null,
+                            score: a?.submission?.score ?? null,
+                            submittedAt: a?.submission?.submitted_at ?? null,
+                            description: a?.description ?? null,
+                            rubricUrl: a?.html_url ? `${a.html_url}#rubric` : null,
+                            submissionTypes: Array.isArray(a?.submission_types) ? a.submission_types : [],
                             courseName: course.name, termName: term,
                         };
                     })

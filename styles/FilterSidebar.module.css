@@ -211,14 +211,23 @@
 
 .courseRow {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: space-between;
     gap: 0.5rem;
-    cursor: pointer;
     padding: 0.125rem 0;
 }
 
 .courseRow:hover .courseLabel {
     color: var(--text-primary);
+}
+
+.courseFilterLabel {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
 }
 
 .checkbox {
@@ -235,6 +244,24 @@
     color: var(--text-secondary);
     font-weight: 500;
     line-height: 1.45;
+}
+
+.courseHideBtn {
+    border: 1px solid var(--border-strong);
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+    border-radius: 7px;
+    padding: 0.16rem 0.45rem;
+    font-size: 0.64rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.courseHideBtn:hover {
+    border-color: var(--error-border);
+    background: var(--error-bg);
+    color: var(--error-text);
 }
 
 /* Mobile: slide-in drawer */

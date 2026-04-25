@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
 import dashStyles from '../styles/Dashboard.module.css';
 import sidebarStyles from '../styles/FilterSidebar.module.css';
 import Image from 'next/image';
+import { normalizeCanvasBaseUrl } from '../lib/canvas-url.js';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function SiteLogo({ size = 32 }) {
@@ -27,13 +28,37 @@ function getUrgency(dueTimestamp) {
     return 'safe';
 }
 
+function formatCountdown(msLeft) {
+    const totalMinutes = Math.max(0, Math.floor(msLeft / (1000 * 60)));
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutes = totalMinutes % 60;
+
+    if (days > 0) {
+        return `${days}d ${hours}h left`;
+    }
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m left`;
+    }
+
+    return `${minutes}m left`;
+}
+
 function getDaysLeftLabel(dueTimestamp) {
+    const now = Date.now();
+    const diff = dueTimestamp - now;
     const msPerDay = 1000 * 60 * 60 * 24;
-    const daysLeft = Math.ceil((dueTimestamp - Date.now()) / msPerDay);
+    const daysLeft = Math.ceil(diff / msPerDay);
     if (daysLeft < 0) {
         const overdueDays = Math.abs(daysLeft);
         return `${overdueDays} day${overdueDays !== 1 ? 's' : ''} overdue`;
     }
+
+    if (diff > 0 && diff <= 48 * 60 * 60 * 1000) {
+        return formatCountdown(diff);
+    }
+
     if (daysLeft === 0) return 'Due today';
     return `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`;
 }
@@ -53,6 +78,8 @@ function formatTime(dateString) {
 
 // ─── Hidden assessments storage ────────────────────────────────────────────
 const HIDDEN_KEY = 'fr_hidden_assessments';
+const REMINDER_HOURS_KEY = 'fr_reminder_hours';
+const REMINDED_ITEMS_KEY = 'fr_reminded_items';
 
 function loadHidden() {
     try {
@@ -65,6 +92,46 @@ function saveHidden(set) {
     try {
         localStorage.setItem(HIDDEN_KEY, JSON.stringify([...set]));
     } catch { /* ignore */ }
+}
+
+function loadReminderHours() {
+    try {
+        const raw = localStorage.getItem(REMINDER_HOURS_KEY);
+        const parsed = Number(raw);
+        if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 168) {
+            return parsed;
+        }
+    } catch {
+        // Ignore storage issues.
+    }
+    return 36;
+}
+
+function saveReminderHours(value) {
+    try {
+        localStorage.setItem(REMINDER_HOURS_KEY, String(value));
+    } catch {
+        // Ignore storage issues.
+    }
+}
+
+function loadRemindedMap() {
+    try {
+        const raw = localStorage.getItem(REMINDED_ITEMS_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+        // Ignore storage issues.
+    }
+    return {};
+}
+
+function saveRemindedMap(map) {
+    try {
+        localStorage.setItem(REMINDED_ITEMS_KEY, JSON.stringify(map));
+    } catch {
+        // Ignore storage issues.
+    }
 }
 
 // ─── Filter / Sort logic ───────────────────────────────────────────────────
@@ -123,7 +190,8 @@ function applyFiltersAndSort(dueData, filters, hiddenIds, showHidden) {
 
 // ─── Shared sub-components ─────────────────────────────────────────────────
 
-const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp }) {
+const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp, nowTick }) {
+    void nowTick;
     const urgency = getUrgency(dueTimestamp);
     const label = getDaysLeftLabel(dueTimestamp);
     return (
@@ -133,27 +201,34 @@ const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp }) {
     );
 });
 
-const AssessmentCard = memo(function AssessmentCard({ assessment, onHide, onUnhide, isHidden }) {
+const AssessmentCard = memo(function AssessmentCard({ assessment, onHide, onUnhide, onOpenDetails, isHidden, nowTick }) {
+    void nowTick;
     const urgency = getUrgency(assessment.dueTimestamp);
     return (
         <li className={`${styles.assessmentItem} ${styles[`item_${isHidden ? 'safe' : urgency}`]} ${isHidden ? dashStyles.hiddenItem : ''}`}>
             <div className={styles.assessmentLeft}>
                 <div className={styles.urgencyStripe} data-urgency={isHidden ? 'safe' : urgency} />
                 <div className={styles.assessmentContent}>
-                    <a href={assessment.htmlUrl} target="_blank" rel="noopener noreferrer" className={styles.assessmentName}>
+                    <button className={styles.assessmentNameBtn} onClick={() => onOpenDetails(assessment)}>
                         {assessment.name}
-                    </a>
+                    </button>
                     <div className={styles.assessmentMeta}>
                         <span className={styles.dueDate}>📅 {formatShortDate(assessment.dueAt)}</span>
                         {assessment.pointsPossible != null && (
                             <span className={styles.points}>⭐ {assessment.pointsPossible} pts</span>
+                        )}
+                        {assessment.score != null && (
+                            <span className={styles.gradeBadge}>🏁 {assessment.score}{assessment.pointsPossible != null ? `/${assessment.pointsPossible}` : ''}</span>
+                        )}
+                        {assessment.hasSubmitted && (
+                            <span className={styles.submittedBadge}>✅ Submitted</span>
                         )}
                         {isHidden && <span className={dashStyles.hiddenTag}>Hidden</span>}
                     </div>
                 </div>
             </div>
             <div className={dashStyles.cardActions}>
-                {!isHidden && <UrgencyBadge dueTimestamp={assessment.dueTimestamp} />}
+                {!isHidden && <UrgencyBadge dueTimestamp={assessment.dueTimestamp} nowTick={nowTick} />}
                 <button
                     className={isHidden ? dashStyles.unhideBtn : dashStyles.hideBtn}
                     onClick={() => isHidden ? onUnhide(assessment.id) : onHide(assessment.id)}
@@ -187,7 +262,7 @@ const UrgencyLegend = memo(function UrgencyLegend({ urgencyFilter, setUrgencyFil
     );
 });
 
-const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersChange, isOpen, onClose }) {
+const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersChange, isOpen, onClose, onHideCourse }) {
     const allAssessments = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments));
 
     const years = [...new Set(allAssessments.map(a => new Date(a.dueAt).getFullYear()))].sort((a, b) => b - a);
@@ -300,12 +375,17 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
                             </h3>
                             <div className={sidebarStyles.courseList}>
                                 {courses.map(c => (
-                                    <label key={c.id} className={sidebarStyles.courseRow}>
-                                        <input type="checkbox" className={sidebarStyles.checkbox}
-                                            checked={filters.courseIds?.includes(c.id) || false}
-                                            onChange={() => toggle('courseIds', c.id)} />
-                                        <span className={sidebarStyles.courseLabel}>{c.name}</span>
-                                    </label>
+                                    <div key={c.id} className={sidebarStyles.courseRow}>
+                                        <label className={sidebarStyles.courseFilterLabel}>
+                                            <input type="checkbox" className={sidebarStyles.checkbox}
+                                                checked={filters.courseIds?.includes(c.id) || false}
+                                                onChange={() => toggle('courseIds', c.id)} />
+                                            <span className={sidebarStyles.courseLabel}>{c.name}</span>
+                                        </label>
+                                        <button className={sidebarStyles.courseHideBtn} onClick={() => onHideCourse(c.id)}>
+                                            Hide all
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
                         </section>
@@ -319,9 +399,10 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
 // ─── LIST VIEW ─────────────────────────────────────────────────────────────
 
 const ListView = memo(function ListView({
-    dueData, urgencyFilter, setUrgencyFilter, filters, hiddenIds, onHide, onUnhide, showHidden
+    dueData, urgencyFilter, setUrgencyFilter, filters, hiddenIds, onHide, onUnhide, onOpenDetails, showHidden, nowTick
 }) {
     const filteredTerms = useMemo(() => {
+        void nowTick;
         const base = applyFiltersAndSort(dueData, filters, hiddenIds, showHidden);
         return base.map(term => ({
             ...term,
@@ -332,11 +413,14 @@ const ListView = memo(function ListView({
                 ),
             })).filter(c => c.assessments.length > 0),
         })).filter(t => t.courses.length > 0);
-    }, [dueData, filters, hiddenIds, urgencyFilter, showHidden]);
+    }, [dueData, filters, hiddenIds, urgencyFilter, showHidden, nowTick]);
 
     const allVisible = filteredTerms.flatMap(t => t.courses.flatMap(c => c.assessments));
-    const allRaw = useMemo(() => applyFiltersAndSort(dueData, { ...filters, sortBy: 'dueDate', sortDir: 'asc' }, hiddenIds, showHidden)
-        .flatMap(t => t.courses.flatMap(c => c.assessments)), [dueData, filters, hiddenIds, showHidden]);
+    const allRaw = useMemo(() => {
+        void nowTick;
+        return applyFiltersAndSort(dueData, { ...filters, sortBy: 'dueDate', sortDir: 'asc' }, hiddenIds, showHidden)
+            .flatMap(t => t.courses.flatMap(c => c.assessments));
+    }, [dueData, filters, hiddenIds, showHidden, nowTick]);
 
     const urgentCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'urgent').length;
     const warningCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'warning').length;
@@ -386,10 +470,12 @@ const ListView = memo(function ListView({
 
             {filteredTerms.length === 0 ? (
                 <div className={styles.emptyState}>
-                    <div className={styles.emptyIcon}>📭</div>
-                    <p className={styles.emptyTitle}>No assessments found</p>
+                    <div className={styles.emptyIcon}>{showHidden ? '📭' : '🎉'}</div>
+                    <p className={styles.emptyTitle}>{showHidden ? 'No assessments found' : 'You are all caught up'}</p>
                     <p className={styles.emptySub}>
-                        {urgencyFilter !== 'all' ? 'Try a different urgency filter.' : 'Try adjusting the filters in the sidebar.'}
+                        {showHidden
+                            ? (urgencyFilter !== 'all' ? 'Try a different urgency filter.' : 'Try adjusting the filters in the sidebar.')
+                            : 'No upcoming assessments right now. Enjoy the breather.'}
                     </p>
                 </div>
             ) : (
@@ -427,6 +513,8 @@ const ListView = memo(function ListView({
                                                     isHidden={showHidden}
                                                     onHide={onHide}
                                                     onUnhide={onUnhide}
+                                                    onOpenDetails={onOpenDetails}
+                                                    nowTick={nowTick}
                                                 />
                                             ))}
                                         </ul>
@@ -476,18 +564,20 @@ const DEFAULT_QUICK_LINKS = [
 
 function getQuickLinks(canvasBaseUrl) {
     if (!canvasBaseUrl) return DEFAULT_QUICK_LINKS;
-    const normalised = canvasBaseUrl.toLowerCase().replace(/\/$/, '');
+    const normalised = normalizeCanvasBaseUrl(canvasBaseUrl).toLowerCase().replace(/\/$/, '');
     const match = UNIVERSITY_CONFIG.find(u => u.url.toLowerCase().replace(/\/$/, '') === normalised);
     if (match) return [...match.links, GITHUB_LINK];
     try {
-        const parsed = new URL(canvasBaseUrl);
+        const parsed = new URL(normalised);
         return [{ label: 'Canvas', href: `${parsed.protocol}//${parsed.hostname}/` }, GITHUB_LINK];
     } catch {
         return DEFAULT_QUICK_LINKS;
     }
 }
 
-const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, onUnhide }) {
+const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, onUnhide, onOpenDetails, nowTick }) {
+    void onUnhide;
+    void nowTick;
     const today = new Date();
     const [viewYear, setViewYear] = useState(today.getFullYear());
     const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -592,7 +682,7 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                     <li key={a.id} className={`${styles.calDetailItem} ${styles[`calDetailItem_${urg}`]}`}>
                                         <div className={styles.calDetailStripe} data-urgency={urg} />
                                         <div className={styles.calDetailContent}>
-                                            <a href={a.htmlUrl} target="_blank" rel="noopener noreferrer" className={styles.calDetailName}>{a.name}</a>
+                                            <button className={styles.calDetailNameBtn} onClick={() => onOpenDetails(a)}>{a.name}</button>
                                             <div className={styles.calDetailMeta}>
                                                 <span className={styles.calDetailCourse}>{a.courseName}</span>
                                                 <span className={styles.calDetailTime}>🕐 {formatShortDate(a.dueAt)}</span>
@@ -600,7 +690,7 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                             </div>
                                         </div>
                                         <div className={dashStyles.cardActions}>
-                                            <UrgencyBadge dueTimestamp={a.dueTimestamp} />
+                                            <UrgencyBadge dueTimestamp={a.dueTimestamp} nowTick={nowTick} />
                                             <button className={dashStyles.hideBtn} onClick={() => onHide(a.id)} title="Hide">✕</button>
                                         </div>
                                     </li>
@@ -955,7 +1045,15 @@ const UNIVERSITIES = [
     { label: 'Custom / Other university', url: '' },
 ];
 
-function SettingsModal({ user, onClose, onSaved }) {
+function SettingsModal({
+    user,
+    onClose,
+    onSaved,
+    reminderHours,
+    onReminderHoursChange,
+    notificationPermission,
+    onEnableNotifications,
+}) {
     const defaultEnvUrl = 'https://rmit.instructure.com/api/v1/';
     const savedUrl = user?.canvasBaseUrl || defaultEnvUrl;
     const matchedPreset = UNIVERSITIES.find(u => u.url && u.url.toLowerCase() === savedUrl.toLowerCase());
@@ -995,6 +1093,9 @@ function SettingsModal({ user, onClose, onSaved }) {
     };
 
     const currentDisplayUrl = user?.canvasBaseUrl || defaultEnvUrl;
+    const handleExportCalendar = () => {
+        window.location.href = '/api/assessments/export.ics';
+    };
 
     return (
         <div className={dashStyles.modalOverlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -1013,7 +1114,7 @@ function SettingsModal({ user, onClose, onSaved }) {
                     </div>
                     <div className={dashStyles.encryptionBadge}>
                         <span className={dashStyles.encryptBadgeIcon}>🔐</span>
-                        <span>API token, timetable link, and Canvas URL are encrypted with <strong>AES-256-GCM</strong> before being stored.</span>
+                        <span>API token and timetable link are encrypted with <strong>AES-256-GCM</strong> before being stored.</span>
                     </div>
                     {error && <div className={dashStyles.settingsError}><span>⚠️</span> {error}</div>}
                     {success && <div className={dashStyles.settingsSuccess}><span>✅</span> {success}</div>}
@@ -1061,10 +1162,131 @@ function SettingsModal({ user, onClose, onSaved }) {
                                 {user?.hasTimetableLink && <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>}
                             </div>
                         </div>
+
+                        <div className={dashStyles.settingsDivider} />
+
+                        <div className={dashStyles.settingsField}>
+                            <label className={dashStyles.settingsLabel}>
+                                Browser reminder threshold (hours)
+                                <span className={dashStyles.settingsLabelHint}>Local setting on this device</span>
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="168"
+                                value={reminderHours}
+                                onChange={(e) => onReminderHoursChange(Math.min(168, Math.max(1, Number(e.target.value) || 1)))}
+                                className={dashStyles.settingsInput}
+                            />
+                        </div>
+
+                        <div className={dashStyles.settingsField}>
+                            <label className={dashStyles.settingsLabel}>
+                                Browser notifications
+                                <span className={dashStyles.settingsLabelHint}>Current: {notificationPermission}</span>
+                            </label>
+                            <button
+                                type="button"
+                                className={dashStyles.settingsSave}
+                                onClick={onEnableNotifications}
+                                disabled={notificationPermission === 'granted'}
+                            >
+                                {notificationPermission === 'granted' ? 'Notifications enabled' : 'Enable browser notifications'}
+                            </button>
+                        </div>
+
+                        <div className={dashStyles.settingsField}>
+                            <label className={dashStyles.settingsLabel}>
+                                Calendar export
+                                <span className={dashStyles.settingsLabelHint}>Download upcoming assessments as .ics</span>
+                            </label>
+                            <button
+                                type="button"
+                                className={dashStyles.settingsSave}
+                                onClick={handleExportCalendar}
+                            >
+                                Export assessments (.ics)
+                            </button>
+                        </div>
+
                         <button type="submit" className={dashStyles.settingsSave} disabled={saving}>
                             {saving ? '🔐 Encrypting & saving…' : 'Save settings'}
                         </button>
                     </form>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function HelpModal({ onClose }) {
+    const shortcuts = [
+        { key: 'S', action: 'Focus search' },
+        { key: 'C', action: 'Open calendar tab' },
+        { key: 'T', action: 'Open timetable tab' },
+        { key: '?', action: 'Open this help modal' },
+    ];
+
+    return (
+        <div className={dashStyles.modalOverlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className={dashStyles.modal}>
+                <div className={dashStyles.modalHeader}>
+                    <h2 className={dashStyles.modalTitle}>⌨️ Keyboard shortcuts</h2>
+                    <button className={dashStyles.modalClose} onClick={onClose}>✕</button>
+                </div>
+                <div className={dashStyles.modalBody}>
+                    <div className={dashStyles.shortcutList}>
+                        {shortcuts.map((shortcut) => (
+                            <div key={shortcut.key} className={dashStyles.shortcutRow}>
+                                <kbd className={dashStyles.shortcutKey}>{shortcut.key}</kbd>
+                                <span className={dashStyles.shortcutAction}>{shortcut.action}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function AssessmentDetailModal({ assessment, onClose }) {
+    if (!assessment) return null;
+
+    const plainDescription = (assessment.description || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return (
+        <div className={dashStyles.modalOverlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className={dashStyles.modal}>
+                <div className={dashStyles.modalHeader}>
+                    <h2 className={dashStyles.modalTitle}>📘 {assessment.name}</h2>
+                    <button className={dashStyles.modalClose} onClick={onClose}>✕</button>
+                </div>
+                <div className={dashStyles.modalBody}>
+                    <div className={dashStyles.detailMetaGrid}>
+                        <span className={dashStyles.detailMetaItem}>📚 {assessment.courseName}</span>
+                        <span className={dashStyles.detailMetaItem}>📅 {formatShortDate(assessment.dueAt)}</span>
+                        {assessment.pointsPossible != null && <span className={dashStyles.detailMetaItem}>⭐ {assessment.pointsPossible} pts</span>}
+                        {assessment.score != null && <span className={dashStyles.detailMetaItem}>🏁 Score: {assessment.score}{assessment.pointsPossible != null ? `/${assessment.pointsPossible}` : ''}</span>}
+                        {assessment.grade && <span className={dashStyles.detailMetaItem}>🧾 Grade: {assessment.grade}</span>}
+                        {assessment.hasSubmitted && <span className={dashStyles.detailMetaItem}>✅ Submitted</span>}
+                        {Array.isArray(assessment.submissionTypes) && assessment.submissionTypes.length > 0 && (
+                            <span className={dashStyles.detailMetaItem}>📤 {assessment.submissionTypes.join(', ')}</span>
+                        )}
+                    </div>
+
+                    <div className={dashStyles.detailDescription}>
+                        {plainDescription || 'No description available for this assessment.'}
+                    </div>
+
+                    <div className={dashStyles.detailActions}>
+                        {assessment.rubricUrl && (
+                            <a className={dashStyles.settingsSave} href={assessment.rubricUrl} target="_blank" rel="noopener noreferrer">View rubric</a>
+                        )}
+                        <a className={dashStyles.settingsSave} href={assessment.htmlUrl} target="_blank" rel="noopener noreferrer">Open in Canvas</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1089,6 +1311,14 @@ export default function Dashboard() {
     const [timetableError, setTimetableError] = useState('');
     const [showSettings, setShowSettings] = useState(false);
     const [setupBanner, setSetupBanner] = useState('');
+    const [nowTick, setNowTick] = useState(() => Date.now());
+    const [reminderHours, setReminderHours] = useState(36);
+    const [notificationPermission, setNotificationPermission] = useState('default');
+    const [remindedMap, setRemindedMap] = useState({});
+    const [showHelp, setShowHelp] = useState(false);
+    const [selectedAssessment, setSelectedAssessment] = useState(null);
+
+    const searchInputRef = useRef(null);
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [filters, setFilters] = useState({
@@ -1101,7 +1331,27 @@ export default function Dashboard() {
 
     useEffect(() => {
         setHiddenIds(loadHidden());
+        setReminderHours(loadReminderHours());
+        setRemindedMap(loadRemindedMap());
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+            setNotificationPermission(Notification.permission);
+        }
     }, []);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setNowTick(Date.now());
+        }, 30 * 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
+        saveReminderHours(reminderHours);
+    }, [reminderHours]);
+
+    useEffect(() => {
+        saveRemindedMap(remindedMap);
+    }, [remindedMap]);
 
     const hideAssessment = useCallback((id) => {
         setHiddenIds(prev => {
@@ -1125,6 +1375,20 @@ export default function Dashboard() {
         setHiddenIds(new Set());
         saveHidden(new Set());
     }, []);
+
+    const hideCourseAssessments = useCallback((courseId) => {
+        setHiddenIds((prev) => {
+            const next = new Set(prev);
+            dueData.terms.forEach((term) => {
+                term.courses.forEach((course) => {
+                    if (String(course.courseId) !== String(courseId)) return;
+                    course.assessments.forEach((assessment) => next.add(String(assessment.id)));
+                });
+            });
+            saveHidden(next);
+            return next;
+        });
+    }, [dueData]);
 
     useEffect(() => {
         fetch('/api/auth/session')
@@ -1183,6 +1447,96 @@ export default function Dashboard() {
 
     useEffect(() => { if (activeTab === 'timetable' && authChecked) fetchTimetableData(); }, [activeTab, authChecked, fetchTimetableData]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined' || !('Notification' in window) || notificationPermission !== 'granted') {
+            return;
+        }
+
+        const allAssessments = dueData.terms.flatMap((term) =>
+            term.courses.flatMap((course) => course.assessments)
+        );
+
+        if (allAssessments.length === 0) return;
+
+        const now = Date.now();
+        const thresholdMs = reminderHours * 60 * 60 * 1000;
+        const nextMap = { ...remindedMap };
+        let changed = false;
+
+        allAssessments.forEach((assessment) => {
+            const key = `${assessment.courseId}:${assessment.id}:${assessment.dueAt}`;
+            const diff = assessment.dueTimestamp - now;
+
+            if (diff > 0 && diff <= thresholdMs && !nextMap[key]) {
+                const dueLabel = new Date(assessment.dueAt).toLocaleString('en-AU', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                });
+
+                new Notification('Assessment due soon', {
+                    body: `${assessment.name} (${assessment.courseName}) due ${dueLabel}`,
+                    tag: key,
+                });
+
+                nextMap[key] = true;
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            setRemindedMap(nextMap);
+        }
+    }, [dueData, reminderHours, notificationPermission, remindedMap, nowTick]);
+
+    const handleEnableNotifications = useCallback(async () => {
+        if (typeof window === 'undefined' || !('Notification' in window)) return;
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+    }, []);
+
+    useEffect(() => {
+        const onKeyDown = (event) => {
+            const targetTag = event.target?.tagName || '';
+            const isTyping = targetTag === 'INPUT' || targetTag === 'TEXTAREA' || event.target?.isContentEditable;
+            if (isTyping && event.key !== '?') return;
+
+            if (event.key === 's' || event.key === 'S') {
+                event.preventDefault();
+                searchInputRef.current?.focus();
+                return;
+            }
+
+            if (event.key === 'c' || event.key === 'C') {
+                event.preventDefault();
+                setActiveTab('calendar');
+                setShowHidden(false);
+                return;
+            }
+
+            if (event.key === 't' || event.key === 'T') {
+                event.preventDefault();
+                setActiveTab('timetable');
+                setShowHidden(false);
+                return;
+            }
+
+            if (event.key === '?') {
+                event.preventDefault();
+                setShowHelp(true);
+            }
+        };
+
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, []);
+
+    const handleRefresh = () => {
+        fetchDueAssessments(searchText);
+    };
+
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
         router.push('/');
@@ -1205,10 +1559,17 @@ export default function Dashboard() {
 
     return (
         <div className={styles.root}>
+            {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+            {selectedAssessment && <AssessmentDetailModal assessment={selectedAssessment} onClose={() => setSelectedAssessment(null)} />}
+
             {showSettings && (
                 <SettingsModal
                     user={user}
                     onClose={() => { setShowSettings(false); }}
+                    reminderHours={reminderHours}
+                    onReminderHoursChange={setReminderHours}
+                    notificationPermission={notificationPermission}
+                    onEnableNotifications={handleEnableNotifications}
                     onSaved={(updatedUser) => {
                         setUser(updatedUser);
                         setSetupBanner('');
@@ -1242,6 +1603,7 @@ export default function Dashboard() {
                                     Updated {lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             )}
+                            <button className={dashStyles.logoutBtn} onClick={() => setShowHelp(true)} title="Keyboard shortcuts">?</button>
                             <button className={dashStyles.userBtn} onClick={() => setShowSettings(true)} title="Settings">
                                 <span className={dashStyles.userInitial}>{user?.username?.[0]?.toUpperCase()}</span>
                                 <span className={dashStyles.userBtnName}>{user?.username}</span>
@@ -1268,7 +1630,7 @@ export default function Dashboard() {
                     <form className={styles.searchForm} onSubmit={handleSubmit}>
                         <div className={styles.inputWrapper}>
                             <span className={styles.inputIcon}>🔍</span>
-                            <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
+                            <input ref={searchInputRef} type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
                                 placeholder="Search classes, quizzes, or semester" className={styles.searchInput} />
                         </div>
                         <div className={styles.btnGroup}>
@@ -1276,6 +1638,7 @@ export default function Dashboard() {
                                 {loading ? <><span className={styles.spinner} /> Loading…</> : 'Search'}
                             </button>
                             <button type="button" onClick={handleClearFilter} disabled={loading} className={styles.btnSecondary}>Show All</button>
+                            <button type="button" onClick={handleRefresh} disabled={loading} className={styles.btnPrimary}>Refresh</button>
                         </div>
                     </form>
                 </section>
@@ -1322,6 +1685,7 @@ export default function Dashboard() {
                             dueData={dueData}
                             filters={filters}
                             onFiltersChange={setFilters}
+                            onHideCourse={hideCourseAssessments}
                             isOpen={sidebarOpen}
                             onClose={() => setSidebarOpen(false)}
                         />
@@ -1352,7 +1716,9 @@ export default function Dashboard() {
                                     hiddenIds={hiddenIds}
                                     onHide={hideAssessment}
                                     onUnhide={unhideAssessment}
+                                    onOpenDetails={setSelectedAssessment}
                                     showHidden={activeTab === 'hidden'}
+                                    nowTick={nowTick}
                                 />
                             </>
                         )}
@@ -1363,6 +1729,8 @@ export default function Dashboard() {
                                 hiddenIds={hiddenIds}
                                 onHide={hideAssessment}
                                 onUnhide={unhideAssessment}
+                                onOpenDetails={setSelectedAssessment}
+                                nowTick={nowTick}
                             />
                         )}
 

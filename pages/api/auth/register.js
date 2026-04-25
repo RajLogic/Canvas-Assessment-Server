@@ -1,9 +1,31 @@
 import { hashPassword, validateEmail, validatePassword, validateUsername, generateSessionId, setSessionCookie, getSessionExpiresAt } from '../../../lib/auth.js';
 import { getUserByEmail, getUserByUsername, createUser, createSession, initializeDatabase } from '../../../lib/db.js';
+import { getRequestIp, setRateLimitHeaders, takeRateLimitToken } from '../../../lib/rate-limit.js';
+
+const REGISTER_LIMIT = 5;
+const REGISTER_WINDOW_MS = 30 * 60 * 1000;
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method not allowed' });
+    }
+
+    const ip = getRequestIp(req);
+    const limiter = takeRateLimitToken({
+        key: `register:${ip}`,
+        limit: REGISTER_LIMIT,
+        windowMs: REGISTER_WINDOW_MS,
+    });
+    setRateLimitHeaders(res, {
+        limit: REGISTER_LIMIT,
+        remaining: limiter.remaining,
+        retryAfterSec: limiter.retryAfterSec,
+    });
+
+    if (!limiter.allowed) {
+        return res.status(429).json({
+            message: `Too many registration attempts. Try again in ${limiter.retryAfterSec} seconds.`,
+        });
     }
 
     try {
