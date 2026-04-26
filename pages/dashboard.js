@@ -971,67 +971,67 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                     </div>
 
                     <div className={styles.eventsListWrapper}>
-    {selectedClass ? (
-        <div className={styles.eventCard}>
-            <div className={`${styles.ttDetailStripe} ${styles[`ttBlockTone${selectedClass.toneIndex}`]}`} />
-            <div className={styles.eventDetailsSection} style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                    <span className={styles.eventName}>{selectedClass.className || selectedClass.summary}</span>
-                    <button
-                        className={styles.calDetailClose}
-                        onClick={() => setSelectedClass(null)}
-                        aria-label="Close"
-                    >✕</button>
-                </div>
+                        {selectedClass ? (
+                            <div className={styles.eventCard}>
+                                <div className={`${styles.ttDetailStripe} ${styles[`ttBlockTone${selectedClass.toneIndex}`]}`} />
+                                <div className={styles.eventDetailsSection} style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                        <span className={styles.eventName}>{selectedClass.className || selectedClass.summary}</span>
+                                        <button
+                                            className={styles.calDetailClose}
+                                            onClick={() => setSelectedClass(null)}
+                                            aria-label="Close"
+                                        >✕</button>
+                                    </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem 1.5rem' }}>
-                    <div>
-                        <div className={styles.ttDetailLabel}>Start</div>
-                        <div className={styles.ttDetailValue}>{formatLocalDateTime(selectedClass.start)}</div>
-                    </div>
-                    <div>
-                        <div className={styles.ttDetailLabel}>End</div>
-                        <div className={styles.ttDetailValue}>{formatLocalDateTime(selectedClass.end)}</div>
-                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem 1.5rem' }}>
+                                        <div>
+                                            <div className={styles.ttDetailLabel}>Start</div>
+                                            <div className={styles.ttDetailValue}>{formatLocalDateTime(selectedClass.start)}</div>
+                                        </div>
+                                        <div>
+                                            <div className={styles.ttDetailLabel}>End</div>
+                                            <div className={styles.ttDetailValue}>{formatLocalDateTime(selectedClass.end)}</div>
+                                        </div>
 
-                    {selectedClass.location && (
-                        <div style={{ gridColumn: '1 / -1' }}>
-                            <div className={styles.ttDetailLabel}>Location</div>
-                            <div className={styles.ttDetailValue}>{selectedClass.location}</div>
-                        </div>
-                    )}
+                                        {selectedClass.location && (
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <div className={styles.ttDetailLabel}>Location</div>
+                                                <div className={styles.ttDetailValue}>{selectedClass.location}</div>
+                                            </div>
+                                        )}
 
-                    {selectedClass.summary && selectedClass.summary !== selectedClass.className && (
-                        <div style={{ gridColumn: '1 / -1' }}>
-                            <div className={styles.ttDetailLabel}>Full title</div>
-                            <div className={styles.ttDetailValue}>{selectedClass.summary}</div>
-                        </div>
-                    )}
+                                        {selectedClass.summary && selectedClass.summary !== selectedClass.className && (
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <div className={styles.ttDetailLabel}>Full title</div>
+                                                <div className={styles.ttDetailValue}>{selectedClass.summary}</div>
+                                            </div>
+                                        )}
 
-                    {selectedClass.description && (
-                        <div style={{ gridColumn: '1 / -1' }}>
-                            <div className={styles.ttDetailLabel}>Description</div>
-                            <div className={styles.ttDetailValue} style={{ whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
-                                {selectedClass.description}
+                                        {selectedClass.description && (
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <div className={styles.ttDetailLabel}>Description</div>
+                                                <div className={styles.ttDetailValue} style={{ whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
+                                                    {selectedClass.description}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {selectedClass.uid && (
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <div className={styles.ttDetailLabel}>UID</div>
+                                                <div className={styles.ttDetailValue} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '0.68rem', wordBreak: 'break-all', color: 'var(--text-muted)' }}>
+                                                    {selectedClass.uid}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    )}
-
-                    {selectedClass.uid && (
-                        <div style={{ gridColumn: '1 / -1' }}>
-                            <div className={styles.ttDetailLabel}>UID</div>
-                            <div className={styles.ttDetailValue} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '0.68rem', wordBreak: 'break-all', color: 'var(--text-muted)' }}>
-                                {selectedClass.uid}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    ) : (
-        <div className={styles.eventEmptyState}>Click a class block to view details.</div>
-    )}
-</div>
+                        ) : (
+                            <div className={styles.eventEmptyState}>Click a class block to view details.</div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
