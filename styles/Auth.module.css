@@ -354,7 +354,39 @@
     }
 }
 
+@media (max-width: 760px) {
+    .nav {
+        padding: 1rem 1.25rem;
+    }
+
+    .main {
+        min-height: calc(100vh - 64px);
+        padding: 1.25rem 1rem 2.5rem;
+    }
+
+    .card {
+        padding: 2rem;
+    }
+
+    .strengthMeta {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .strengthChecks {
+        width: 100%;
+    }
+}
+
 @media (max-width: 500px) {
+    .nav {
+        padding: 0.85rem 1rem;
+    }
+
+    .main {
+        padding: 1rem 0.75rem 2rem;
+    }
+
     .card {
         padding: 2rem 1.5rem;
         border-radius: 16px;
@@ -362,5 +394,14 @@
 
     .cardTitle {
         font-size: 1.5rem;
+    }
+
+    .label {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .submitBtn {
+        font-size: 0.95rem;
     }
 }

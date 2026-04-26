@@ -322,6 +322,7 @@
     padding: 0.875rem 1.25rem;
     background: var(--bg-subtle);
     border-bottom: 1px solid var(--border);
+    overflow: hidden;
 }
 
 .dot {
@@ -339,6 +340,10 @@
     padding: 0.2rem 0.75rem;
     border-radius: 20px;
     border: 1px solid var(--border);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .previewContent {
@@ -716,15 +721,112 @@
     }
 }
 
+@media (max-width: 1024px) {
+    .navInner {
+        padding: 1rem 1.25rem;
+    }
+
+    .hero {
+        min-height: auto;
+        padding: 7.5rem 1.5rem 3.5rem;
+    }
+
+    .heroStats {
+        gap: 1.75rem;
+    }
+
+    .previewSection,
+    .features,
+    .howItWorks,
+    .ctaBanner {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+
+    .step {
+        gap: 1.25rem;
+    }
+
+    .stepNum {
+        width: 42px;
+    }
+}
+
 @media (max-width: 900px) {
+    .navInner {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .navLinks {
+        margin-left: auto;
+    }
+
+    .heroStats {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1.5rem 2rem;
+    }
+
+    .mockHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.4rem;
+    }
+
+    .mockItem {
+        align-items: flex-start;
+    }
+
+    .mockBadge {
+        align-self: flex-start;
+    }
+
+    .step {
+        gap: 1rem;
+        padding: 1.5rem 0;
+    }
+
+    .stepNum {
+        font-size: 2rem;
+        width: 36px;
+    }
+
     .featureGrid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
 @media (max-width: 600px) {
+    .navInner {
+        padding: 0.85rem 1rem;
+    }
+
+    .navLinks {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
     .hero {
         padding: 7rem 1.5rem 3rem;
+    }
+
+    .previewSection,
+    .features,
+    .howItWorks,
+    .ctaBanner,
+    .footer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .previewContent {
+        padding: 1rem;
+    }
+
+    .previewUrl {
+        font-size: 0.66rem;
+        margin-left: 0;
     }
 
     .featureGrid {
@@ -749,5 +851,32 @@
     .ctaSecondary {
         width: 100%;
         justify-content: center;
+    }
+
+    .step {
+        gap: 0.75rem;
+    }
+
+    .stepNum {
+        width: 30px;
+        font-size: 1.7rem;
+    }
+
+    .ctaBannerInner {
+        padding: 2.25rem 1.25rem;
+        border-radius: 18px;
+    }
+}
+
+@media (max-width: 460px) {
+    .navLinks {
+        gap: 0.375rem;
+    }
+
+    .navLink,
+    .navCta {
+        flex: 1;
+        justify-content: center;
+        text-align: center;
     }
 }

@@ -724,6 +724,20 @@ function positionBlock(startStr, endStr) {
     return { left: `${left}%`, width: `${width}%` };
 }
 
+function positionBlockVertical(startStr, endStr) {
+    const parseDecimalHour = (s) => {
+        const d = new Date(s);
+        return d.getHours() + d.getMinutes() / 60;
+    };
+    const s = parseDecimalHour(startStr);
+    const e = parseDecimalHour(endStr);
+    const clampedS = Math.max(TT_START_HOUR, Math.min(TT_END_HOUR, s));
+    const clampedE = Math.max(TT_START_HOUR, Math.min(TT_END_HOUR, e));
+    const top = ((clampedS - TT_START_HOUR) / TT_SPAN) * 100;
+    const height = Math.max(1, ((clampedE - clampedS) / TT_SPAN) * 100);
+    return { top: `${top}%`, height: `${height}%` };
+}
+
 const TT_BLOCK_TONES = 8;
 
 function toneIndexForSummary(summary) {
@@ -746,6 +760,12 @@ function formatHourLabel(h, use24Hour) {
 const TimetableView = memo(function TimetableView({ timetableEvents, timetableLoading, timetableError }) {
     const today = new Date();
     const [weekOffset, setWeekOffset] = useState(0);
+    const [dayOffset, setDayOffset] = useState(() => {
+        const day = new Date().getDay();
+        return day === 0 ? 6 : day - 1;
+    });
+    const [ttViewMode, setTtViewMode] = useState('week');
+    const [isVerticalTimetable, setIsVerticalTimetable] = useState(false);
     const [localNow, setLocalNow] = useState(() => new Date());
     const [selectedClass, setSelectedClass] = useState(null);
     const [use24Hour, setUse24Hour] = useState(true);
@@ -771,6 +791,19 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     useEffect(() => {
         const timer = setInterval(() => setLocalNow(new Date()), 1000);
         return () => clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const media = window.matchMedia('(max-width: 900px), (orientation: portrait)');
+        const updateMode = (event) => {
+            const matches = event.matches;
+            setIsVerticalTimetable(matches);
+        };
+
+        updateMode(media);
+        media.addEventListener('change', updateMode);
+        return () => media.removeEventListener('change', updateMode);
     }, []);
 
     // Compute Monday of the selected week
@@ -827,6 +860,14 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     const isNowInTimetableRange = nowDecimalHour >= TT_START_HOUR && nowDecimalHour <= TT_END_HOUR;
     const nowMarkerPercent = ((Math.max(TT_START_HOUR, Math.min(TT_END_HOUR, nowDecimalHour)) - TT_START_HOUR) / TT_SPAN) * 100;
 
+    const selectedDay = weekDays[Math.max(0, Math.min(6, dayOffset))] || weekDays[0];
+    const selectedDayKey = toDateKey(selectedDay);
+    const isSelectedDayToday = selectedDayKey === todayKey;
+    const selectedDayEvents = [...(eventsByDate[selectedDayKey] || [])].sort((a, b) => new Date(a.start) - new Date(b.start));
+    const selectedDayLabel = selectedDay.toLocaleDateString('en-AU', {
+        weekday: 'long', day: '2-digit', month: 'short', year: 'numeric',
+    });
+
     const formatLocalDateTime = (value) => new Date(value).toLocaleString('en-AU', {
         weekday: 'short', day: '2-digit', month: 'short',
         hour: '2-digit', minute: '2-digit', hour12: !use24Hour,
@@ -879,96 +920,267 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                         )}
                     </div>
 
-                    {/* Horizontally scrollable grid */}
-                    <div className={styles.ttScrollArea}>
-                        <div className={styles.ttGrid}>
+                    <div className={styles.ttViewSwitch}>
+                        <button
+                            className={`${styles.ttViewBtn} ${ttViewMode === 'week' ? styles.ttViewBtnActive : ''}`}
+                            onClick={() => setTtViewMode('week')}
+                        >
+                            Week view
+                        </button>
+                        <button
+                            className={`${styles.ttViewBtn} ${ttViewMode === 'day' ? styles.ttViewBtnActive : ''}`}
+                            onClick={() => setTtViewMode('day')}
+                        >
+                            Day activities
+                        </button>
+                    </div>
 
-                            {/* ── Top-left corner ── */}
-                            <div className={styles.ttCorner} />
+                    {ttViewMode === 'week' ? (
+                        <>
+                            {/* Horizontally scrollable grid */}
+                            <div className={styles.ttScrollArea}>
+                                <div className={styles.ttGrid}>
 
-                            {/* ── Hour headers ── */}
-                            <div className={styles.ttHourRow}>
-                                {hours.map((h) => (
-                                    <div key={h} className={styles.ttHourCell}>
-                                        {formatHourLabel(h, use24Hour)}
+                                    {/* ── Top-left corner ── */}
+                                    <div className={styles.ttCorner} />
+
+                                    {/* ── Hour headers ── */}
+                                    <div className={styles.ttHourRow}>
+                                        {hours.map((h) => (
+                                            <div key={h} className={styles.ttHourCell}>
+                                                {formatHourLabel(h, use24Hour)}
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+
+                                    {/* ── Day rows ── */}
+                                    {weekDays.map((day) => {
+                                        const key = toDateKey(day);
+                                        const isToday = key === todayKey;
+                                        const dayEvents = eventsByDate[key] || [];
+
+                                        return (
+                                            <React.Fragment key={key}>
+                                                {/* Day label cell */}
+                                                <div className={`${styles.ttDayLabel} ${isToday ? styles.ttDayLabelToday : ''}`}>
+                                                    <span className={styles.ttDayName}>
+                                                        {day.toLocaleDateString('en-AU', { weekday: 'short' })}
+                                                    </span>
+                                                    <span className={styles.ttDayDate}>
+                                                        {day.toLocaleDateString('en-AU', { day: 'numeric', month: 'numeric' })}
+                                                    </span>
+                                                </div>
+
+                                                {/* Timeline cell */}
+                                                <div className={`${styles.ttTimeline} ${isToday ? styles.ttTimelineToday : ''}`}>
+                                                    {/* Hour divider lines */}
+                                                    {hours.map((h) => (
+                                                        <div
+                                                            key={h}
+                                                            className={styles.ttHourDivider}
+                                                            style={{
+                                                                left: `${((h - TT_START_HOUR) / TT_SPAN) * 100}%`,
+                                                                width: `${(1 / TT_SPAN) * 100}%`,
+                                                            }}
+                                                        />
+                                                    ))}
+
+                                                    {isToday && isNowInTimetableRange && (
+                                                        <div className={styles.ttNowMarker} style={{ left: `${nowMarkerPercent}%` }} aria-hidden="true" />
+                                                    )}
+
+                                                    {/* Event blocks */}
+                                                    {dayEvents.map((ev, idx) => {
+                                                        const pos = positionBlock(ev.start, ev.end);
+                                                        const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                                        const toneIndex = toneIndexForSummary(classKey);
+                                                        const startFmt = formatLocalTime(ev.start);
+                                                        const endFmt = formatLocalTime(ev.end);
+                                                        const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === `${key}-${idx}`;
+                                                        return (
+                                                            <div
+                                                                key={idx}
+                                                                className={`${styles.ttBlock} ${styles[`ttBlockTone${toneIndex}`]} ${isSelected ? styles.ttBlockActive : ''}`}
+                                                                style={{ left: pos.left, width: pos.width }}
+                                                                title={`${ev.summary}\n${startFmt}–${endFmt}${ev.location ? '\n' + ev.location : ''}`}
+                                                                role="button"
+                                                                tabIndex={0}
+                                                                onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey: `${key}-${idx}` })}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                                        e.preventDefault();
+                                                                        setSelectedClass({ ...ev, toneIndex, eventKey: `${key}-${idx}` });
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <span className={styles.ttBlockName}>{ev.summary}</span>
+                                                                {ev.location && (
+                                                                    <span className={styles.ttBlockLoc}>{ev.location}</span>
+                                                                )}
+                                                                <span className={styles.ttBlockTime}>{startFmt} – {endFmt}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className={styles.ttDayViewWrap}>
+                            <div className={styles.ttDayNav}>
+                                <button
+                                    className={styles.ttNavBtn}
+                                    onClick={() => setDayOffset((d) => Math.max(0, d - 1))}
+                                    disabled={dayOffset === 0}
+                                    aria-label="Previous day"
+                                >
+                                    ‹
+                                </button>
+                                <span className={styles.ttDayLabelLarge}>{selectedDayLabel}</span>
+                                <button
+                                    className={styles.ttNavBtn}
+                                    onClick={() => setDayOffset((d) => Math.min(6, d + 1))}
+                                    disabled={dayOffset === 6}
+                                    aria-label="Next day"
+                                >
+                                    ›
+                                </button>
                             </div>
 
-                            {/* ── Day rows ── */}
-                            {weekDays.map((day) => {
-                                const key = toDateKey(day);
-                                const isToday = key === todayKey;
-                                const dayEvents = eventsByDate[key] || [];
+                            {!isVerticalTimetable ? (
+                                <div className={styles.ttDayTimelineShell}>
+                                    <div className={styles.ttHourRow}>
+                                        {hours.map((h) => (
+                                            <div key={`day-${h}`} className={styles.ttHourCell}>
+                                                {formatHourLabel(h, use24Hour)}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className={styles.ttDayTimelineTrack}>
+                                        {hours.map((h) => (
+                                            <div
+                                                key={`day-divider-${h}`}
+                                                className={styles.ttHourDivider}
+                                                style={{
+                                                    left: `${((h - TT_START_HOUR) / TT_SPAN) * 100}%`,
+                                                    width: `${(1 / TT_SPAN) * 100}%`,
+                                                }}
+                                            />
+                                        ))}
 
-                                return (
-                                    <React.Fragment key={key}>
-                                        {/* Day label cell */}
-                                        <div className={`${styles.ttDayLabel} ${isToday ? styles.ttDayLabelToday : ''}`}>
-                                            <span className={styles.ttDayName}>
-                                                {day.toLocaleDateString('en-AU', { weekday: 'short' })}
-                                            </span>
-                                            <span className={styles.ttDayDate}>
-                                                {day.toLocaleDateString('en-AU', { day: 'numeric', month: 'numeric' })}
-                                            </span>
-                                        </div>
+                                        {isSelectedDayToday && isNowInTimetableRange && (
+                                            <div className={styles.ttNowMarker} style={{ left: `${nowMarkerPercent}%` }} aria-hidden="true" />
+                                        )}
 
-                                        {/* Timeline cell */}
-                                        <div className={`${styles.ttTimeline} ${isToday ? styles.ttTimelineToday : ''}`}>
-                                            {/* Hour divider lines */}
-                                            {hours.map((h) => (
+                                        {selectedDayEvents.map((ev, idx) => {
+                                            const pos = positionBlock(ev.start, ev.end);
+                                            const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                            const toneIndex = toneIndexForSummary(classKey);
+                                            const startFmt = formatLocalTime(ev.start);
+                                            const endFmt = formatLocalTime(ev.end);
+                                            const eventKey = `${selectedDayKey}-${idx}`;
+                                            const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
+
+                                            return (
                                                 <div
-                                                    key={h}
-                                                    className={styles.ttHourDivider}
-                                                    style={{
-                                                        left: `${((h - TT_START_HOUR) / TT_SPAN) * 100}%`,
-                                                        width: `${(1 / TT_SPAN) * 100}%`,
+                                                    key={eventKey}
+                                                    className={`${styles.ttBlock} ${styles.ttDayBlock} ${styles[`ttBlockTone${toneIndex}`]} ${isSelected ? styles.ttBlockActive : ''}`}
+                                                    style={{ left: pos.left, width: pos.width }}
+                                                    title={`${ev.summary}\n${startFmt}–${endFmt}${ev.location ? '\n' + ev.location : ''}`}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            setSelectedClass({ ...ev, toneIndex, eventKey });
+                                                        }
                                                     }}
-                                                />
-                                            ))}
+                                                >
+                                                    <span className={styles.ttBlockName}>{ev.summary}</span>
+                                                    <span className={styles.ttBlockTime}>{startFmt} – {endFmt}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className={styles.ttDayVerticalShell}>
+                                    <div className={styles.ttDayVerticalTrack}>
+                                        {hours.map((h) => (
+                                            <div
+                                                key={`vertical-divider-${h}`}
+                                                className={styles.ttDayVerticalDivider}
+                                                style={{ top: `${((h - TT_START_HOUR) / TT_SPAN) * 100}%` }}
+                                            >
+                                                <span className={styles.ttDayVerticalHour}>{formatHourLabel(h, use24Hour)}</span>
+                                            </div>
+                                        ))}
 
-                                            {isToday && isNowInTimetableRange && (
-                                                <div className={styles.ttNowMarker} style={{ left: `${nowMarkerPercent}%` }} aria-hidden="true" />
-                                            )}
+                                        {isSelectedDayToday && isNowInTimetableRange && (
+                                            <div className={`${styles.ttNowMarker} ${styles.ttNowMarkerVertical}`} style={{ top: `${nowMarkerPercent}%` }} aria-hidden="true" />
+                                        )}
 
-                                            {/* Event blocks */}
-                                            {dayEvents.map((ev, idx) => {
-                                                const pos = positionBlock(ev.start, ev.end);
-                                                const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
-                                                const toneIndex = toneIndexForSummary(classKey);
-                                                const startFmt = formatLocalTime(ev.start);
-                                                const endFmt = formatLocalTime(ev.end);
-                                                const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === `${key}-${idx}`;
-                                                return (
-                                                    <div
-                                                        key={idx}
-                                                        className={`${styles.ttBlock} ${styles[`ttBlockTone${toneIndex}`]} ${isSelected ? styles.ttBlockActive : ''}`}
-                                                        style={{ left: pos.left, width: pos.width }}
-                                                        title={`${ev.summary}\n${startFmt}–${endFmt}${ev.location ? '\n' + ev.location : ''}`}
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey: `${key}-${idx}` })}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                                e.preventDefault();
-                                                                setSelectedClass({ ...ev, toneIndex, eventKey: `${key}-${idx}` });
-                                                            }
-                                                        }}
-                                                    >
-                                                        <span className={styles.ttBlockName}>{ev.summary}</span>
-                                                        {ev.location && (
-                                                            <span className={styles.ttBlockLoc}>{ev.location}</span>
-                                                        )}
-                                                        <span className={styles.ttBlockTime}>{startFmt} – {endFmt}</span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </React.Fragment>
-                                );
-                            })}
+                                        {selectedDayEvents.map((ev, idx) => {
+                                            const pos = positionBlockVertical(ev.start, ev.end);
+                                            const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                            const toneIndex = toneIndexForSummary(classKey);
+                                            const eventKey = `${selectedDayKey}-${idx}`;
+                                            const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
+
+                                            return (
+                                                <div
+                                                    key={`vertical-${eventKey}`}
+                                                    className={`${styles.ttBlock} ${styles.ttDayVerticalBlock} ${styles[`ttBlockTone${toneIndex}`]} ${isSelected ? styles.ttBlockActive : ''}`}
+                                                    style={{ top: pos.top, height: pos.height }}
+                                                    onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            setSelectedClass({ ...ev, toneIndex, eventKey });
+                                                        }
+                                                    }}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                >
+                                                    <span className={styles.ttBlockName}>{ev.summary}</span>
+                                                    <span className={styles.ttBlockTime}>{formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedDayEvents.length === 0 ? (
+                                <div className={styles.eventEmptyState}>No activities for this day.</div>
+                            ) : (
+                                <ul className={styles.ttDayActivitiesList}>
+                                    {selectedDayEvents.map((ev, idx) => {
+                                        const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                        const toneIndex = toneIndexForSummary(classKey);
+                                        const eventKey = `${selectedDayKey}-${idx}`;
+                                        const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
+                                        return (
+                                            <li key={`activity-${eventKey}`} className={styles.ttActivityItem}>
+                                                <button
+                                                    className={`${styles.ttActivityBtn} ${isSelected ? styles.ttActivityBtnActive : ''}`}
+                                                    onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
+                                                >
+                                                    <span className={styles.ttActivityTime}>{formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}</span>
+                                                    <span className={styles.ttActivityName}>{ev.summary}</span>
+                                                    {ev.location && <span className={styles.ttActivityLocation}>{ev.location}</span>}
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
                         </div>
-                    </div>
+                    )}
 
                     <div className={styles.eventsListWrapper}>
                         {selectedClass ? (
@@ -984,7 +1196,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                         >✕</button>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem 1.5rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.625rem 1.5rem' }}>
                                         <div>
                                             <div className={styles.ttDetailLabel}>Start</div>
                                             <div className={styles.ttDetailValue}>{formatLocalDateTime(selectedClass.start)}</div>
@@ -1317,6 +1529,7 @@ export default function Dashboard() {
     const [remindedMap, setRemindedMap] = useState({});
     const [showHelp, setShowHelp] = useState(false);
     const [selectedAssessment, setSelectedAssessment] = useState(null);
+    const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
     const searchInputRef = useRef(null);
 
@@ -1427,10 +1640,15 @@ export default function Dashboard() {
         finally { setLoading(false); }
     }, []);
 
-    useEffect(() => { if (authChecked) fetchDueAssessments(''); }, [authChecked, fetchDueAssessments]);
+    useEffect(() => {
+        if (!authChecked) return;
+        const debounce = setTimeout(() => {
+            fetchDueAssessments(searchText.trim());
+        }, 320);
+        return () => clearTimeout(debounce);
+    }, [authChecked, searchText, fetchDueAssessments]);
 
-    const handleSubmit = (e) => { e.preventDefault(); fetchDueAssessments(searchText); };
-    const handleClearFilter = () => { setSearchText(''); fetchDueAssessments(''); };
+    const handleClearFilter = () => { setSearchText(''); };
 
     const fetchTimetableData = useCallback(async () => {
         setTimetableLoading(true); setTimetableError('');
@@ -1533,8 +1751,17 @@ export default function Dashboard() {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
 
+    useEffect(() => {
+        if (!showHeaderMenu) return;
+        const onEscape = (event) => {
+            if (event.key === 'Escape') setShowHeaderMenu(false);
+        };
+        window.addEventListener('keydown', onEscape);
+        return () => window.removeEventListener('keydown', onEscape);
+    }, [showHeaderMenu]);
+
     const handleRefresh = () => {
-        fetchDueAssessments(searchText);
+        fetchDueAssessments(searchText.trim());
     };
 
     const handleLogout = async () => {
@@ -1592,25 +1819,48 @@ export default function Dashboard() {
                         </div>
                     </div>
                     <div className={styles.headerRight}>
-                        <nav className={styles.topLinks} aria-label="Quick links">
-                            {quickLinks.map((link) => (
-                                <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.topLink}>{link.label}</a>
-                            ))}
-                        </nav>
-                        <div className={dashStyles.userMenu}>
-                            {lastUpdated && (
-                                <span className={styles.lastUpdated}>
-                                    Updated {lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                            )}
-                            <button className={dashStyles.logoutBtn} onClick={() => setShowHelp(true)} title="Keyboard shortcuts">?</button>
-                            <button className={dashStyles.userBtn} onClick={() => setShowSettings(true)} title="Settings">
-                                <span className={dashStyles.userInitial}>{user?.username?.[0]?.toUpperCase()}</span>
-                                <span className={dashStyles.userBtnName}>{user?.username}</span>
-                                <span className={dashStyles.userBtnIcon}>⚙️</span>
-                            </button>
-                            <button className={dashStyles.logoutBtn} onClick={handleLogout} title="Log out">Sign out</button>
-                        </div>
+                        {lastUpdated && (
+                            <span className={styles.lastUpdated}>
+                                Updated {lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        )}
+
+                        <button
+                            className={styles.menuBtn}
+                            onClick={() => setShowHeaderMenu((open) => !open)}
+                            aria-expanded={showHeaderMenu}
+                            aria-haspopup="menu"
+                        >
+                            ☰ Menu
+                        </button>
+
+                        {showHeaderMenu && (
+                            <>
+                                <button
+                                    className={styles.menuBackdrop}
+                                    onClick={() => setShowHeaderMenu(false)}
+                                    aria-label="Close menu"
+                                />
+                                <div className={styles.menuPanel} role="menu" aria-label="Dashboard menu">
+                                    <div className={styles.menuSection}>Quick links</div>
+                                    {quickLinks.map((link) => (
+                                        <a
+                                            key={`menu-${link.label}`}
+                                            href={link.href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={styles.menuLink}
+                                            onClick={() => setShowHeaderMenu(false)}
+                                        >
+                                            {link.label}
+                                        </a>
+                                    ))}
+                                    <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); setShowSettings(true); }}>⚙️ Settings</button>
+                                    <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); setShowHelp(true); }}>⌨️ Shortcuts</button>
+                                    <button className={styles.menuActionDanger} onClick={() => { setShowHeaderMenu(false); handleLogout(); }}>Sign out</button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </header>
@@ -1627,20 +1877,19 @@ export default function Dashboard() {
 
             <main className={styles.main}>
                 <section className={styles.controlPanel}>
-                    <form className={styles.searchForm} onSubmit={handleSubmit}>
+                    <div className={styles.searchForm}>
                         <div className={styles.inputWrapper}>
                             <span className={styles.inputIcon}>🔍</span>
                             <input ref={searchInputRef} type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
-                                placeholder="Search classes, quizzes, or semester" className={styles.searchInput} />
+                                placeholder="Type to search classes, quizzes, or semester" className={styles.searchInput} />
                         </div>
                         <div className={styles.btnGroup}>
-                            <button type="submit" disabled={loading} className={styles.btnPrimary}>
-                                {loading ? <><span className={styles.spinner} /> Loading…</> : 'Search'}
-                            </button>
                             <button type="button" onClick={handleClearFilter} disabled={loading} className={styles.btnSecondary}>Show All</button>
-                            <button type="button" onClick={handleRefresh} disabled={loading} className={styles.btnPrimary}>Refresh</button>
+                            <button type="button" onClick={handleRefresh} disabled={loading} className={styles.btnPrimary}>
+                                {loading ? <><span className={styles.spinner} /> Refreshing…</> : 'Refresh'}
+                            </button>
                         </div>
-                    </form>
+                    </div>
                 </section>
 
                 <div className={dashStyles.tabsAndFilter}>
