@@ -432,7 +432,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
             : groupedByClass;
 
     const titleText = mode === 'completed'
-        ? 'Completed classes'
+        ? 'Past assessments'
         : mode === 'past'
             ? 'Past classes'
             : showHidden
@@ -545,7 +545,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                     ) : (mode === 'completed' && completedClassGroups.length === 0) ? (
                         <div className={styles.emptyState}>
                             <div className={styles.emptyIcon}>✅</div>
-                            <p className={styles.emptyTitle}>No completed classes yet</p>
+                            <p className={styles.emptyTitle}>No past assessments yet</p>
                             <p className={styles.emptySub}>Mark items as complete or wait for past-due assessments in this year.</p>
                         </div>
                     ) : (mode === 'past' && pastClassGroups.length === 0) ? (
@@ -1351,7 +1351,7 @@ export default function Dashboard() {
 
     const tabConfig = [
         { key: 'list', icon: '📋', label: 'Assessments' },
-        { key: 'completed', icon: '✅', label: 'Completed classes', badge: completedClassesCount > 0 ? completedClassesCount : null },
+        { key: 'completed', icon: '✅', label: 'Past assessments', badge: completedClassesCount > 0 ? completedClassesCount : null },
         { key: 'past', icon: '🕓', label: 'Past classes', badge: pastClassesCount > 0 ? pastClassesCount : null },
         { key: 'calendar', icon: '📅', label: 'Calendar' },
         { key: 'timetable', icon: '🕐', label: 'Timetable' },
@@ -1360,7 +1360,7 @@ export default function Dashboard() {
 
     const pageTitle = {
         list: 'Assessments',
-        completed: 'Completed classes',
+        completed: 'Past assessments',
         past: 'Past classes',
         calendar: 'Calendar',
         timetable: 'Timetable',
