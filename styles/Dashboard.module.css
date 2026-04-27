@@ -544,6 +544,14 @@
     border-radius: 12px;
     overflow: hidden;
     box-shadow: var(--shadow-sm);
+    margin-top: 20px;
+}
+
+.tableWrapGrouped {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
 }
 
 .tableHeader {
@@ -665,6 +673,66 @@
     border: 1px solid var(--border);
     padding: 0.1rem 0.45rem;
     border-radius: 20px;
+}
+
+.classGroupName {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+}
+
+.classGroupsGrid {
+    display: grid;
+    gap: 0.875rem;
+    padding: 0.875rem;
+}
+
+.classGroupCard {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.classGroupHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border);
+}
+
+.classGroupHeaderLeft {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+}
+
+.classGroupColumns {
+    padding: 0.45rem 0.9rem;
+}
+
+.classGroupRows .assessmentRow {
+    padding: 0 0.9rem;
+    min-height: 48px;
+}
+
+.classGroupRows .assessmentRow:last-child {
+    border-bottom: none;
+}
+
+.classGroupMeta {
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    margin-left: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Assessment row */
@@ -844,7 +912,7 @@
     color: var(--safe-text);
 }
 
-.badgeSubmitted {
+.badgeComplete {
     background: var(--accent-light);
     border-color: var(--accent-border);
     color: var(--accent);
@@ -907,6 +975,32 @@
     background: var(--accent-light);
     border-color: var(--accent-border);
     color: var(--accent);
+}
+
+.rowBtnComplete {
+    opacity: 0;
+    border-color: var(--accent-border);
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+.rowBtnComplete:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.rowBtnDone {
+    opacity: 0;
+    border-color: var(--safe-border);
+    background: var(--safe-bg);
+    color: var(--safe-text);
+}
+
+.rowBtnDone:hover {
+    background: var(--bg-subtle);
+    border-color: var(--border-strong);
+    color: var(--text-secondary);
 }
 
 .moreBtn {
@@ -1880,6 +1974,7 @@
         align-items: flex-start;
         gap: 0.625rem;
         padding: 0.75rem 0.875rem;
+        margin-top: 10px;
     }
 
     .urgencyChips {

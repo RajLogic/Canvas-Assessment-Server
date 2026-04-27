@@ -71,6 +71,7 @@ function formatTime(dateString) {
 
 // ─── Local storage helpers ──────────────────────────────────────────────────
 const HIDDEN_KEY = 'fr_hidden_assessments';
+const COMPLETE_KEY = 'fr_completed_assessments';
 const REMINDER_HOURS_KEY = 'fr_reminder_hours';
 const REMINDED_ITEMS_KEY = 'fr_reminded_items';
 
@@ -80,6 +81,13 @@ function loadHidden() {
 }
 function saveHidden(set) {
     try { localStorage.setItem(HIDDEN_KEY, JSON.stringify([...set])); } catch { }
+}
+function loadCompleted() {
+    try { const raw = localStorage.getItem(COMPLETE_KEY); return raw ? new Set(JSON.parse(raw)) : new Set(); }
+    catch { return new Set(); }
+}
+function saveCompleted(set) {
+    try { localStorage.setItem(COMPLETE_KEY, JSON.stringify([...set])); } catch { }
 }
 function loadReminderHours() {
     try { const raw = localStorage.getItem(REMINDER_HOURS_KEY); const parsed = Number(raw); if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 168) return parsed; } catch { }
@@ -131,6 +139,40 @@ function applyFiltersAndSort(dueData, filters, hiddenIds, showHidden) {
         }).filter(c => c.assessments.length > 0);
         return { ...term, courses };
     }).filter(t => t.courses.length > 0);
+}
+
+function buildClassGroups(terms) {
+    const groups = new Map();
+
+    terms.forEach(term => {
+        term.courses.forEach(course => {
+            const key = String(course.courseId ?? course.courseName);
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    key,
+                    courseName: course.courseName,
+                    courseId: course.courseId,
+                    assessments: [],
+                    termNames: new Set(),
+                });
+            }
+            const group = groups.get(key);
+            group.assessments.push(...course.assessments);
+            group.termNames.add(term.termName);
+        });
+    });
+
+    return [...groups.values()]
+        .map(group => ({
+            ...group,
+            termNames: [...group.termNames].sort(),
+            assessments: [...group.assessments].sort((a, b) => a.dueTimestamp - b.dueTimestamp),
+        }))
+        .sort((a, b) => {
+            const dueDiff = (a.assessments[0]?.dueTimestamp ?? Number.MAX_SAFE_INTEGER) - (b.assessments[0]?.dueTimestamp ?? Number.MAX_SAFE_INTEGER);
+            if (dueDiff !== 0) return dueDiff;
+            return a.courseName.localeCompare(b.courseName);
+        });
 }
 
 // ─── University config ─────────────────────────────────────────────────────
@@ -257,7 +299,7 @@ const FilterPanel = memo(function FilterPanel({ dueData, filters, onFiltersChang
 });
 
 // ─── Assessment Table Row ──────────────────────────────────────────────────
-const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide, onOpenDetails, isHidden, nowTick }) {
+const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide, onOpenDetails, isHidden, isComplete, onToggleComplete, nowTick }) {
     void nowTick;
     const urgency = getUrgency(assessment.dueTimestamp);
     const daysLabel = getDaysLeftLabel(assessment.dueTimestamp);
@@ -300,8 +342,8 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide
                         {daysLabel}
                     </span>
                 )}
-                {!isHidden && assessment.hasSubmitted && (
-                    <span className={`${styles.badge} ${styles.badgeSubmitted}`} style={{ marginLeft: '0.35rem' }}>✓ Submitted</span>
+                {!isHidden && isComplete && (
+                    <span className={`${styles.badge} ${styles.badgeComplete}`} style={{ marginLeft: '0.35rem' }}>✓ Complete</span>
                 )}
             </div>
             <div className={`${styles.rowCell} ${styles.rowPoints}`}>
@@ -313,6 +355,11 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide
                 )}
             </div>
             <div className={styles.rowActions} onClick={e => e.stopPropagation()}>
+                {!isHidden && (
+                    <button className={`${styles.rowBtn} ${isComplete ? styles.rowBtnDone : styles.rowBtnComplete}`} onClick={() => onToggleComplete(assessment.id)}>
+                        {isComplete ? '↺ Undo' : 'Completed?'}
+                    </button>
+                )}
                 {isHidden ? (
                     <button className={`${styles.rowBtn} ${styles.rowBtnRestore}`} onClick={() => onUnhide(assessment.id)}>↩ Restore</button>
                 ) : (
@@ -325,7 +372,7 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide
 });
 
 // ─── List View ─────────────────────────────────────────────────────────────
-const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilter, filters, hiddenIds, onHide, onUnhide, onOpenDetails, showHidden, nowTick, showFilterPanel, onToggleFilterPanel, filterCount }) {
+const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilter, filters, hiddenIds, completeIds, onHide, onUnhide, onOpenDetails, onToggleComplete, showHidden, nowTick, groupBy, mode = 'upcoming' }) {
     const filteredTerms = useMemo(() => {
         void nowTick;
         const base = applyFiltersAndSort(dueData, filters, hiddenIds, showHidden);
@@ -340,16 +387,59 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
         })).filter(t => t.courses.length > 0);
     }, [dueData, filters, hiddenIds, urgencyFilter, showHidden, nowTick]);
 
+    const baseTerms = useMemo(() => {
+        void nowTick;
+        return applyFiltersAndSort(dueData, filters, hiddenIds, showHidden);
+    }, [dueData, filters, hiddenIds, showHidden, nowTick]);
+
     const allRaw = useMemo(() => {
         void nowTick;
         return applyFiltersAndSort(dueData, { ...filters, sortBy: 'dueDate', sortDir: 'asc' }, hiddenIds, showHidden)
             .flatMap(t => t.courses.flatMap(c => c.assessments));
     }, [dueData, filters, hiddenIds, showHidden, nowTick]);
 
+    const groupedByClass = useMemo(() => buildClassGroups(filteredTerms), [filteredTerms]);
+    const allClassGroups = useMemo(() => buildClassGroups(baseTerms), [baseTerms]);
+    const completedClassGroups = useMemo(() => {
+        return allClassGroups.filter(group => group.assessments.length > 0 && group.assessments.every(a => completeIds.has(String(a.id))));
+    }, [allClassGroups, completeIds]);
+    const pastClassGroups = useMemo(() => {
+        return allClassGroups.filter(group => group.assessments.length > 0 && group.assessments.every(a => a.dueTimestamp < nowTick));
+    }, [allClassGroups, nowTick]);
+
+    const activeClassGroups = mode === 'completed'
+        ? completedClassGroups
+        : mode === 'past'
+            ? pastClassGroups
+            : groupedByClass;
+
+    const titleText = mode === 'completed'
+        ? 'Completed classes'
+        : mode === 'past'
+            ? 'Past classes'
+            : showHidden
+                ? 'Hidden assessments'
+                : 'Upcoming assessments';
+
+    const subtitleText = mode === 'completed'
+        ? 'Classes where every visible assessment has been marked complete.'
+        : mode === 'past'
+            ? 'Classes whose assessments are all in the past.'
+            : null;
+
     const urgentCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'urgent').length;
     const warningCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'warning').length;
     const safeCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'safe').length;
     const allVisible = filteredTerms.flatMap(t => t.courses.flatMap(c => c.assessments));
+    const displayCount = mode === 'completed'
+        ? completedClassGroups.length
+        : mode === 'past'
+            ? pastClassGroups.length
+            : allVisible.length;
+    const displayCountLabel = mode === 'completed' || mode === 'past'
+        ? (displayCount === 1 ? 'class' : 'classes')
+        : (displayCount === 1 ? 'item' : 'items');
+    const shouldRenderMain = !showHidden || hiddenIds.size > 0 || mode !== 'upcoming';
 
     return (
         <>
@@ -375,7 +465,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
             )}
 
             {showHidden && hiddenIds.size === 0 && (
-                <div className={styles.tableWrap}>
+                <div className={`${styles.tableWrap} ${groupBy === 'class' ? styles.tableWrapGrouped : ''}`}>
                     <div className={styles.emptyState}>
                         <div className={styles.emptyIcon}>👁</div>
                         <p className={styles.emptyTitle}>No hidden assessments</p>
@@ -384,13 +474,13 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                 </div>
             )}
 
-            {(!showHidden || hiddenIds.size > 0) && (
+            {shouldRenderMain && (
                 <div className={styles.tableWrap}>
                     <div className={styles.tableHeader}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <span className={styles.tableTitle}>
-                                {showHidden ? 'Hidden assessments' : 'Upcoming assessments'}
-                                <span className={styles.tableCount}>{allVisible.length} items</span>
+                                {titleText}
+                                <span className={styles.tableCount}>{displayCount} {displayCountLabel}</span>
                             </span>
                             {showHidden && hiddenIds.size > 0 && (
                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -398,7 +488,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                 </span>
                             )}
                         </div>
-                        {!showHidden && (
+                        {!showHidden && mode === 'upcoming' && (
                             <div className={styles.urgencyChips}>
                                 {[
                                     { key: 'all', label: '📋 All' },
@@ -412,19 +502,77 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                         )}
                     </div>
 
-                    <div className={styles.colHeaders}>
-                        <div className={styles.colHeader}>Assessment</div>
-                        <div className={`${styles.colHeader}`}>Due date</div>
-                        <div className={styles.colHeader}>Status</div>
-                        <div className={`${styles.colHeader} ${styles.colHeaderPoints}`}>Points</div>
-                        <div className={`${styles.colHeader} ${styles.colHeaderActions}`}></div>
-                    </div>
+                    {subtitleText && (
+                        <div style={{ padding: '0.75rem 1.25rem 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                            {subtitleText}
+                        </div>
+                    )}
 
-                    {filteredTerms.length === 0 ? (
+                    {groupBy !== 'class' && mode === 'upcoming' && (
+                        <div className={styles.colHeaders}>
+                            <div className={styles.colHeader}>Assessment</div>
+                            <div className={`${styles.colHeader}`}>Due date</div>
+                            <div className={styles.colHeader}>Status</div>
+                            <div className={`${styles.colHeader} ${styles.colHeaderPoints}`}>Points</div>
+                            <div className={`${styles.colHeader} ${styles.colHeaderActions}`}></div>
+                        </div>
+                    )}
+
+                    {mode === 'upcoming' && filteredTerms.length === 0 ? (
                         <div className={styles.emptyState}>
                             <div className={styles.emptyIcon}>{showHidden ? '📭' : '🎉'}</div>
                             <p className={styles.emptyTitle}>{showHidden ? 'No assessments found' : 'All caught up!'}</p>
                             <p className={styles.emptySub}>{showHidden ? 'Try a different filter.' : 'No upcoming assessments right now.'}</p>
+                        </div>
+                    ) : (mode === 'completed' && completedClassGroups.length === 0) ? (
+                        <div className={styles.emptyState}>
+                            <div className={styles.emptyIcon}>✅</div>
+                            <p className={styles.emptyTitle}>No completed classes yet</p>
+                            <p className={styles.emptySub}>Mark all assessments in a class as completed to see it here.</p>
+                        </div>
+                    ) : (mode === 'past' && pastClassGroups.length === 0) ? (
+                        <div className={styles.emptyState}>
+                            <div className={styles.emptyIcon}>🕓</div>
+                            <p className={styles.emptyTitle}>No past classes yet</p>
+                            <p className={styles.emptySub}>Classes will appear here once every assessment is past due.</p>
+                        </div>
+                    ) : groupBy === 'class' || mode === 'completed' || mode === 'past' ? (
+                        <div className={styles.classGroupsGrid}>
+                            {activeClassGroups.map(group => (
+                                <div key={`class-${group.key}`} className={styles.classGroupCard}>
+                                    <div className={styles.classGroupHeader}>
+                                        <div className={styles.classGroupHeaderLeft}>
+                                            <span className={styles.classGroupName}>{group.courseName}</span>
+                                            <span className={styles.termGroupCount}>{group.assessments.length} items</span>
+                                        </div>
+                                        {group.termNames.length > 0 && (
+                                            <span className={styles.classGroupMeta}>{group.termNames.join(' · ')}</span>
+                                        )}
+                                    </div>
+                                    <div className={`${styles.colHeaders} ${styles.classGroupColumns}`}>
+                                        <div className={styles.colHeader}>Assessment</div>
+                                        <div className={`${styles.colHeader}`}>Due date</div>
+                                        <div className={styles.colHeader}>Status</div>
+                                        <div className={`${styles.colHeader} ${styles.colHeaderPoints}`}>Points</div>
+                                        <div className={`${styles.colHeader} ${styles.colHeaderActions}`}></div>
+                                    </div>
+                                    <div className={styles.classGroupRows}>
+                                        {group.assessments.map(a => (
+                                            <AssessmentRow
+                                                key={a.id}
+                                                assessment={a}
+                                                isHidden={showHidden}
+                                                isComplete={completeIds.has(String(a.id))}
+                                                onHide={onHide}
+                                                onUnhide={onUnhide}
+                                                onToggleComplete={onToggleComplete}
+                                                onOpenDetails={onOpenDetails}
+                                                nowTick={nowTick}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     ) : (
                         filteredTerms.map(term => (
@@ -441,8 +589,10 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                             key={a.id}
                                             assessment={a}
                                             isHidden={showHidden}
+                                            isComplete={completeIds.has(String(a.id))}
                                             onHide={onHide}
                                             onUnhide={onUnhide}
+                                            onToggleComplete={onToggleComplete}
                                             onOpenDetails={onOpenDetails}
                                             nowTick={nowTick}
                                         />
@@ -996,7 +1146,6 @@ function AssessmentDetailModal({ assessment, onClose }) {
                         {assessment.pointsPossible != null && <span className={styles.detailMetaItem}>⭐ {assessment.pointsPossible} pts</span>}
                         {assessment.score != null && <span className={styles.detailMetaItem}>🏁 Score: {assessment.score}{assessment.pointsPossible != null ? `/${assessment.pointsPossible}` : ''}</span>}
                         {assessment.grade && <span className={styles.detailMetaItem}>🧾 Grade: {assessment.grade}</span>}
-                        {assessment.hasSubmitted && <span className={styles.detailMetaItem}>✅ Submitted</span>}
                         {Array.isArray(assessment.submissionTypes) && assessment.submissionTypes.length > 0 && <span className={styles.detailMetaItem}>📤 {assessment.submissionTypes.join(', ')}</span>}
                     </div>
                     <div className={styles.detailDescription}>{plainDescription || 'No description available.'}</div>
@@ -1035,14 +1184,17 @@ export default function Dashboard() {
     const [selectedAssessment, setSelectedAssessment] = useState(null);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [showFilterPanel, setShowFilterPanel] = useState(false);
+    const [groupBy, setGroupBy] = useState('term');
     const [filters, setFilters] = useState({ years: [], terms: [], courseIds: [], courseCodes: [], sortBy: 'dueDate', sortDir: 'asc' });
     const [hiddenIds, setHiddenIds] = useState(new Set());
+    const [completeIds, setCompleteIds] = useState(new Set());
     const [showHidden, setShowHidden] = useState(false);
 
     const searchInputRef = useRef(null);
 
     useEffect(() => {
         setHiddenIds(loadHidden());
+        setCompleteIds(loadCompleted());
         setReminderHours(loadReminderHours());
         setRemindedMap(loadRemindedMap());
         if (typeof window !== 'undefined' && 'Notification' in window) setNotificationPermission(Notification.permission);
@@ -1057,6 +1209,16 @@ export default function Dashboard() {
     }, []);
     const unhideAssessment = useCallback(id => {
         setHiddenIds(prev => { const next = new Set(prev); next.delete(String(id)); saveHidden(next); return next; });
+    }, []);
+    const toggleAssessmentComplete = useCallback(id => {
+        setCompleteIds(prev => {
+            const next = new Set(prev);
+            const key = String(id);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            saveCompleted(next);
+            return next;
+        });
     }, []);
     const clearAllHidden = useCallback(() => { setHiddenIds(new Set()); saveHidden(new Set()); }, []);
     const hideCourseAssessments = useCallback(courseId => {
@@ -1162,10 +1324,16 @@ export default function Dashboard() {
 
     const quickLinks = useMemo(() => getQuickLinks(user?.canvasBaseUrl), [user?.canvasBaseUrl]);
     const activeFilterCount = (filters.years?.length || 0) + (filters.terms?.length || 0) + (filters.courseIds?.length || 0) + (filters.courseCodes?.length || 0);
-    const isListOrCalendar = activeTab === 'list' || activeTab === 'calendar' || activeTab === 'hidden';
+    const classGroupsForBadges = useMemo(() => buildClassGroups(dueData.terms), [dueData.terms]);
+    const completedClassesCount = useMemo(() => classGroupsForBadges.filter(group => group.assessments.length > 0 && group.assessments.every(a => completeIds.has(String(a.id)))).length, [classGroupsForBadges, completeIds]);
+    const pastClassesCount = useMemo(() => classGroupsForBadges.filter(group => group.assessments.length > 0 && group.assessments.every(a => a.dueTimestamp < nowTick)).length, [classGroupsForBadges, nowTick]);
+    const isAssessmentTab = ['list', 'calendar', 'hidden', 'completed', 'past'].includes(activeTab);
+    const isListLikeTab = activeTab === 'list' || activeTab === 'hidden';
 
     const tabConfig = [
         { key: 'list', icon: '📋', label: 'Assessments' },
+        { key: 'completed', icon: '✅', label: 'Completed classes', badge: completedClassesCount > 0 ? completedClassesCount : null },
+        { key: 'past', icon: '🕓', label: 'Past classes', badge: pastClassesCount > 0 ? pastClassesCount : null },
         { key: 'calendar', icon: '📅', label: 'Calendar' },
         { key: 'timetable', icon: '🕐', label: 'Timetable' },
         { key: 'hidden', icon: '👁', label: 'Hidden', badge: hiddenIds.size > 0 ? hiddenIds.size : null },
@@ -1173,6 +1341,8 @@ export default function Dashboard() {
 
     const pageTitle = {
         list: 'Assessments',
+        completed: 'Completed classes',
+        past: 'Past classes',
         calendar: 'Calendar',
         timetable: 'Timetable',
         hidden: 'Hidden assessments',
@@ -1283,7 +1453,7 @@ export default function Dashboard() {
                 {/* Page Content */}
                 <main className={styles.pageContent}>
                     {/* Controls row */}
-                    {isListOrCalendar && (
+                    {isAssessmentTab && (
                         <div className={styles.controlsRow}>
                             <div className={styles.searchBox}>
                                 <span className={styles.searchIcon}>🔍</span>
@@ -1292,7 +1462,16 @@ export default function Dashboard() {
                             <div className={styles.controlsDivider} />
                             <div className={styles.controlsActions}>
                                 <button className={styles.ctrlBtn} onClick={() => setSearchText('')}>Show all</button>
-                                {isListOrCalendar && (
+                                {isListLikeTab && (
+                                    <button
+                                        className={`${styles.ctrlBtn} ${groupBy === 'class' ? styles.ctrlBtnActive : ''}`}
+                                        onClick={() => setGroupBy(current => (current === 'class' ? 'term' : 'class'))}
+                                        title="Toggle grouping mode"
+                                    >
+                                        Group: {groupBy === 'class' ? 'Class' : 'Term'}
+                                    </button>
+                                )}
+                                {isAssessmentTab && (
                                     <button className={`${styles.ctrlBtn} ${showFilterPanel ? styles.ctrlBtnActive : ''}`} onClick={() => setShowFilterPanel(o => !o)}>
                                         ⚡ Filters
                                         {activeFilterCount > 0 && <span className={styles.filterBadge}>{activeFilterCount}</span>}
@@ -1321,11 +1500,11 @@ export default function Dashboard() {
                     {/* Content */}
                     {!loading && !error && (
                         <div className={`${styles.contentWithFilter}`}>
-                            {isListOrCalendar && showFilterPanel && (
+                            {isAssessmentTab && showFilterPanel && (
                                 <FilterPanel dueData={dueData} filters={filters} onFiltersChange={setFilters} onHideCourse={hideCourseAssessments} />
                             )}
                             <div className={styles.contentMain}>
-                                {(activeTab === 'list' || activeTab === 'hidden') && (
+                                {(activeTab === 'list' || activeTab === 'hidden' || activeTab === 'completed' || activeTab === 'past') && (
                                     <>
                                         {activeTab === 'hidden' && hiddenIds.size > 0 && (
                                             <div className={styles.hiddenBanner}>
@@ -1339,14 +1518,15 @@ export default function Dashboard() {
                                             setUrgencyFilter={setUrgencyFilter}
                                             filters={filters}
                                             hiddenIds={hiddenIds}
+                                            completeIds={completeIds}
                                             onHide={hideAssessment}
                                             onUnhide={unhideAssessment}
                                             onOpenDetails={setSelectedAssessment}
+                                            onToggleComplete={toggleAssessmentComplete}
                                             showHidden={activeTab === 'hidden'}
                                             nowTick={nowTick}
-                                            showFilterPanel={showFilterPanel}
-                                            onToggleFilterPanel={() => setShowFilterPanel(o => !o)}
-                                            filterCount={activeFilterCount}
+                                            groupBy={groupBy}
+                                            mode={activeTab === 'completed' ? 'completed' : activeTab === 'past' ? 'past' : 'upcoming'}
                                         />
                                     </>
                                 )}
