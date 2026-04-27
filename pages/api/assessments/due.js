@@ -2,6 +2,7 @@ import { getAuthUser } from '../../../lib/middleware.js';
 import { DEFAULT_CANVAS_BASE_URL, normalizeCanvasBaseUrl } from '../../../lib/canvas-url.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_VERSION = 2;
 const cacheStore = globalThis.__canvasDueCache || new Map();
 globalThis.__canvasDueCache = cacheStore;
 
@@ -15,7 +16,13 @@ function resolveBaseUrl(user) {
 }
 
 function getCacheKey(userId, baseUrl, termFilter, onlyActive) {
-    return JSON.stringify({ userId: userId || 'anon', baseUrl, termFilter: termFilter || '', onlyActive: Boolean(onlyActive) });
+    return JSON.stringify({
+        v: CACHE_VERSION,
+        userId: userId || 'anon',
+        baseUrl,
+        termFilter: termFilter || '',
+        onlyActive: Boolean(onlyActive),
+    });
 }
 
 async function fetchPaginated(initialUrl, apiToken) {
@@ -92,7 +99,6 @@ export default async function handler(req, res) {
         const coursesUrl = `${canvasBaseUrl}courses?per_page=100&include[]=enrollments&include[]=term&enrollment_state[]=active&enrollment_state[]=completed&enrollment_state[]=past`;
         const allCourses = await fetchPaginated(coursesUrl, apiToken);
         const courses = includeOnlyActive ? allCourses.filter(isActive) : allCourses;
-        const currentTime = Date.now();
         const normalizedFilter = termFilter?.toLowerCase().trim();
 
         const assignmentResults = await Promise.allSettled(
@@ -127,8 +133,7 @@ export default async function handler(req, res) {
                             submissionTypes: Array.isArray(a?.submission_types) ? a.submission_types : [],
                             courseName: course.name, termName: term,
                         };
-                    })
-                    .filter((a) => a.dueTimestamp >= currentTime);
+                    });
             })
             .filter((a) => {
                 if (!normalizedFilter) return true;

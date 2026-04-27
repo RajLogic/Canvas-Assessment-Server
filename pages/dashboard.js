@@ -373,6 +373,8 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide
 
 // ─── List View ─────────────────────────────────────────────────────────────
 const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilter, filters, hiddenIds, completeIds, onHide, onUnhide, onOpenDetails, onToggleComplete, showHidden, nowTick, groupBy, mode = 'upcoming' }) {
+    const currentYear = new Date(nowTick).getFullYear();
+
     const filteredTerms = useMemo(() => {
         void nowTick;
         const base = applyFiltersAndSort(dueData, filters, hiddenIds, showHidden);
@@ -381,7 +383,8 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
             courses: term.courses.map(course => ({
                 ...course,
                 assessments: course.assessments.filter(a =>
-                    urgencyFilter === 'all' || getUrgency(a.dueTimestamp) === urgencyFilter
+                    a.dueTimestamp >= nowTick &&
+                    (urgencyFilter === 'all' || getUrgency(a.dueTimestamp) === urgencyFilter)
                 ),
             })).filter(c => c.assessments.length > 0),
         })).filter(t => t.courses.length > 0);
@@ -395,14 +398,29 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
     const allRaw = useMemo(() => {
         void nowTick;
         return applyFiltersAndSort(dueData, { ...filters, sortBy: 'dueDate', sortDir: 'asc' }, hiddenIds, showHidden)
-            .flatMap(t => t.courses.flatMap(c => c.assessments));
+            .flatMap(t => t.courses.flatMap(c => c.assessments))
+            .filter(a => a.dueTimestamp >= nowTick);
     }, [dueData, filters, hiddenIds, showHidden, nowTick]);
 
     const groupedByClass = useMemo(() => buildClassGroups(filteredTerms), [filteredTerms]);
     const allClassGroups = useMemo(() => buildClassGroups(baseTerms), [baseTerms]);
     const completedClassGroups = useMemo(() => {
-        return allClassGroups.filter(group => group.assessments.length > 0 && group.assessments.every(a => completeIds.has(String(a.id))));
-    }, [allClassGroups, completeIds]);
+        return allClassGroups
+            .map(group => ({
+                ...group,
+                assessments: group.assessments.filter(a => {
+                    const isMarkedComplete = completeIds.has(String(a.id));
+                    const isPastInCurrentYear = a.dueTimestamp < nowTick && new Date(a.dueTimestamp).getFullYear() === currentYear;
+                    return isMarkedComplete || isPastInCurrentYear;
+                }),
+            }))
+            .filter(group => group.assessments.length > 0)
+            .sort((a, b) => {
+                const dueDiff = (a.assessments[0]?.dueTimestamp ?? Number.MAX_SAFE_INTEGER) - (b.assessments[0]?.dueTimestamp ?? Number.MAX_SAFE_INTEGER);
+                if (dueDiff !== 0) return dueDiff;
+                return a.courseName.localeCompare(b.courseName);
+            });
+    }, [allClassGroups, completeIds, currentYear, nowTick]);
     const pastClassGroups = useMemo(() => {
         return allClassGroups.filter(group => group.assessments.length > 0 && group.assessments.every(a => a.dueTimestamp < nowTick));
     }, [allClassGroups, nowTick]);
@@ -422,7 +440,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                 : 'Upcoming assessments';
 
     const subtitleText = mode === 'completed'
-        ? 'Classes where every visible assessment has been marked complete.'
+        ? 'Marked complete assessments and past-due assessments from this year, grouped by class.'
         : mode === 'past'
             ? 'Classes whose assessments are all in the past.'
             : null;
@@ -528,7 +546,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                         <div className={styles.emptyState}>
                             <div className={styles.emptyIcon}>✅</div>
                             <p className={styles.emptyTitle}>No completed classes yet</p>
-                            <p className={styles.emptySub}>Mark all assessments in a class as completed to see it here.</p>
+                            <p className={styles.emptySub}>Mark items as complete or wait for past-due assessments in this year.</p>
                         </div>
                     ) : (mode === 'past' && pastClassGroups.length === 0) ? (
                         <div className={styles.emptyState}>
@@ -583,8 +601,10 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                         {term.courses.reduce((s, c) => s + c.assessments.length, 0)} items
                                     </span>
                                 </div>
-                                {term.courses.flatMap(course =>
-                                    course.assessments.map(a => (
+                                {term.courses
+                                    .flatMap(course => course.assessments)
+                                    .sort((a, b) => a.dueTimestamp - b.dueTimestamp)
+                                    .map(a => (
                                         <AssessmentRow
                                             key={a.id}
                                             assessment={a}
@@ -596,8 +616,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                             onOpenDetails={onOpenDetails}
                                             nowTick={nowTick}
                                         />
-                                    ))
-                                )}
+                                    ))}
                             </div>
                         ))
                     )}
