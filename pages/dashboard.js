@@ -1060,10 +1060,6 @@ function SettingsModal({ user, onClose, onSaved, reminderHours, onReminderHoursC
                         <div className={styles.userAvatar}>{user?.username?.[0]?.toUpperCase() || '?'}</div>
                         <div><div className={styles.userName}>{user?.username}</div><div className={styles.userEmail}>{user?.email}</div></div>
                     </div>
-                    <div className={styles.encryptionBadge}>
-                        <span className={styles.encryptBadgeIcon}>🔐</span>
-                        <span>API token and timetable link encrypted with <strong>AES-256-GCM</strong>.</span>
-                    </div>
                     {error && <div className={styles.settingsError}><span>⚠️</span> {error}</div>}
                     {success && <div className={styles.settingsSuccess}><span>✅</span> {success}</div>}
                     <form onSubmit={handleSave} className={styles.settingsForm}>
