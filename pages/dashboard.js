@@ -69,6 +69,13 @@ function formatTime(dateString) {
     return new Date(dateString).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
 }
 
+function getScorePercentage(score, pointsPossible) {
+    const numericScore = Number(score);
+    const numericPointsPossible = Number(pointsPossible);
+    if (!Number.isFinite(numericScore) || !Number.isFinite(numericPointsPossible) || numericPointsPossible <= 0) return null;
+    return Math.max(0, Math.min(100, (numericScore / numericPointsPossible) * 100));
+}
+
 // ─── Local storage helpers ──────────────────────────────────────────────────
 const HIDDEN_KEY = 'fr_hidden_assessments';
 const COMPLETE_KEY = 'fr_completed_assessments';
@@ -319,6 +326,9 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide
     const stripeClass = urgency === 'urgent' ? styles.rowStripeUrgent :
         urgency === 'warning' ? styles.rowStripeWarning : styles.rowStripeSafe;
 
+    const scorePercentage = getScorePercentage(assessment.score, assessment.pointsPossible);
+    const scoreLabel = scorePercentage == null ? null : `${Math.round(scorePercentage)}%`;
+
     return (
         <div className={`${styles.assessmentRow} ${rowBgClass}`} onClick={() => onOpenDetails(assessment)}>
             <div className={`${styles.rowStripe} ${stripeClass}`} />
@@ -349,8 +359,16 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide
             <div className={`${styles.rowCell} ${styles.rowPoints}`}>
                 {assessment.pointsPossible != null ? `${assessment.pointsPossible} pts` : '—'}
                 {assessment.score != null && (
-                    <div style={{ fontSize: '0.65rem', color: 'var(--accent)', marginTop: '0.1rem' }}>
-                        Score: {assessment.score}
+                    <div className={styles.rowScoreBlock}>
+                        <div className={styles.rowScoreMeta}>
+                            <span className={styles.rowScoreValue}>Score: {assessment.score}</span>
+                            {scoreLabel && <span className={styles.rowScorePercentage}>{scoreLabel}</span>}
+                        </div>
+                        {scorePercentage != null && (
+                            <div className={styles.rowScoreBar} aria-hidden="true">
+                                <div className={styles.rowScoreBarFill} style={{ width: `${scorePercentage}%` }} />
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

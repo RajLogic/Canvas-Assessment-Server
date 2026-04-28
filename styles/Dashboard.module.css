@@ -624,7 +624,7 @@
 /* Table column headers */
 .colHeaders {
     display: grid;
-    grid-template-columns: 1fr 220px 110px 100px 110px;
+    grid-template-columns: minmax(0, 1fr) 220px 110px 136px 176px;
     gap: 0;
     padding: 0.5rem 1.25rem;
     border-bottom: 1px solid var(--border);
@@ -738,7 +738,7 @@
 /* Assessment row */
 .assessmentRow {
     display: grid;
-    grid-template-columns: 1fr 220px 110px 100px 110px;
+    grid-template-columns: minmax(0, 1fr) 220px 110px 136px 176px;
     gap: 0;
     padding: 0 1.25rem;
     align-items: center;
@@ -865,6 +865,53 @@
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-secondary);
+}
+
+.rowScoreBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.rowScoreMeta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    font-size: 0.64rem;
+    line-height: 1.2;
+    color: var(--text-muted);
+}
+
+.rowScoreValue {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rowScorePercentage {
+    flex-shrink: 0;
+    padding: 0.08rem 0.35rem;
+    border-radius: 999px;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.rowScoreBar {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.rowScoreBarFill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, var(--safe-stripe)));
 }
 
 .rowActions {
