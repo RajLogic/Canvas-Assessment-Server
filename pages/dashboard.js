@@ -44,7 +44,7 @@ function getDaysLeftLabel(dueTimestamp) {
     const daysLeft = Math.ceil(diff / msPerDay);
     if (daysLeft < 0) {
         const overdueDays = Math.abs(daysLeft);
-        return `${overdueDays}d overdue`;
+        return `${overdueDays}d ago`;
     }
     if (diff > 0 && diff <= 48 * 60 * 60 * 1000) return formatCountdown(diff);
     if (daysLeft === 0) return 'Today';
@@ -313,18 +313,19 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide
     const daysLabel = getDaysLeftLabel(assessment.dueTimestamp);
     const { main: dateMain, sub: dateSub } = formatDateRow(assessment.dueAt);
     const courseCode = assessment.courseName.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/)?.[1] || null;
+    const isOverdue = assessment.dueTimestamp < nowTick;
 
-    const badgeClass = isHidden ? styles.badgeConnected :
+    const badgeClass = isOverdue ? styles.badgeConnected : isHidden ? styles.badgeConnected :
         urgency === 'urgent' ? styles.badgeUrgent :
             urgency === 'warning' ? styles.badgeWarning : styles.badgeConnected;
 
-    const dotClass = urgency === 'urgent' ? styles.dotUrgent :
+    const dotClass = isOverdue ? '' : urgency === 'urgent' ? styles.dotUrgent :
         urgency === 'warning' ? styles.dotWarning : styles.dotSafe;
 
-    const rowBgClass = !isHidden && urgency === 'urgent' ? styles.rowUrgentBg :
+    const rowBgClass = !isHidden && !isOverdue && urgency === 'urgent' ? styles.rowUrgentBg :
         !isHidden && urgency === 'warning' ? styles.rowWarningBg : '';
 
-    const stripeClass = urgency === 'urgent' ? styles.rowStripeUrgent :
+    const stripeClass = isOverdue ? '' : urgency === 'urgent' ? styles.rowStripeUrgent :
         urgency === 'warning' ? styles.rowStripeWarning : styles.rowStripeSafe;
 
     const scorePercentage = getScorePercentage(assessment.score, assessment.pointsPossible);
@@ -348,8 +349,8 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide
                 {isHidden ? (
                     <span className={`${styles.badge} ${styles.badgeConnected}`}>Hidden</span>
                 ) : (
-                    <span className={`${styles.badge} ${badgeClass}`}>
-                        <span className={`${styles.badgeDot} ${dotClass}`} />
+                    <span className={`${styles.badge} ${badgeClass}`} style={isOverdue ? { background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-muted)' } : undefined}>
+                        <span className={`${styles.badgeDot} ${dotClass}`} style={isOverdue ? { background: 'var(--text-muted)' } : undefined} />
                         {daysLabel}
                     </span>
                 )}

@@ -53,7 +53,7 @@ function getDaysLeftLabel(dueTimestamp) {
     const daysLeft = Math.ceil(diff / msPerDay);
     if (daysLeft < 0) {
         const overdueDays = Math.abs(daysLeft);
-        return `${overdueDays} day${overdueDays !== 1 ? 's' : ''} overdue`;
+        return `${overdueDays} day${overdueDays !== 1 ? 's' : ''} ago`;
     }
 
     if (diff > 0 && diff <= 48 * 60 * 60 * 1000) {
@@ -207,9 +207,13 @@ const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp, nowTick }) {
     void nowTick;
     const urgency = getUrgency(dueTimestamp);
     const label = getDaysLeftLabel(dueTimestamp);
+    const isOverdue = dueTimestamp < nowTick;
     return (
-        <span className={`${styles.badge} ${styles[`badge_${urgency}`]}`}>
-            {urgency === 'urgent' ? '🔴' : urgency === 'warning' ? '🟡' : '🟢'} {label}
+        <span
+            className={`${styles.badge} ${styles[`badge_${urgency}`]}`}
+            style={isOverdue ? { background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-muted)' } : undefined}
+        >
+            {isOverdue ? '○' : urgency === 'urgent' ? '🔴' : urgency === 'warning' ? '🟡' : '🟢'} {label}
         </span>
     );
 });
@@ -217,10 +221,18 @@ const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp, nowTick }) {
 const AssessmentCard = memo(function AssessmentCard({ assessment, onHide, onUnhide, onOpenDetails, isHidden, nowTick }) {
     void nowTick;
     const urgency = getUrgency(assessment.dueTimestamp);
+    const isOverdue = assessment.dueTimestamp < nowTick;
     return (
-        <li className={`${styles.assessmentItem} ${styles[`item_${isHidden ? 'safe' : urgency}`]} ${isHidden ? dashStyles.hiddenItem : ''}`}>
+        <li
+            className={`${styles.assessmentItem} ${styles[`item_${isHidden ? 'safe' : urgency}`]} ${isHidden ? dashStyles.hiddenItem : ''}`}
+            style={isOverdue ? { background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-muted)' } : undefined}
+        >
             <div className={styles.assessmentLeft}>
-                <div className={styles.urgencyStripe} data-urgency={isHidden ? 'safe' : urgency} />
+                <div
+                    className={styles.urgencyStripe}
+                    data-urgency={isHidden || isOverdue ? 'safe' : urgency}
+                    style={isOverdue ? { background: 'var(--text-muted)' } : undefined}
+                />
                 <div className={styles.assessmentContent}>
                     <button className={styles.assessmentNameBtn} onClick={() => onOpenDetails(assessment)}>
                         {assessment.name}
