@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import styles from '../styles/Auth.module.css';
+import { getDashboardRoute } from '../lib/dashboard-route.js';
 
 function SiteLogo({ size = 24 }) {
     return (
@@ -68,7 +69,7 @@ export default function Register() {
     useEffect(() => {
         fetch('/api/auth/session')
             .then((r) => r.json())
-            .then((d) => { if (d.authenticated) router.replace('/dashboard'); })
+            .then((d) => { if (d.authenticated) router.replace(getDashboardRoute(d.user?.dashboardVersion)); })
             .catch(() => { })
             .finally(() => setChecking(false));
     }, [router]);
@@ -109,7 +110,7 @@ export default function Register() {
                 setError(data.message || 'Registration failed.');
                 return;
             }
-            router.push('/dashboard?welcome=1');
+            router.push(`${getDashboardRoute(data.user?.dashboardVersion)}?welcome=1`);
         } catch {
             setError('Network error. Please try again.');
         } finally {

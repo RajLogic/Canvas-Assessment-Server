@@ -65,7 +65,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json({
             message: 'Logged in successfully.',
-            user: { id: user.id, email: user.email, username: user.username },
+            user: { id: user.id, email: user.email, username: user.username, dashboardVersion: user.dashboard_version || null },
         });
     } catch (err) {
         console.error('Login error:', err);

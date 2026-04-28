@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import styles from '../styles/Dashboard.module.css';
 import Image from 'next/image';
 import { normalizeCanvasBaseUrl } from '../lib/canvas-url.js';
+import { getDashboardRoute } from '../lib/dashboard-route.js';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function SiteLogo({ size = 28 }) {
@@ -67,10 +68,6 @@ function formatDateRow(dateString) {
 
 function formatTime(dateString) {
     return new Date(dateString).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
-}
-
-function getDashboardRoute(version) {
-    return version === 'v1' ? '/dashboardV1' : '/dashboard';
 }
 
 function getScorePercentage(score, pointsPossible) {
@@ -1099,14 +1096,14 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
                         <div className={styles.settingsField}>
                             <label className={styles.settingsLabel}>
                                 Dashboard version
-                                <span className={styles.settingsLabelHint}>Switch between the base dashboard and v1</span>
+                                <span className={styles.settingsLabelHint}>Switch between the default dashboard and v1</span>
                             </label>
                             <select
                                 value={form.dashboardVersion}
                                 onChange={e => setForm(f => ({ ...f, dashboardVersion: e.target.value }))}
                                 className={styles.settingsSelect}
                             >
-                                <option value="base">Base dashboard</option>
+                                <option value="base">Default dashboard</option>
                                 <option value="v1">Dashboard v1</option>
                             </select>
                         </div>
@@ -1383,18 +1380,28 @@ export default function Dashboard() {
         router.push('/');
     };
 
+    const switchDashboardVersion = useCallback(async () => {
+        const nextVersion = 'v1';
+        try {
+            await fetch('/api/auth/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dashboardVersion: nextVersion }),
+            });
+        } finally {
+            router.replace(getDashboardRoute(nextVersion));
+        }
+    }, [router]);
+
     const quickLinks = useMemo(() => getQuickLinks(user?.canvasBaseUrl), [user?.canvasBaseUrl]);
     const activeFilterCount = (filters.years?.length || 0) + (filters.terms?.length || 0) + (filters.courseIds?.length || 0) + (filters.courseCodes?.length || 0);
-    const classGroupsForBadges = useMemo(() => buildClassGroups(dueData.terms), [dueData.terms]);
-    const completedClassesCount = useMemo(() => classGroupsForBadges.filter(group => group.assessments.length > 0 && group.assessments.every(a => completeIds.has(String(a.id)))).length, [classGroupsForBadges, completeIds]);
-    const pastClassesCount = useMemo(() => classGroupsForBadges.filter(group => group.assessments.length > 0 && group.assessments.every(a => a.dueTimestamp < nowTick)).length, [classGroupsForBadges, nowTick]);
     const isAssessmentTab = ['list', 'calendar', 'hidden', 'completed', 'past'].includes(activeTab);
     const isListLikeTab = activeTab === 'list' || activeTab === 'hidden';
 
     const tabConfig = [
         { key: 'list', icon: '📋', label: 'Assessments' },
-        { key: 'completed', icon: '✅', label: 'Past assessments', badge: completedClassesCount > 0 ? completedClassesCount : null },
-        { key: 'past', icon: '🕓', label: 'Past classes', badge: pastClassesCount > 0 ? pastClassesCount : null },
+        { key: 'completed', icon: '✅', label: 'Past assessments' },
+        { key: 'past', icon: '🕓', label: 'Past classes' },
         { key: 'calendar', icon: '📅', label: 'Calendar' },
         { key: 'timetable', icon: '🕐', label: 'Timetable' },
         { key: 'hidden', icon: '👁', label: 'Hidden', badge: hiddenIds.size > 0 ? hiddenIds.size : null },
@@ -1473,6 +1480,9 @@ export default function Dashboard() {
                 <div className={styles.sidebarBottom}>
                     <button className={styles.sidebarNavBtn} onClick={() => { setShowSettings(true); setMobileSidebarOpen(false); }}>
                         <span className={styles.sidebarNavIcon}>⚙️</span> Settings
+                    </button>
+                    <button className={styles.sidebarNavBtn} onClick={() => { setMobileSidebarOpen(false); switchDashboardVersion(); }}>
+                        <span className={styles.sidebarNavIcon}>⇄</span> Switch to old dashboard
                     </button>
                     <button className={styles.sidebarNavBtn} onClick={() => { setShowHelp(true); setMobileSidebarOpen(false); }}>
                         <span className={styles.sidebarNavIcon}>⌨️</span> Shortcuts

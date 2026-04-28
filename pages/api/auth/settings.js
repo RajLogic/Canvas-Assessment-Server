@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     }
 
     if (dashboardVersion !== undefined && dashboardVersion !== null && dashboardVersion !== '' && !['base', 'v1'].includes(dashboardVersion)) {
-        return res.status(400).json({ message: 'Dashboard version must be either base or v1.' });
+        return res.status(400).json({ message: 'Dashboard version must be either default (base) or old dashboard.' });
     }
 
     try {

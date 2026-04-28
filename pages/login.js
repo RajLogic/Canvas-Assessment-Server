@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/router';
 import styles from '../styles/Auth.module.css';
 import Head from 'next/head';
+import { getDashboardRoute } from '../lib/dashboard-route.js';
 
 function SiteLogo({ size = 24 }) {
     return (
@@ -28,7 +29,7 @@ export default function Login() {
     useEffect(() => {
         fetch('/api/auth/session')
             .then((r) => r.json())
-            .then((d) => { if (d.authenticated) router.replace('/dashboard'); })
+            .then((d) => { if (d.authenticated) router.replace(getDashboardRoute(d.user?.dashboardVersion)); })
             .catch(() => { })
             .finally(() => setChecking(false));
     }, [router]);
@@ -57,7 +58,7 @@ export default function Login() {
                 setError(data.message || 'Login failed.');
                 return;
             }
-            router.push('/dashboard');
+            router.push(getDashboardRoute(data.user?.dashboardVersion));
         } catch {
             setError('Network error. Please try again.');
         } finally {

@@ -5,6 +5,7 @@ import dashStyles from '../styles/DashboardV1.module.css';
 import sidebarStyles from '../styles/FilterSidebar.module.css';
 import Image from 'next/image';
 import { normalizeCanvasBaseUrl } from '../lib/canvas-url.js';
+import { getDashboardRoute } from '../lib/dashboard-route.js';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function SiteLogo({ size = 32 }) {
@@ -74,10 +75,6 @@ function formatTime(dateString) {
     return new Date(dateString).toLocaleTimeString('en-AU', {
         hour: '2-digit', minute: '2-digit',
     });
-}
-
-function getDashboardRoute(version) {
-    return version === 'v1' ? '/dashboardV1' : '/dashboard';
 }
 
 function startOfLocalDay(value = new Date()) {
@@ -1387,15 +1384,15 @@ function SettingsModal({
                         <div className={dashStyles.settingsField}>
                             <label className={dashStyles.settingsLabel}>
                                 Dashboard version
-                                <span className={dashStyles.settingsLabelHint}>Switch between the base dashboard and v1</span>
+                                <span className={dashStyles.settingsLabelHint}>Switch between the default dashboard and old dashboard</span>
                             </label>
                             <select
                                 value={form.dashboardVersion}
                                 onChange={e => setForm(f => ({ ...f, dashboardVersion: e.target.value }))}
                                 className={dashStyles.settingsSelect}
                             >
-                                <option value="base">Base dashboard</option>
-                                <option value="v1">Dashboard v1</option>
+                                <option value="base">Default dashboard</option>
+                                <option value="v1">Old dashboard</option>
                             </select>
                         </div>
                         {showCustomUrl && (
@@ -1834,6 +1831,19 @@ export default function Dashboard() {
         router.push('/');
     };
 
+    const switchDashboardVersion = useCallback(async () => {
+        const nextVersion = 'base';
+        try {
+            await fetch('/api/auth/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dashboardVersion: nextVersion }),
+            });
+        } finally {
+            router.replace(getDashboardRoute(nextVersion));
+        }
+    }, [router]);
+
     const activeFilterCount = (filters.years?.length || 0) + (filters.terms?.length || 0) +
         (filters.courseIds?.length || 0) + (filters.courseCodes?.length || 0);
 
@@ -1927,6 +1937,7 @@ export default function Dashboard() {
                                             {link.label}
                                         </a>
                                     ))}
+                                    <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); switchDashboardVersion(); }}>Switch to default dashboard</button>
                                     <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); setShowSettings(true); }}>⚙️ Settings</button>
                                     <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); setShowHelp(true); }}>⌨️ Shortcuts</button>
                                     <button className={styles.menuActionDanger} onClick={() => { setShowHeaderMenu(false); handleLogout(); }}>Sign out</button>

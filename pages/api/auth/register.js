@@ -81,7 +81,7 @@ export default async function handler(req, res) {
 
         return res.status(201).json({
             message: 'Account created successfully.',
-            user: { id: user.id, email: user.email, username: user.username },
+            user: { id: user.id, email: user.email, username: user.username, dashboardVersion: user.dashboard_version || null },
         });
     } catch (err) {
         console.error('Register error:', err);
