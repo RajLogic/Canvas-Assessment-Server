@@ -32,6 +32,7 @@ export default async function handler(req, res) {
                     hasCanvasToken: Boolean(session.canvas_api_token),
                     hasTimetableLink: Boolean(session.timetable_link),
                     hasCanvasBaseUrl: Boolean(session.canvas_base_url),
+                    dashboardVersion: session.dashboard_version || null,
                     // Return the resolved URL the client can display, but NOT the raw token
                     canvasBaseUrl: session.canvas_base_url || envBaseUrl,
                 },

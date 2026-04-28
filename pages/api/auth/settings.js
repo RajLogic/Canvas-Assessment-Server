@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         return res.status(401).json({ message: 'Unauthorized', redirect: '/login' });
     }
 
-    const { canvasApiToken, timetableLink, canvasBaseUrl } = req.body || {};
+    const { canvasApiToken, timetableLink, canvasBaseUrl, dashboardVersion } = req.body || {};
 
     // ─── Validate Canvas base URL if provided ───
     if (canvasBaseUrl !== undefined && canvasBaseUrl !== null && canvasBaseUrl !== '') {
@@ -34,6 +34,10 @@ export default async function handler(req, res) {
         }
     }
 
+    if (dashboardVersion !== undefined && dashboardVersion !== null && dashboardVersion !== '' && !['base', 'v1'].includes(dashboardVersion)) {
+        return res.status(400).json({ message: 'Dashboard version must be either base or v1.' });
+    }
+
     try {
         // Only pass fields that were explicitly included in the request body
         // so we don't accidentally overwrite fields the user didn't touch
@@ -52,6 +56,9 @@ export default async function handler(req, res) {
             }
             updatePayload.canvasBaseUrl = normalised;
         }
+        if ('dashboardVersion' in (req.body || {})) {
+            updatePayload.dashboardVersion = dashboardVersion || null;
+        }
 
         const updated = await updateUserSettings(user.id, updatePayload);
 
@@ -64,6 +71,7 @@ export default async function handler(req, res) {
                 hasCanvasToken: Boolean(updated.canvas_api_token),
                 hasTimetableLink: Boolean(updated.timetable_link),
                 hasCanvasBaseUrl: Boolean(updated.canvas_base_url),
+                dashboardVersion: updated.dashboard_version || null,
                 canvasBaseUrl: updated.canvas_base_url || null,
             },
         });

@@ -69,6 +69,10 @@ function formatTime(dateString) {
     return new Date(dateString).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
 }
 
+function getDashboardRoute(version) {
+    return version === 'v1' ? '/dashboardV1' : '/dashboard';
+}
+
 function getScorePercentage(score, pointsPossible) {
     const numericScore = Number(score);
     const numericPointsPossible = Number(pointsPossible);
@@ -1028,13 +1032,13 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
 });
 
 // ─── Settings Modal ────────────────────────────────────────────────────────
-function SettingsModal({ user, onClose, onSaved, reminderHours, onReminderHoursChange, notificationPermission, onEnableNotifications }) {
+function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours, onReminderHoursChange, notificationPermission, onEnableNotifications }) {
     const defaultEnvUrl = 'https://rmit.instructure.com/api/v1/';
     const savedUrl = user?.canvasBaseUrl || defaultEnvUrl;
     const matchedPreset = UNIVERSITIES.find(u => u.url && u.url.toLowerCase() === savedUrl.toLowerCase());
     const initialPreset = matchedPreset ? matchedPreset.url : '';
 
-    const [form, setForm] = useState({ canvasApiToken: '', timetableLink: '', canvasBaseUrl: '' });
+    const [form, setForm] = useState({ canvasApiToken: '', timetableLink: '', canvasBaseUrl: '', dashboardVersion: dashboardVersion || 'base' });
     const [uniPreset, setUniPreset] = useState(initialPreset);
     const [showCustomUrl, setShowCustomUrl] = useState(!matchedPreset && Boolean(user?.canvasBaseUrl));
     const [saving, setSaving] = useState(false);
@@ -1057,6 +1061,7 @@ function SettingsModal({ user, onClose, onSaved, reminderHours, onReminderHoursC
             if (form.timetableLink) payload.timetableLink = form.timetableLink;
             const resolvedUrl = showCustomUrl ? form.canvasBaseUrl : (uniPreset !== initialPreset ? uniPreset : undefined);
             if (resolvedUrl !== undefined) payload.canvasBaseUrl = resolvedUrl;
+            payload.dashboardVersion = form.dashboardVersion;
             const res = await fetch('/api/auth/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json();
             if (!res.ok) { setError(data.message || 'Failed to save.'); return; }
@@ -1089,6 +1094,20 @@ function SettingsModal({ user, onClose, onSaved, reminderHours, onReminderHoursC
                             <select value={uniPreset} onChange={handleUniSelect} className={styles.settingsSelect}>
                                 <option value="" disabled>Select your university…</option>
                                 {UNIVERSITIES.map(u => <option key={u.label} value={u.url}>{u.label}</option>)}
+                            </select>
+                        </div>
+                        <div className={styles.settingsField}>
+                            <label className={styles.settingsLabel}>
+                                Dashboard version
+                                <span className={styles.settingsLabelHint}>Switch between the base dashboard and v1</span>
+                            </label>
+                            <select
+                                value={form.dashboardVersion}
+                                onChange={e => setForm(f => ({ ...f, dashboardVersion: e.target.value }))}
+                                className={styles.settingsSelect}
+                            >
+                                <option value="base">Base dashboard</option>
+                                <option value="v1">Dashboard v1</option>
                             </select>
                         </div>
                         {showCustomUrl && (
@@ -1224,6 +1243,7 @@ export default function Dashboard() {
     const [showHidden, setShowHidden] = useState(false);
 
     const searchInputRef = useRef(null);
+    const pageDashboardVersion = 'base';
 
     useEffect(() => {
         setHiddenIds(loadHidden());
@@ -1269,7 +1289,12 @@ export default function Dashboard() {
         fetch('/api/auth/session').then(r => r.json()).then(data => {
             if (!data.authenticated) { router.replace('/login'); }
             else {
-                setUser(data.user); setAuthChecked(true);
+                setUser(data.user);
+                setAuthChecked(true);
+                if (data.user?.dashboardVersion && data.user.dashboardVersion !== pageDashboardVersion) {
+                    router.replace(getDashboardRoute(data.user.dashboardVersion));
+                    return;
+                }
                 if (router.query.welcome === '1') setSetupBanner('Welcome! Add your Canvas API token in Settings to get started.');
             }
         }).catch(() => router.replace('/login'));
@@ -1278,7 +1303,10 @@ export default function Dashboard() {
     const fetchDueAssessments = useCallback(async (queryText = '') => {
         setLoading(true); setError(null);
         try {
-            const query = queryText.trim() ? `?search=${encodeURIComponent(queryText.trim())}` : '';
+            const params = new URLSearchParams();
+            if (queryText.trim()) params.set('search', queryText.trim());
+            params.set('onlyActive', 'false');
+            const query = params.toString() ? `?${params.toString()}` : '';
             const response = await fetch(`/api/assessments/due${query}`);
             if (!response.ok) {
                 const data = await response.json();
@@ -1394,8 +1422,17 @@ export default function Dashboard() {
             {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
             {selectedAssessment && <AssessmentDetailModal assessment={selectedAssessment} onClose={() => setSelectedAssessment(null)} />}
             {showSettings && (
-                <SettingsModal user={user} onClose={() => setShowSettings(false)} reminderHours={reminderHours} onReminderHoursChange={setReminderHours} notificationPermission={notificationPermission} onEnableNotifications={handleEnableNotifications}
-                    onSaved={updatedUser => { setUser(updatedUser); setSetupBanner(''); setTimeout(() => { setShowSettings(false); fetchDueAssessments(''); }, 800); }}
+                <SettingsModal user={user} dashboardVersion={pageDashboardVersion} onClose={() => setShowSettings(false)} reminderHours={reminderHours} onReminderHoursChange={setReminderHours} notificationPermission={notificationPermission} onEnableNotifications={handleEnableNotifications}
+                    onSaved={updatedUser => {
+                        setUser(updatedUser);
+                        setSetupBanner('');
+                        if (updatedUser?.dashboardVersion && updatedUser.dashboardVersion !== pageDashboardVersion) {
+                            setShowSettings(false);
+                            router.replace(getDashboardRoute(updatedUser.dashboardVersion));
+                            return;
+                        }
+                        setTimeout(() => { setShowSettings(false); fetchDueAssessments(''); }, 800);
+                    }}
                 />
             )}
 
