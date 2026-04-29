@@ -1,3 +1,123 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+/* ═══════════════════════════════════════════════
+   LIGHT THEME (default)
+═══════════════════════════════════════════════ */
+:root,
+[data-theme="light"] {
+    --bg: #f4f2ee;
+    --bg-card: #ffffff;
+    --bg-subtle: #edeae4;
+    --bg-hover: #e5e1da;
+
+    --text-primary: #1a1814;
+    --text-secondary: #6b6660;
+    --text-muted: #9c9690;
+    --text-on-accent: #ffffff;
+
+    --accent: #d4622a;
+    --accent-hover: #c0561e;
+    --accent-warm: #e8834c;
+    --accent-light: #fdf0e8;
+    --accent-border: rgba(212, 98, 42, 0.25);
+
+    --border: rgba(26, 24, 20, 0.1);
+    --border-strong: rgba(26, 24, 20, 0.18);
+
+    --shadow-sm: 0 1px 3px rgba(26, 24, 20, 0.07), 0 1px 2px rgba(26, 24, 20, 0.05);
+    --shadow-md: 0 4px 12px rgba(26, 24, 20, 0.08), 0 2px 4px rgba(26, 24, 20, 0.05);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 20, 0.1), 0 4px 12px rgba(26, 24, 20, 0.06);
+
+    --urgent-bg: rgba(220, 38, 38, 0.06);
+    --urgent-border: rgba(220, 38, 38, 0.15);
+    --urgent-text: #dc2626;
+    --urgent-stripe: #dc2626;
+
+    --warning-bg: rgba(217, 119, 6, 0.06);
+    --warning-border: rgba(217, 119, 6, 0.15);
+    --warning-text: #d97706;
+    --warning-stripe: #d97706;
+
+    --safe-bg: rgba(22, 163, 74, 0.05);
+    --safe-border: rgba(22, 163, 74, 0.14);
+    --safe-text: #16a34a;
+    --safe-stripe: #16a34a;
+
+    --error-bg: #fef2f2;
+    --error-border: rgba(220, 38, 38, 0.2);
+    --error-text: #dc2626;
+
+    --success-bg: #f0fdf4;
+    --success-border: rgba(22, 163, 74, 0.2);
+    --success-text: #16a34a;
+
+    --grid-line: rgba(26, 24, 20, 0.03);
+    --glow-accent: rgba(212, 98, 42, 0.08);
+
+    --radius: 12px;
+    --radius-lg: 18px;
+}
+
+/* ═══════════════════════════════════════════════
+   DARK THEME
+═══════════════════════════════════════════════ */
+[data-theme="dark"] {
+    --bg: #141210;
+    --bg-card: #1e1b18;
+    --bg-subtle: #272320;
+    --bg-hover: #2f2b27;
+
+    --text-primary: #f0ece6;
+    --text-secondary: #a09890;
+    --text-muted: #6e6560;
+    --text-on-accent: #ffffff;
+
+    --accent: #e07240;
+    --accent-hover: #d4622a;
+    --accent-warm: #f0935c;
+    --accent-light: rgba(224, 114, 64, 0.12);
+    --accent-border: rgba(224, 114, 64, 0.3);
+
+    --border: rgba(240, 236, 230, 0.08);
+    --border-strong: rgba(240, 236, 230, 0.14);
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.25);
+
+    --urgent-bg: rgba(220, 38, 38, 0.1);
+    --urgent-border: rgba(220, 38, 38, 0.2);
+    --urgent-text: #f87171;
+    --urgent-stripe: #ef4444;
+
+    --warning-bg: rgba(217, 119, 6, 0.1);
+    --warning-border: rgba(217, 119, 6, 0.2);
+    --warning-text: #fbbf24;
+    --warning-stripe: #f59e0b;
+
+    --safe-bg: rgba(22, 163, 74, 0.08);
+    --safe-border: rgba(22, 163, 74, 0.18);
+    --safe-text: #4ade80;
+    --safe-stripe: #22c55e;
+
+    --error-bg: rgba(220, 38, 38, 0.1);
+    --error-border: rgba(220, 38, 38, 0.25);
+    --error-text: #f87171;
+
+    --success-bg: rgba(22, 163, 74, 0.1);
+    --success-border: rgba(22, 163, 74, 0.25);
+    --success-text: #4ade80;
+
+    --grid-line: rgba(240, 236, 230, 0.025);
+    --glow-accent: rgba(224, 114, 64, 0.07);
+
+    --radius: 12px;
+    --radius-lg: 18px;
+}
+
+/* ═══════════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════════ */
 html,
 body,
 #__next {
@@ -8,9 +128,35 @@ body,
 
 html,
 body {
-    background: #0b0f1e;
+    background: var(--bg);
+    color: var(--text-primary);
+    transition: background 0.25s ease, color 0.25s ease;
 }
 
 * {
     box-sizing: border-box;
+}
+
+/* Smooth transitions on all themed elements */
+*,
+*::before,
+*::after {
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        color 0.2s ease,
+        box-shadow 0.25s ease;
+}
+
+/* But not on transforms/layout — those should stay snappy */
+button,
+a,
+input {
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.15s ease,
+        opacity 0.15s ease;
 }

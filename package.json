@@ -1,6 +1,6 @@
 {
   "name": "canvas_timetable_api",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Canvas Assessment Tracker — upcoming assessments at a glance",
   "type": "module",
   "scripts": {
@@ -11,12 +11,13 @@
   },
   "license": "ISC",
   "dependencies": {
-    "next": "16.2.1",
+    "@neondatabase/serverless": "^0.10.4",
+    "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.1"
+    "eslint-config-next": "16.2.4"
   }
 }

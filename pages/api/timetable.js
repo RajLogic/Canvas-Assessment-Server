@@ -1,4 +1,5 @@
-// Simple iCal parser for timetable syncing
+import { getAuthUser } from '../../lib/middleware.js';
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -10,21 +11,29 @@ export default async function handler(req, res) {
 
     try {
         const { link } = req.query;
+
+        // Per-user timetable link takes precedence
+        const user = await getAuthUser(req);
+        const userLink = user?.timetableLink;
         const envLink = process.env.TIMETABLE_LINK;
-        const rawLink = typeof link === 'string' && link.trim() ? link : envLink;
+        const rawLink = (typeof link === 'string' && link.trim() ? link : null)
+            || userLink
+            || envLink;
 
         if (!rawLink || typeof rawLink !== 'string') {
-            return res.status(400).json({ message: 'Missing timetable subscription link. Set TIMETABLE_LINK in environment or provide ?link=...' });
+            return res.status(400).json({
+                message: 'No timetable link configured. Add your iCal subscription URL in Settings.',
+                requiresSetup: true,
+            });
         }
 
         let subscriptionUrl;
         try {
             subscriptionUrl = new URL(rawLink);
         } catch {
-            return res.status(400).json({ message: 'Invalid URL format' });
+            return res.status(400).json({ message: 'Invalid URL format for timetable link.' });
         }
 
-        // Fetch the iCal data with a reasonable timeout
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000);
 
@@ -38,24 +47,23 @@ export default async function handler(req, res) {
 
             if (!response.ok) {
                 return res.status(response.status).json({
-                    message: `Failed to fetch subscription: ${response.statusText}`,
+                    message: `Failed to fetch timetable subscription: ${response.statusText}`,
                 });
             }
 
             icalContent = await response.text();
 
             if (!icalContent.includes('BEGIN:VCALENDAR')) {
-                return res.status(400).json({ message: 'Invalid iCalendar format' });
+                return res.status(400).json({ message: 'Invalid iCalendar format at the provided URL.' });
             }
         } catch (fetchErr) {
             clearTimeout(timeout);
             if (fetchErr.name === 'AbortError') {
-                return res.status(504).json({ message: 'Subscription link request timeout' });
+                return res.status(504).json({ message: 'Timetable subscription request timed out.' });
             }
-            return res.status(502).json({ message: 'Failed to fetch subscription link' });
+            return res.status(502).json({ message: 'Failed to fetch timetable subscription link.' });
         }
 
-        // Parse iCal events
         const events = parseICalEvents(icalContent);
 
         return res.status(200).json({
@@ -65,107 +73,84 @@ export default async function handler(req, res) {
         });
     } catch (error) {
         console.error('Timetable parse error:', error);
-        return res.status(500).json({
-            message: 'Internal server error',
-            error: error.message,
-        });
+        return res.status(500).json({ message: 'Internal server error', error: error.message });
     }
 }
 
-// Simple iCal parser
 function parseICalEvents(icalContent) {
     const events = [];
-
-    // Split by VEVENT blocks
     const eventRegex = /BEGIN:VEVENT(.*?)END:VEVENT/gs;
     let match;
-
     while ((match = eventRegex.exec(icalContent)) !== null) {
-        const eventData = match[1];
-        const event = parseEvent(eventData);
-        if (event) {
-            events.push(event);
-        }
+        const event = parseEvent(match[1]);
+        if (event) events.push(event);
     }
-
     return events;
 }
 
 function parseEvent(eventData) {
     const event = {};
 
-    // Parse SUMMARY
-    const summaryMatch = eventData.match(/SUMMARY:(.+?)(?:\r?\n)/);
-    event.summary = summaryMatch ? decodeICalText(summaryMatch[1].trim()) : 'Untitled Event';
+    const summaryValue = extractICalField(eventData, 'SUMMARY');
+    event.summary = summaryValue ? decodeICalText(summaryValue.trim()) : 'Untitled Event';
+    event.className = getClassNameFromSummary(event.summary);
 
-    // Parse LOCATION
-    const locationMatch = eventData.match(/LOCATION:(.+?)(?:\r?\n)/);
-    event.location = locationMatch ? decodeICalText(locationMatch[1].trim()) : '';
+    const locationValue = extractICalField(eventData, 'LOCATION');
+    event.location = locationValue ? decodeICalText(locationValue.trim()) : '';
 
-    // Parse DESCRIPTION
-    const descriptionMatch = eventData.match(/DESCRIPTION:(.+?)(?:\r?\n)/);
-    event.description = descriptionMatch ? decodeICalText(descriptionMatch[1].trim()) : '';
+    const descriptionValue = extractICalField(eventData, 'DESCRIPTION');
+    event.description = descriptionValue ? decodeICalText(descriptionValue.trim()) : '';
 
-    // Parse DTSTART (required)
     const startMatch = eventData.match(/DTSTART(?:;[^:]*)?:([^\r\n]+)/);
     if (!startMatch) return null;
     event.start = parseICalDate(startMatch[1]);
     if (!event.start) return null;
 
-    // Parse DTEND (required)
     const endMatch = eventData.match(/DTEND(?:;[^:]*)?:([^\r\n]+)/);
     if (!endMatch) return null;
     event.end = parseICalDate(endMatch[1]);
     if (!event.end) return null;
 
-    // Parse UID
     const uidMatch = eventData.match(/UID:(.+?)(?:\r?\n)/);
     event.uid = uidMatch ? uidMatch[1].trim() : '';
 
     return event;
 }
 
-function parseICalDate(dateStr) {
-    // Handle both DATE (YYYYMMDD) and DATETIME (YYYYMMDDTHHMMSS or YYYYMMDDTHHMMSSZ) formats
-    dateStr = dateStr.trim();
+function extractICalField(eventData, fieldName) {
+    const escapedField = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^${escapedField}(?:;[^:\\r\\n]*)?:(.*(?:\\r?\\n[ \\t].*)*)`, 'mi');
+    const match = eventData.match(pattern);
+    if (!match) return '';
+    return match[1].replace(/\r?\n[ \t]/g, '');
+}
 
+function getClassNameFromSummary(summary) {
+    return (summary || 'Untitled Event').split(',')[0].trim();
+}
+
+function parseICalDate(dateStr) {
+    dateStr = dateStr.trim();
     if (dateStr.length === 8) {
-        // DATE format: YYYYMMDD
         const year = parseInt(dateStr.substring(0, 4));
         const month = parseInt(dateStr.substring(4, 6)) - 1;
         const day = parseInt(dateStr.substring(6, 8));
-        // Keep date-only values timezone-naive so the browser renders in client locale.
         return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     } else if (dateStr.includes('T')) {
-        // DATETIME format
         const isUtc = dateStr.endsWith('Z');
         const basePart = isUtc ? dateStr.slice(0, -1) : dateStr;
-
         const year = parseInt(basePart.substring(0, 4));
         const month = parseInt(basePart.substring(4, 6)) - 1;
         const day = parseInt(basePart.substring(6, 8));
         const hour = parseInt(basePart.substring(9, 11)) || 0;
         const minute = parseInt(basePart.substring(11, 13)) || 0;
         const second = parseInt(basePart.substring(13, 15)) || 0;
-
-        if (isUtc) {
-            return new Date(Date.UTC(year, month, day, hour, minute, second)).toISOString();
-        } else {
-            // Floating iCal times (no Z) should be interpreted in the user's local timezone.
-            // Returning a timezone-naive ISO string avoids server timezone skew on deployments.
-            return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
-        }
+        if (isUtc) return new Date(Date.UTC(year, month, day, hour, minute, second)).toISOString();
+        return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
     }
-
     return null;
 }
 
 function decodeICalText(text) {
-    return text
-        .replace(/\\n/g, '\n')
-        .replace(/\\r/g, '\r')
-        .replace(/\\,/g, ',')
-        .replace(/\\:/g, ':')
-        .replace(/\\;/g, ';')
-        .replace(/\\\\\\/g, '\\');
+    return text.replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\,/g, ',').replace(/\\:/g, ':').replace(/\\;/g, ';').replace(/\\\\\\/g, '\\');
 }
