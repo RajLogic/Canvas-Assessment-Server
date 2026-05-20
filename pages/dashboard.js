@@ -438,20 +438,11 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onOpenDetails, i
     const scorePercentage = getScorePercentage(assessment.score, assessment.pointsPossible);
     const scoreLabel = scorePercentage == null ? null : `${Math.round(scorePercentage)}%`;
 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-            e.preventDefault();
-            onOpenDetails(assessment);
-        }
-    };
-
     return (
-        <div
-            className={`${styles.assessmentRow} ${rowBgClass}`}
+        <button
             type="button"
-            tabIndex={0}
+            className={`${styles.assessmentRow} ${rowBgClass}`}
             onClick={() => onOpenDetails(assessment)}
-            onKeyDown={handleKeyDown}
         >
             <div className={`${styles.rowStripe} ${stripeClass}`} />
             <div className={styles.rowNameCell}>
@@ -487,7 +478,7 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onOpenDetails, i
             {/* <div className={styles.rowActions} onClick={e => e.stopPropagation()}>
                 <button className={styles.moreBtn} onClick={() => onOpenDetails(assessment)}>···</button>
             </div> */}
-        </div>
+        </button>
     );
 });
 
@@ -608,24 +599,44 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
 
     return (
         <>
-            {!showHidden && allRaw.length > 0 && (
+            {!showHidden && mode === 'upcoming' && allRaw.length > 0 && (
                 <div className={styles.statsRow}>
-                    <div className={`${styles.statCard} ${styles.statUrgent}`}>
+                    <button
+                        type="button"
+                        className={`${styles.statCard} ${styles.statUrgent} ${urgencyFilter === 'urgent' ? styles.statCardActive : ''}`}
+                        onClick={() => setUrgencyFilter('urgent')}
+                        aria-pressed={urgencyFilter === 'urgent'}
+                    >
                         <span className={styles.statIcon}>🔴</span>
                         <div className={styles.statBody}><div className={styles.statNum}>{urgentCount}</div><div className={styles.statLabel}>Due soon</div></div>
-                    </div>
-                    <div className={`${styles.statCard} ${styles.statWarning}`}>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.statCard} ${styles.statWarning} ${urgencyFilter === 'warning' ? styles.statCardActive : ''}`}
+                        onClick={() => setUrgencyFilter('warning')}
+                        aria-pressed={urgencyFilter === 'warning'}
+                    >
                         <span className={styles.statIcon}>🟡</span>
                         <div className={styles.statBody}><div className={styles.statNum}>{warningCount}</div><div className={styles.statLabel}>Coming up</div></div>
-                    </div>
-                    <div className={`${styles.statCard} ${styles.statSafe}`}>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.statCard} ${styles.statSafe} ${urgencyFilter === 'safe' ? styles.statCardActive : ''}`}
+                        onClick={() => setUrgencyFilter('safe')}
+                        aria-pressed={urgencyFilter === 'safe'}
+                    >
                         <span className={styles.statIcon}>🟢</span>
                         <div className={styles.statBody}><div className={styles.statNum}>{safeCount}</div><div className={styles.statLabel}>Later</div></div>
-                    </div>
-                    <div className={`${styles.statCard} ${styles.statTotal}`}>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.statCard} ${styles.statTotal} ${urgencyFilter === 'all' ? styles.statCardActive : ''}`}
+                        onClick={() => setUrgencyFilter('all')}
+                        aria-pressed={urgencyFilter === 'all'}
+                    >
                         <span className={styles.statIcon}>📋</span>
                         <div className={styles.statBody}><div className={styles.statNum}>{allRaw.length}</div><div className={styles.statLabel}>Total</div></div>
-                    </div>
+                    </button>
                 </div>
             )}
 

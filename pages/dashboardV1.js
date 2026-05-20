@@ -580,22 +580,42 @@ const ListView = memo(function ListView({
             {showActiveStats && (
                 <>
                     <div className={styles.statsRow}>
-                        <div className={`${styles.statCard} ${styles.statUrgent}`}>
+                        <button
+                            type="button"
+                            className={`${styles.statCard} ${styles.statUrgent} ${urgencyFilter === 'urgent' ? styles.statCardActive : ''}`}
+                            onClick={() => setUrgencyFilter('urgent')}
+                            aria-pressed={urgencyFilter === 'urgent'}
+                        >
                             <span className={styles.statNum}>{urgentCount}</span>
                             <span className={styles.statLabel}>🔴 Due soon</span>
-                        </div>
-                        <div className={`${styles.statCard} ${styles.statWarning}`}>
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.statCard} ${styles.statWarning} ${urgencyFilter === 'warning' ? styles.statCardActive : ''}`}
+                            onClick={() => setUrgencyFilter('warning')}
+                            aria-pressed={urgencyFilter === 'warning'}
+                        >
                             <span className={styles.statNum}>{warningCount}</span>
                             <span className={styles.statLabel}>🟡 Coming up</span>
-                        </div>
-                        <div className={`${styles.statCard} ${styles.statSafe}`}>
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.statCard} ${styles.statSafe} ${urgencyFilter === 'safe' ? styles.statCardActive : ''}`}
+                            onClick={() => setUrgencyFilter('safe')}
+                            aria-pressed={urgencyFilter === 'safe'}
+                        >
                             <span className={styles.statNum}>{safeCount}</span>
                             <span className={styles.statLabel}>🟢 Later</span>
-                        </div>
-                        <div className={`${styles.statCard} ${styles.statTotal}`}>
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.statCard} ${styles.statTotal} ${urgencyFilter === 'all' ? styles.statCardActive : ''}`}
+                            onClick={() => setUrgencyFilter('all')}
+                            aria-pressed={urgencyFilter === 'all'}
+                        >
                             <span className={styles.statNum}>{allRaw.length}</span>
                             <span className={styles.statLabel}>📋 Total</span>
-                        </div>
+                        </button>
                     </div>
                     <UrgencyLegend urgencyFilter={urgencyFilter} setUrgencyFilter={setUrgencyFilter} />
                 </>
