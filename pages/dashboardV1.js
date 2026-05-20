@@ -1494,7 +1494,7 @@ function SettingsModal({
         >
             <button
                 className={dashStyles.modal}
-                aria-label="Close settings dialog"
+                aria-label="Close settings dialog "
                 onClick={(e) => e.target === e.currentTarget && onClose()}
                 onKeyDown={(e) => {
                     if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
