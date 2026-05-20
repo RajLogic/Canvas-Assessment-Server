@@ -15,17 +15,9 @@ export default function ThemeToggle() {
 
     const isDark = theme === 'dark';
 
-    const modeLabel =
-        themeMode === 'system' ? 'System' :
-            themeMode === 'dark' ? 'Dark' : 'Light';
+    const modeLabel = themeMode === 'dark' ? 'Dark' : 'Light';
 
-    const modeIcon =
-        themeMode === 'system' ? '🖥️' :
-            isDark ? '🌙' : '☀️';
-
-    const nextModeLabel =
-        themeMode === 'light' ? 'Dark' :
-            themeMode === 'dark' ? 'System' : 'Light';
+    const nextModeLabel = themeMode === 'light' ? 'Dark' : 'Light';
 
     return (
         <button
@@ -38,9 +30,6 @@ export default function ThemeToggle() {
                 <span className={`${styles.thumb} ${isDark ? styles.thumbDark : ''}`} />
             </span>
             <span className={styles.modeLabel}>{modeLabel}</span>
-            <span className={styles.icon} aria-hidden="true">
-                {modeIcon}
-            </span>
         </button>
     );
 }
