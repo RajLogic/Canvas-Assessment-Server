@@ -508,7 +508,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <span className={styles.tableTitle}>
                                 {titleText}
-                                <span className={styles.tableCount}>{displayCount} {displayCountLabel}</span>
+                                <span className={styles.tableCount}>{displayCount} <span className={styles.countLabel}>{displayCountLabel}</span></span>
                             </span>
                             {showHidden && hiddenIds.size > 0 && (
                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -571,7 +571,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                     <div className={styles.classGroupHeader}>
                                         <div className={styles.classGroupHeaderLeft}>
                                             <span className={styles.classGroupName}>{group.courseName}</span>
-                                            <span className={styles.termGroupCount}>{group.assessments.length} items</span>
+                                            <span className={styles.termGroupCount}>{group.assessments.length} <span className={styles.countLabel}>items</span></span>
                                         </div>
                                         {group.termNames.length > 0 && (
                                             <span className={styles.classGroupMeta}>{group.termNames.join(' · ')}</span>
@@ -605,7 +605,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                 <div className={styles.termGroupHeader}>
                                     <span className={styles.termGroupName}>{term.termName}</span>
                                     <span className={styles.termGroupCount}>
-                                        {term.courses.reduce((s, c) => s + c.assessments.length, 0)} items
+                                        {term.courses.reduce((s, c) => s + c.assessments.length, 0)} <span className={styles.countLabel}>items</span>
                                     </span>
                                 </div>
                                 {term.courses
