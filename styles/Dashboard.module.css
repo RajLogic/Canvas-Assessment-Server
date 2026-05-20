@@ -624,7 +624,7 @@
 /* Table column headers */
 .colHeaders {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 220px 110px 136px 176px;
+    grid-template-columns: minmax(0, 1fr) 200px 110px 150px;
     gap: 0;
     padding: 0.5rem 1.25rem;
     border-bottom: 1px solid var(--border);
@@ -688,6 +688,10 @@
     padding: 0.875rem;
 }
 
+.classGroupsGridClassMode {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .classGroupCard {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -719,7 +723,7 @@
 
 .classGroupRows .assessmentRow {
     padding: 0 0.9rem;
-    min-height: 48px;
+    min-height: 62px;
 }
 
 .classGroupRows .assessmentRow:last-child {
@@ -738,11 +742,11 @@
 /* Assessment row */
 .assessmentRow {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 220px 110px 136px 176px;
+    grid-template-columns: minmax(0, 1fr) 200px 110px 150px;
     gap: 0;
     padding: 0 1.25rem;
     align-items: center;
-    min-height: 52px;
+    min-height: 68px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
     position: relative;
@@ -796,7 +800,7 @@
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    padding: 0.625rem 0;
+    padding: 0.875rem 0;
     min-width: 0;
 }
 
@@ -815,7 +819,7 @@
 }
 
 .rowName {
-    font-size: 0.82rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
@@ -830,7 +834,7 @@
 }
 
 .rowCourseName {
-    font-size: 0.68rem;
+    font-size: 0.78rem;
     color: var(--text-muted);
     margin-top: 0.1rem;
     white-space: nowrap;
@@ -839,14 +843,14 @@
 }
 
 .rowCell {
-    padding: 0.375rem 0;
-    font-size: 0.78rem;
+    padding: 0.5rem 0;
+    font-size: 0.88rem;
     color: var(--text-secondary);
 }
 
 .rowDateCell {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
     line-height: 1.5;
 }
@@ -858,11 +862,11 @@
 
 .rowDateSub {
     color: var(--text-muted);
-    font-size: 0.64rem;
+    font-size: 0.7rem;
 }
 
 .rowPoints {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-secondary);
 }
@@ -1965,7 +1969,7 @@
 
     .colHeaders,
     .assessmentRow {
-        grid-template-columns: 1fr 140px 90px;
+        grid-template-columns: 1fr 170px 110px;
     }
 
     .colHeaderPoints,
@@ -1982,6 +1986,10 @@
     .filterPanel {
         width: 100%;
         position: static;
+    }
+
+    .classGroupsGridClassMode {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -2005,7 +2013,8 @@
 
     .colHeaderCourse,
     .colHeaderDate,
-    .rowDateCell {
+    .rowDateCell,
+    .rowCourseChip {
         display: none;
     }
 
