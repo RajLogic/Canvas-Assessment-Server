@@ -624,7 +624,7 @@
 /* Table column headers */
 .colHeaders {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 200px 100px 160px;
+    grid-template-columns: minmax(0, 1fr) 200px 110px 150px;
     gap: 0;
     padding: 0.5rem 1.25rem;
     border-bottom: 1px solid var(--border);
@@ -742,7 +742,7 @@
 /* Assessment row */
 .assessmentRow {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 200px 100px 160px;
+    grid-template-columns: minmax(0, 1fr) 200px 110px 150px;
     gap: 0;
     padding: 0 1.25rem;
     align-items: center;
@@ -819,7 +819,7 @@
 }
 
 .rowName {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
@@ -862,11 +862,11 @@
 
 .rowDateSub {
     color: var(--text-muted);
-    font-size: 0.64rem;
+    font-size: 0.7rem;
 }
 
 .rowPoints {
-    font-size: 0.88rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-secondary);
 }
