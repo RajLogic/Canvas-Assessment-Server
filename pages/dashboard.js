@@ -307,7 +307,7 @@ const FilterPanel = memo(function FilterPanel({ dueData, filters, onFiltersChang
 });
 
 // ─── Assessment Table Row ──────────────────────────────────────────────────
-const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide, onOpenDetails, isHidden, isComplete, onToggleComplete, nowTick }) {
+const AssessmentRow = memo(function AssessmentRow({ assessment, onOpenDetails, isHidden, isComplete, nowTick }) {
     void nowTick;
     const urgency = getUrgency(assessment.dueTimestamp);
     const daysLabel = getDaysLeftLabel(assessment.dueTimestamp);
@@ -374,25 +374,15 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onHide, onUnhide
                     </div>
                 )}
             </div>
-            <div className={styles.rowActions} onClick={e => e.stopPropagation()}>
-                {!isHidden && (
-                    <button className={`${styles.rowBtn} ${isComplete ? styles.rowBtnDone : styles.rowBtnComplete}`} onClick={() => onToggleComplete(assessment.id)}>
-                        {isComplete ? '↺ Undo' : 'Completed?'}
-                    </button>
-                )}
-                {isHidden ? (
-                    <button className={`${styles.rowBtn} ${styles.rowBtnRestore}`} onClick={() => onUnhide(assessment.id)}>↩ Restore</button>
-                ) : (
-                    <button className={styles.rowBtn} onClick={() => onHide(assessment.id)}>✕ Hide</button>
-                )}
+            {/* <div className={styles.rowActions} onClick={e => e.stopPropagation()}>
                 <button className={styles.moreBtn} onClick={() => onOpenDetails(assessment)}>···</button>
-            </div>
+            </div> */}
         </div>
     );
 });
 
 // ─── List View ─────────────────────────────────────────────────────────────
-const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilter, filters, hiddenIds, completeIds, onHide, onUnhide, onOpenDetails, onToggleComplete, showHidden, nowTick, groupBy, mode = 'upcoming' }) {
+const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilter, filters, hiddenIds, completeIds, onOpenDetails, showHidden, nowTick, groupBy, mode = 'upcoming' }) {
     const currentYear = new Date(nowTick).getFullYear();
 
     const filteredTerms = useMemo(() => {
@@ -552,7 +542,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                             <div className={`${styles.colHeader}`}>Due date</div>
                             <div className={styles.colHeader}>Status</div>
                             <div className={`${styles.colHeader} ${styles.colHeaderPoints}`}>Points</div>
-                            <div className={`${styles.colHeader} ${styles.colHeaderActions}`}></div>
+                            {/* <div className={`${styles.colHeader} ${styles.colHeaderActions}`}></div> */}
                         </div>
                     )}
 
@@ -575,7 +565,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                             <p className={styles.emptySub}>Classes will appear here once every assessment is past due.</p>
                         </div>
                     ) : groupBy === 'class' || mode === 'completed' || mode === 'past' ? (
-                        <div className={styles.classGroupsGrid}>
+                        <div className={`${styles.classGroupsGrid} ${groupBy === 'class' ? styles.classGroupsGridClassMode : ''}`}>
                             {activeClassGroups.map(group => (
                                 <div key={`class-${group.key}`} className={styles.classGroupCard}>
                                     <div className={styles.classGroupHeader}>
@@ -601,9 +591,6 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                                 assessment={a}
                                                 isHidden={showHidden}
                                                 isComplete={completeIds.has(String(a.id))}
-                                                onHide={onHide}
-                                                onUnhide={onUnhide}
-                                                onToggleComplete={onToggleComplete}
                                                 onOpenDetails={onOpenDetails}
                                                 nowTick={nowTick}
                                             />
@@ -630,9 +617,6 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                             assessment={a}
                                             isHidden={showHidden}
                                             isComplete={completeIds.has(String(a.id))}
-                                            onHide={onHide}
-                                            onUnhide={onUnhide}
-                                            onToggleComplete={onToggleComplete}
                                             onOpenDetails={onOpenDetails}
                                             nowTick={nowTick}
                                         />
@@ -765,7 +749,7 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                             <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
                                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{a.courseName} · {formatShortDate(a.dueAt)}</div>
                                         </div>
-                                        <button className={styles.rowBtn} style={{ opacity: 1 }} onClick={e => { e.stopPropagation(); onHide(a.id); }}>✕</button>
+                                        <button className={styles.moreBtn} style={{ opacity: 1 }} onClick={e => { e.stopPropagation(); onOpenDetails(a); }}>···</button>
                                     </li>
                                 );
                             })}
@@ -1182,9 +1166,12 @@ function HelpModal({ onClose }) {
     );
 }
 
-function AssessmentDetailModal({ assessment, onClose }) {
+function AssessmentDetailModal({ assessment, onClose, isHidden, isComplete, onHide, onUnhide, onToggleComplete }) {
     if (!assessment) return null;
     const plainDescription = (assessment.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const showCompleteAction = !isHidden;
+    const showHideAction = !isHidden;
+    const showRestoreAction = isHidden;
     return (
         <div className={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
             <div className={styles.modal}>
@@ -1202,6 +1189,17 @@ function AssessmentDetailModal({ assessment, onClose }) {
                     <div className={styles.detailActions}>
                         {assessment.rubricUrl && <a className={styles.settingsSave} href={assessment.rubricUrl} target="_blank" rel="noopener noreferrer">View rubric</a>}
                         <a className={styles.settingsSave} href={assessment.htmlUrl} target="_blank" rel="noopener noreferrer">Open in Canvas</a>
+                        {showCompleteAction && (
+                            <button className={styles.settingsSave} onClick={() => onToggleComplete(assessment.id)}>
+                                {isComplete ? '↺ Undo complete' : '✓ Mark complete'}
+                            </button>
+                        )}
+                        {showHideAction && (
+                            <button className={styles.settingsSave} onClick={() => onHide(assessment.id)}>✕ Hide</button>
+                        )}
+                        {showRestoreAction && (
+                            <button className={styles.settingsSave} onClick={() => onUnhide(assessment.id)}>↩ Restore</button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1428,7 +1426,17 @@ export default function Dashboard() {
     return (
         <div className={styles.appShell}>
             {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-            {selectedAssessment && <AssessmentDetailModal assessment={selectedAssessment} onClose={() => setSelectedAssessment(null)} />}
+            {selectedAssessment && (
+                <AssessmentDetailModal
+                    assessment={selectedAssessment}
+                    onClose={() => setSelectedAssessment(null)}
+                    isHidden={hiddenIds.has(String(selectedAssessment.id))}
+                    isComplete={completeIds.has(String(selectedAssessment.id))}
+                    onHide={hideAssessment}
+                    onUnhide={unhideAssessment}
+                    onToggleComplete={toggleAssessmentComplete}
+                />
+            )}
             {showSettings && (
                 <SettingsModal user={user} dashboardVersion={pageDashboardVersion} onClose={() => setShowSettings(false)} reminderHours={reminderHours} onReminderHoursChange={setReminderHours} notificationPermission={notificationPermission} onEnableNotifications={handleEnableNotifications}
                     onSaved={updatedUser => {
@@ -1600,10 +1608,7 @@ export default function Dashboard() {
                                             filters={filters}
                                             hiddenIds={hiddenIds}
                                             completeIds={completeIds}
-                                            onHide={hideAssessment}
-                                            onUnhide={unhideAssessment}
-                                            onOpenDetails={setSelectedAssessment}
-                                            onToggleComplete={toggleAssessmentComplete}
+                                            onOpenDetails={assessment => setSelectedAssessment(assessment)}
                                             showHidden={activeTab === 'hidden'}
                                             nowTick={nowTick}
                                             groupBy={groupBy}
@@ -1612,7 +1617,7 @@ export default function Dashboard() {
                                     </>
                                 )}
                                 {activeTab === 'calendar' && (
-                                    <CalendarView dueData={dueData} hiddenIds={hiddenIds} onHide={hideAssessment} onUnhide={unhideAssessment} onOpenDetails={setSelectedAssessment} nowTick={nowTick} />
+                                    <CalendarView dueData={dueData} hiddenIds={hiddenIds} onHide={hideAssessment} onUnhide={unhideAssessment} onOpenDetails={assessment => setSelectedAssessment(assessment)} nowTick={nowTick} />
                                 )}
                                 {activeTab === 'timetable' && (
                                     <TimetableView timetableEvents={timetableEvents} timetableLoading={timetableLoading} timetableError={timetableError} />
