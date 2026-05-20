@@ -2,3 +2,4 @@
 .envlocal
 /node_modules
 /.next
+decrypt.cjs
