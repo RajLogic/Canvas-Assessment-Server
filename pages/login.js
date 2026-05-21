@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import styles from '../styles/Auth.module.css';
-import Head from 'next/head';
 import { getDashboardRoute } from '../lib/dashboard-route.js';
 
 function SiteLogo({ size = 24 }) {
@@ -18,6 +18,10 @@ function SiteLogo({ size = 24 }) {
         />
     );
 }
+
+SiteLogo.propTypes = {
+    size: PropTypes.number,
+};
 
 export default function Login() {
     const router = useRouter();

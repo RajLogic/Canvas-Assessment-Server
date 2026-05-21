@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -23,7 +24,7 @@ function PasswordStrength({ password }) {
     const checks = [
         { label: '8+ characters', ok: password.length >= 8 },
         { label: 'Uppercase letter', ok: /[A-Z]/.test(password) },
-        { label: 'Number', ok: /[0-9]/.test(password) },
+        { label: 'Number', ok: /\d/.test(password) },
         { label: 'Special character', ok: /[^A-Za-z0-9]/.test(password) },
     ];
     const score = checks.filter((c) => c.ok).length;
@@ -58,6 +59,10 @@ function PasswordStrength({ password }) {
         </div>
     );
 }
+
+PasswordStrength.propTypes = {
+    password: PropTypes.string,
+};
 
 export default function Register() {
     const router = useRouter();
@@ -175,6 +180,7 @@ export default function Register() {
                         <div className={styles.field}>
                             <label className={styles.label} htmlFor="username">
                                 Username
+                                {' '}
                                 <span className={styles.labelHint}>Letters, numbers, _ and -</span>
                             </label>
                             <input
@@ -240,3 +246,7 @@ export default function Register() {
         </div>
     );
 }
+
+SiteLogo.propTypes = {
+    size: PropTypes.number,
+};

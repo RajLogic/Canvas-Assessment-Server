@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -57,6 +58,10 @@ function SiteLogo({ size = 28 }) {
     );
 }
 
+SiteLogo.propTypes = {
+    size: PropTypes.number,
+};
+
 export default function Landing() {
     const router = useRouter();
     const [scrolled, setScrolled] = useState(false);
@@ -105,11 +110,13 @@ export default function Landing() {
             <section className={styles.hero} ref={heroRef}>
                 <div className={styles.heroBadge}>
                     <span className={styles.heroBadgeDot} />
+                    {' '}
                     Built for students By Students
                 </div>
 
                 <h1 className={styles.heroTitle}>
                     Never miss a
+                    {' '}
                     <span className={styles.heroAccent}> deadline</span>
                     <br />again.
                 </h1>
@@ -122,6 +129,7 @@ export default function Landing() {
                 <div className={styles.heroCtas}>
                     <Link href="/register" className={styles.ctaPrimary}>
                         Create free account
+                        {' '}
                         <span className={styles.ctaArrow}>→</span>
                     </Link>
                     <Link href="/login" className={styles.ctaSecondary}>
@@ -200,6 +208,7 @@ export default function Landing() {
                     <p className={styles.ctaBannerSub}>Free forever. No credit card. Just your Canvas token.</p>
                     <Link href="/register" className={styles.ctaPrimary}>
                         Get started free
+                        {' '}
                         <span className={styles.ctaArrow}>→</span>
                     </Link>
                 </div>
@@ -246,18 +255,29 @@ function MockDashboard() {
                 </div>
             </div>
             <div className={styles.mockList}>
-                {mockItems.map((item, i) => (
-                    <div key={i} className={`${styles.mockItem} ${styles[`mock_${item.urgency}`]}`}>
-                        <div className={`${styles.mockStripe} ${styles[`stripe_${item.urgency}`]}`} />
-                        <div className={styles.mockItemContent}>
-                            <div className={styles.mockItemName}>{item.name}</div>
-                            <div className={styles.mockItemMeta}>{item.course} · ⭐ {item.pts} pts</div>
+                {mockItems.map((item) => {
+                    const mockItemClass = styles[`mock_${item.urgency}`];
+                    const stripeClass = styles[`stripe_${item.urgency}`];
+                    const badgeClass = styles[`mockBadge_${item.urgency}`];
+                    let urgencyIcon = '🟢';
+                    if (item.urgency === 'urgent') {
+                        urgencyIcon = '🔴';
+                    } else if (item.urgency === 'warning') {
+                        urgencyIcon = '🟡';
+                    }
+                    return (
+                        <div key={item.name} className={`${styles.mockItem} ${mockItemClass}`}>
+                            <div className={`${styles.mockStripe} ${stripeClass}`} />
+                            <div className={styles.mockItemContent}>
+                                <div className={styles.mockItemName}>{item.name}</div>
+                                <div className={styles.mockItemMeta}>{item.course} · ⭐ {item.pts} pts</div>
+                            </div>
+                            <span className={`${styles.mockBadge} ${badgeClass}`}>
+                                {urgencyIcon} {item.days}
+                            </span>
                         </div>
-                        <span className={`${styles.mockBadge} ${styles[`mockBadge_${item.urgency}`]}`}>
-                            {item.urgency === 'urgent' ? '🔴' : item.urgency === 'warning' ? '🟡' : '🟢'} {item.days}
-                        </span>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
