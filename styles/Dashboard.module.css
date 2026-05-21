@@ -1300,6 +1300,16 @@
     animation: overlayIn 0.2s ease both;
 }
 
+.modalBackdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
 @keyframes overlayIn {
     from {
         opacity: 0;
@@ -1311,6 +1321,8 @@
 }
 
 .modal {
+    position: relative;
+    z-index: 1;
     width: 100%;
     max-width: 520px;
     background: var(--bg-card);

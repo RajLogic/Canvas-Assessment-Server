@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "rajlogic",
+        "projectKey": "RajLogic_Canvas-Assessment-Server"
+    }
+}
