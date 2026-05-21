@@ -946,26 +946,29 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                     stripeColor = 'var(--safe-stripe)';
                                 }
                                 return (
-                                    <div
-                                        key={a.id}
-                                        type="button"
-                                        tabIndex={0}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                                        onClick={() => onOpenDetails(a)}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault();
-                                                onOpenDetails(a);
-                                            }
-                                        }}
-                                    >
-                                        <div style={{ width: 3, height: 36, borderRadius: 3, background: stripeColor, flexShrink: 0 }} />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{a.courseName} · {formatShortDate(a.dueAt)}</div>
+                                    <li key={a.id} style={{ listStyle: 'none', borderBottom: '1px solid var(--border)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem' }}>
+                                            <button
+                                                type="button"
+                                                tabIndex={0}
+                                                onClick={() => onOpenDetails(a)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        onOpenDetails(a);
+                                                    }
+                                                }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', flex: 1, minWidth: 0, border: 'none', background: 'transparent', padding: 0, textAlign: 'left' }}
+                                            >
+                                                <div style={{ width: 3, height: 36, borderRadius: 3, background: stripeColor, flexShrink: 0 }} />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{a.courseName} · {formatShortDate(a.dueAt)}</div>
+                                                </div>
+                                            </button>
+                                            <button className={styles.moreBtn} style={{ opacity: 1 }} onClick={e => { e.stopPropagation(); onOpenDetails(a); }}>···</button>
                                         </div>
-                                        <button className={styles.moreBtn} style={{ opacity: 1 }} onClick={e => { e.stopPropagation(); onOpenDetails(a); }}>···</button>
-                                    </div>
+                                    </li>
                                 );
                             })}
                         </ul>
