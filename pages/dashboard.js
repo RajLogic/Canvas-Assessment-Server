@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { useRouter } from 'next/router';
 import styles from '../styles/Dashboard.module.css';
 import Image from 'next/image';
 import { normalizeCanvasBaseUrl } from '../lib/canvas-url.js';
 import { getDashboardRoute } from '../lib/dashboard-route.js';
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+// ─── Helpers ────
 function SiteLogo({ size = 28 }) {
     return (
         <Image
@@ -173,7 +174,7 @@ function buildClassGroups(terms) {
     return [...groups.values()]
         .map(group => ({
             ...group,
-            termNames: [...group.termNames].sort(),
+            termNames: [...group.termNames].sort((a, b) => a.localeCompare(b)),
             assessments: [...group.assessments].sort((a, b) => a.dueTimestamp - b.dueTimestamp),
         }))
         .sort((a, b) => {
@@ -181,6 +182,60 @@ function buildClassGroups(terms) {
             if (dueDiff !== 0) return dueDiff;
             return a.courseName.localeCompare(b.courseName);
         });
+}
+
+function getListViewMeta({ mode, showHidden, hiddenCount }) {
+    let titleText;
+    if (mode === 'completed') {
+        titleText = 'Past assessments';
+    } else if (mode === 'past') {
+        titleText = 'Past classes';
+    } else if (showHidden) {
+        titleText = 'Hidden assessments';
+    } else {
+        titleText = 'Upcoming assessments';
+    }
+
+    let subtitleText = null;
+    if (mode === 'completed') {
+        subtitleText = 'Marked complete assessments and past-due assessments from this year, grouped by class.';
+    } else if (mode === 'past') {
+        subtitleText = 'Classes whose assessments are all in the past.';
+    }
+
+    let displayCountLabel;
+    if (mode === 'completed' || mode === 'past') {
+        displayCountLabel = hiddenCount === 1 ? 'class' : 'classes';
+    } else {
+        displayCountLabel = hiddenCount === 1 ? 'item' : 'items';
+    }
+
+    return { titleText, subtitleText, displayCountLabel };
+}
+
+function getListViewEmptyState({ mode, showHidden, filteredTermsLength, completedClassGroupsLength, pastClassGroupsLength }) {
+    if (mode === 'upcoming' && filteredTermsLength === 0) {
+        return {
+            icon: showHidden ? '📭' : '🎉',
+            title: showHidden ? 'No assessments found' : 'All caught up!',
+            sub: showHidden ? 'Try a different filter.' : 'No upcoming assessments right now.',
+        };
+    }
+    if (mode === 'completed' && completedClassGroupsLength === 0) {
+        return {
+            icon: '✅',
+            title: 'No past assessments yet',
+            sub: 'Mark items as complete or wait for past-due assessments in this year.',
+        };
+    }
+    if (mode === 'past' && pastClassGroupsLength === 0) {
+        return {
+            icon: '🕓',
+            title: 'No past classes yet',
+            sub: 'Classes will appear here once every assessment is past due.',
+        };
+    }
+    return null;
 }
 
 // ─── University config ─────────────────────────────────────────────────────
@@ -222,9 +277,9 @@ const UNIVERSITIES = [...UNIVERSITY_CONFIG, { label: 'Custom / Other university'
 const FilterPanel = memo(function FilterPanel({ dueData, filters, onFiltersChange, onHideCourse }) {
     const allAssessments = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments));
     const years = [...new Set(allAssessments.map(a => new Date(a.dueAt).getFullYear()))].sort((a, b) => b - a);
-    const terms = [...new Set(dueData.terms.map(t => t.termName))].sort();
+    const terms = [...new Set(dueData.terms.map(t => t.termName))].sort((a, b) => a.localeCompare(b));
     const courses = [...new Map(allAssessments.map(a => [a.courseId, { id: a.courseId, name: a.courseName }])).values()].sort((a, b) => a.name.localeCompare(b.name));
-    const courseCodes = [...new Set(courses.map(c => { const m = c.name.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/); return m ? m[1] : null; }).filter(Boolean))].sort();
+    const courseCodes = [...new Set(courses.map(c => { const m = c.name.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/); return m ? m[1] : null; }).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
     const toggle = (key, value) => {
         const current = filters[key] || [];
@@ -306,33 +361,89 @@ const FilterPanel = memo(function FilterPanel({ dueData, filters, onFiltersChang
     );
 });
 
+FilterPanel.propTypes = {
+    dueData: PropTypes.object.isRequired,
+    filters: PropTypes.object.isRequired,
+    onFiltersChange: PropTypes.func.isRequired,
+    onHideCourse: PropTypes.func.isRequired,
+};
+
 // ─── Assessment Table Row ──────────────────────────────────────────────────
+const getAssessmentRowClasses = ({ urgency, isHidden, isOverdue }) => {
+    if (isOverdue) {
+        return {
+            badgeClass: styles.badgeConnected,
+            dotClass: '',
+            rowBgClass: '',
+            stripeClass: '',
+        };
+    }
+
+    const urgencyClasses = {
+        urgent: {
+            badgeClass: styles.badgeUrgent,
+            dotClass: styles.dotUrgent,
+            rowBgClass: styles.rowUrgentBg,
+            stripeClass: styles.rowStripeUrgent,
+        },
+        warning: {
+            badgeClass: styles.badgeWarning,
+            dotClass: styles.dotWarning,
+            rowBgClass: styles.rowWarningBg,
+            stripeClass: styles.rowStripeWarning,
+        },
+        default: {
+            badgeClass: styles.badgeConnected,
+            dotClass: styles.dotSafe,
+            rowBgClass: '',
+            stripeClass: styles.rowStripeSafe,
+        },
+    };
+
+    const { badgeClass, dotClass, rowBgClass: urgencyRowBgClass, stripeClass } = urgencyClasses[urgency] || urgencyClasses.default;
+    const rowBgClass = isHidden ? '' : urgencyRowBgClass;
+
+    return { badgeClass, dotClass, rowBgClass, stripeClass };
+};
+
+const renderStatusBadge = ({ isHidden, isOverdue, badgeClass, dotClass, daysLabel, isComplete }) => {
+    if (isHidden) {
+        return <span className={`${styles.badge} ${styles.badgeConnected}`}>Hidden</span>;
+    }
+
+    return (
+        <>
+            <span
+                className={`${styles.badge} ${badgeClass}`}
+                style={isOverdue ? { background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-muted)' } : undefined}
+            >
+                <span className={`${styles.badgeDot} ${dotClass}`} style={isOverdue ? { background: 'var(--text-muted)' } : undefined} />
+                {daysLabel}
+            </span>
+            {isComplete && (
+                <span className={`${styles.badge} ${styles.badgeComplete}`} style={{ marginLeft: '0.35rem' }}>✓ Complete</span>
+            )}
+        </>
+    );
+};
+
 const AssessmentRow = memo(function AssessmentRow({ assessment, onOpenDetails, isHidden, isComplete, nowTick }) {
-    void nowTick;
     const urgency = getUrgency(assessment.dueTimestamp);
     const daysLabel = getDaysLeftLabel(assessment.dueTimestamp);
     const { main: dateMain, sub: dateSub } = formatDateRow(assessment.dueAt);
     const courseCode = assessment.courseName.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/)?.[1] || null;
     const isOverdue = assessment.dueTimestamp < nowTick;
-
-    const badgeClass = isOverdue ? styles.badgeConnected : isHidden ? styles.badgeConnected :
-        urgency === 'urgent' ? styles.badgeUrgent :
-            urgency === 'warning' ? styles.badgeWarning : styles.badgeConnected;
-
-    const dotClass = isOverdue ? '' : urgency === 'urgent' ? styles.dotUrgent :
-        urgency === 'warning' ? styles.dotWarning : styles.dotSafe;
-
-    const rowBgClass = !isHidden && !isOverdue && urgency === 'urgent' ? styles.rowUrgentBg :
-        !isHidden && urgency === 'warning' ? styles.rowWarningBg : '';
-
-    const stripeClass = isOverdue ? '' : urgency === 'urgent' ? styles.rowStripeUrgent :
-        urgency === 'warning' ? styles.rowStripeWarning : styles.rowStripeSafe;
+    const { badgeClass, dotClass, rowBgClass, stripeClass } = getAssessmentRowClasses({ urgency, isHidden, isOverdue });
 
     const scorePercentage = getScorePercentage(assessment.score, assessment.pointsPossible);
     const scoreLabel = scorePercentage == null ? null : `${Math.round(scorePercentage)}%`;
 
     return (
-        <div className={`${styles.assessmentRow} ${rowBgClass}`} onClick={() => onOpenDetails(assessment)}>
+        <button
+            type="button"
+            className={`${styles.assessmentRow} ${rowBgClass}`}
+            onClick={() => onOpenDetails(assessment)}
+        >
             <div className={`${styles.rowStripe} ${stripeClass}`} />
             <div className={styles.rowNameCell}>
                 {courseCode && <span className={styles.rowCourseChip}>{courseCode}</span>}
@@ -346,20 +457,10 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onOpenDetails, i
                 <div className={styles.rowDateSub}>{dateSub}</div>
             </div>
             <div className={styles.rowCell}>
-                {isHidden ? (
-                    <span className={`${styles.badge} ${styles.badgeConnected}`}>Hidden</span>
-                ) : (
-                    <span className={`${styles.badge} ${badgeClass}`} style={isOverdue ? { background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-muted)' } : undefined}>
-                        <span className={`${styles.badgeDot} ${dotClass}`} style={isOverdue ? { background: 'var(--text-muted)' } : undefined} />
-                        {daysLabel}
-                    </span>
-                )}
-                {!isHidden && isComplete && (
-                    <span className={`${styles.badge} ${styles.badgeComplete}`} style={{ marginLeft: '0.35rem' }}>✓ Complete</span>
-                )}
+                {renderStatusBadge({ isHidden, isOverdue, badgeClass, dotClass, daysLabel, isComplete })}
             </div>
             <div className={`${styles.rowCell} ${styles.rowPoints}`}>
-                {assessment.pointsPossible != null ? `${assessment.pointsPossible} pts` : '—'}
+                {assessment.pointsPossible == null ? '—' : `${assessment.pointsPossible} pts`}
                 {assessment.score != null && (
                     <div className={styles.rowScoreBlock}>
                         <div className={styles.rowScoreMeta}>
@@ -377,8 +478,37 @@ const AssessmentRow = memo(function AssessmentRow({ assessment, onOpenDetails, i
             {/* <div className={styles.rowActions} onClick={e => e.stopPropagation()}>
                 <button className={styles.moreBtn} onClick={() => onOpenDetails(assessment)}>···</button>
             </div> */}
-        </div>
+        </button>
     );
+});
+
+AssessmentRow.propTypes = {
+    assessment: PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+        dueTimestamp: PropTypes.number.isRequired,
+        dueAt: PropTypes.string.isRequired,
+        courseName: PropTypes.string.isRequired,
+        name: PropTypes.string.isRequired,
+        score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        pointsPossible: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    }).isRequired,
+    onOpenDetails: PropTypes.func.isRequired,
+    isHidden: PropTypes.bool.isRequired,
+    isComplete: PropTypes.bool.isRequired,
+    nowTick: PropTypes.number.isRequired,
+};
+
+// Helper to filter assessments by timestamp and urgency
+const filterAssessmentsByUrgency = (assessments, nowTick, urgencyFilter) =>
+    assessments.filter(a =>
+        a.dueTimestamp >= nowTick &&
+        (urgencyFilter === 'all' || getUrgency(a.dueTimestamp) === urgencyFilter)
+    );
+
+// Helper to enrich courses with filtered assessments
+const enrichCourseWithAssessments = (course, nowTick, urgencyFilter) => ({
+    ...course,
+    assessments: filterAssessmentsByUrgency(course.assessments, nowTick, urgencyFilter),
 });
 
 // ─── List View ─────────────────────────────────────────────────────────────
@@ -386,27 +516,22 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
     const currentYear = new Date(nowTick).getFullYear();
 
     const filteredTerms = useMemo(() => {
-        void nowTick;
         const base = applyFiltersAndSort(dueData, filters, hiddenIds, showHidden);
-        return base.map(term => ({
-            ...term,
-            courses: term.courses.map(course => ({
-                ...course,
-                assessments: course.assessments.filter(a =>
-                    a.dueTimestamp >= nowTick &&
-                    (urgencyFilter === 'all' || getUrgency(a.dueTimestamp) === urgencyFilter)
-                ),
-            })).filter(c => c.assessments.length > 0),
-        })).filter(t => t.courses.length > 0);
+        return base
+            .map(term => ({
+                ...term,
+                courses: term.courses
+                    .map(course => enrichCourseWithAssessments(course, nowTick, urgencyFilter))
+                    .filter(c => c.assessments.length > 0),
+            }))
+            .filter(t => t.courses.length > 0);
     }, [dueData, filters, hiddenIds, urgencyFilter, showHidden, nowTick]);
 
     const baseTerms = useMemo(() => {
-        void nowTick;
         return applyFiltersAndSort(dueData, filters, hiddenIds, showHidden);
-    }, [dueData, filters, hiddenIds, showHidden, nowTick]);
+    }, [dueData, filters, hiddenIds, showHidden]);
 
     const allRaw = useMemo(() => {
-        void nowTick;
         return applyFiltersAndSort(dueData, { ...filters, sortBy: 'dueDate', sortDir: 'asc' }, hiddenIds, showHidden)
             .flatMap(t => t.courses.flatMap(c => c.assessments))
             .filter(a => a.dueTimestamp >= nowTick);
@@ -435,60 +560,83 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
         return allClassGroups.filter(group => group.assessments.length > 0 && group.assessments.every(a => a.dueTimestamp < nowTick));
     }, [allClassGroups, nowTick]);
 
-    const activeClassGroups = mode === 'completed'
-        ? completedClassGroups
-        : mode === 'past'
-            ? pastClassGroups
-            : groupedByClass;
+    let activeClassGroups;
+    if (mode === 'completed') {
+        activeClassGroups = completedClassGroups;
+    } else if (mode === 'past') {
+        activeClassGroups = pastClassGroups;
+    } else {
+        activeClassGroups = groupedByClass;
+    }
 
-    const titleText = mode === 'completed'
-        ? 'Past assessments'
-        : mode === 'past'
-            ? 'Past classes'
-            : showHidden
-                ? 'Hidden assessments'
-                : 'Upcoming assessments';
+    const { titleText, subtitleText, displayCountLabel } = getListViewMeta({
+        mode,
+        showHidden,
+        hiddenCount: mode === 'completed' || mode === 'past' ? activeClassGroups.length : filteredTerms.length,
+    });
 
-    const subtitleText = mode === 'completed'
-        ? 'Marked complete assessments and past-due assessments from this year, grouped by class.'
-        : mode === 'past'
-            ? 'Classes whose assessments are all in the past.'
-            : null;
+    const emptyState = getListViewEmptyState({
+        mode,
+        showHidden,
+        filteredTermsLength: filteredTerms.length,
+        completedClassGroupsLength: completedClassGroups.length,
+        pastClassGroupsLength: pastClassGroups.length,
+    });
 
     const urgentCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'urgent').length;
     const warningCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'warning').length;
     const safeCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'safe').length;
     const allVisible = filteredTerms.flatMap(t => t.courses.flatMap(c => c.assessments));
-    const displayCount = mode === 'completed'
-        ? completedClassGroups.length
-        : mode === 'past'
-            ? pastClassGroups.length
-            : allVisible.length;
-    const displayCountLabel = mode === 'completed' || mode === 'past'
-        ? (displayCount === 1 ? 'class' : 'classes')
-        : (displayCount === 1 ? 'item' : 'items');
+    let displayCount;
+    if (mode === 'completed') {
+        displayCount = completedClassGroups.length;
+    } else if (mode === 'past') {
+        displayCount = pastClassGroups.length;
+    } else {
+        displayCount = allVisible.length;
+    }
     const shouldRenderMain = !showHidden || hiddenIds.size > 0 || mode !== 'upcoming';
 
     return (
         <>
-            {!showHidden && allRaw.length > 0 && (
+            {!showHidden && mode === 'upcoming' && allRaw.length > 0 && (
                 <div className={styles.statsRow}>
-                    <div className={`${styles.statCard} ${styles.statUrgent}`}>
+                    <button
+                        type="button"
+                        className={`${styles.statCard} ${styles.statUrgent} ${urgencyFilter === 'urgent' ? styles.statCardActive : ''}`}
+                        onClick={() => setUrgencyFilter('urgent')}
+                        aria-pressed={urgencyFilter === 'urgent'}
+                    >
                         <span className={styles.statIcon}>🔴</span>
                         <div className={styles.statBody}><div className={styles.statNum}>{urgentCount}</div><div className={styles.statLabel}>Due soon</div></div>
-                    </div>
-                    <div className={`${styles.statCard} ${styles.statWarning}`}>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.statCard} ${styles.statWarning} ${urgencyFilter === 'warning' ? styles.statCardActive : ''}`}
+                        onClick={() => setUrgencyFilter('warning')}
+                        aria-pressed={urgencyFilter === 'warning'}
+                    >
                         <span className={styles.statIcon}>🟡</span>
                         <div className={styles.statBody}><div className={styles.statNum}>{warningCount}</div><div className={styles.statLabel}>Coming up</div></div>
-                    </div>
-                    <div className={`${styles.statCard} ${styles.statSafe}`}>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.statCard} ${styles.statSafe} ${urgencyFilter === 'safe' ? styles.statCardActive : ''}`}
+                        onClick={() => setUrgencyFilter('safe')}
+                        aria-pressed={urgencyFilter === 'safe'}
+                    >
                         <span className={styles.statIcon}>🟢</span>
                         <div className={styles.statBody}><div className={styles.statNum}>{safeCount}</div><div className={styles.statLabel}>Later</div></div>
-                    </div>
-                    <div className={`${styles.statCard} ${styles.statTotal}`}>
+                    </button>
+                    <button
+                        type="button"
+                        className={`${styles.statCard} ${styles.statTotal} ${urgencyFilter === 'all' ? styles.statCardActive : ''}`}
+                        onClick={() => setUrgencyFilter('all')}
+                        aria-pressed={urgencyFilter === 'all'}
+                    >
                         <span className={styles.statIcon}>📋</span>
                         <div className={styles.statBody}><div className={styles.statNum}>{allRaw.length}</div><div className={styles.statLabel}>Total</div></div>
-                    </div>
+                    </button>
                 </div>
             )}
 
@@ -508,7 +656,7 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <span className={styles.tableTitle}>
                                 {titleText}
-                                <span className={styles.tableCount}>{displayCount} <span className={styles.countLabel}>{displayCountLabel}</span></span>
+                                <span className={styles.tableCount}>{displayCount} {displayCountLabel}</span>
                             </span>
                             {showHidden && hiddenIds.size > 0 && (
                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -546,66 +694,62 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                         </div>
                     )}
 
-                    {mode === 'upcoming' && filteredTerms.length === 0 ? (
-                        <div className={styles.emptyState}>
-                            <div className={styles.emptyIcon}>{showHidden ? '📭' : '🎉'}</div>
-                            <p className={styles.emptyTitle}>{showHidden ? 'No assessments found' : 'All caught up!'}</p>
-                            <p className={styles.emptySub}>{showHidden ? 'Try a different filter.' : 'No upcoming assessments right now.'}</p>
-                        </div>
-                    ) : (mode === 'completed' && completedClassGroups.length === 0) ? (
-                        <div className={styles.emptyState}>
-                            <div className={styles.emptyIcon}>✅</div>
-                            <p className={styles.emptyTitle}>No past assessments yet</p>
-                            <p className={styles.emptySub}>Mark items as complete or wait for past-due assessments in this year.</p>
-                        </div>
-                    ) : (mode === 'past' && pastClassGroups.length === 0) ? (
-                        <div className={styles.emptyState}>
-                            <div className={styles.emptyIcon}>🕓</div>
-                            <p className={styles.emptyTitle}>No past classes yet</p>
-                            <p className={styles.emptySub}>Classes will appear here once every assessment is past due.</p>
-                        </div>
-                    ) : groupBy === 'class' || mode === 'completed' || mode === 'past' ? (
-                        <div className={`${styles.classGroupsGrid} ${groupBy === 'class' ? styles.classGroupsGridClassMode : ''}`}>
-                            {activeClassGroups.map(group => (
-                                <div key={`class-${group.key}`} className={styles.classGroupCard}>
-                                    <div className={styles.classGroupHeader}>
-                                        <div className={styles.classGroupHeaderLeft}>
-                                            <span className={styles.classGroupName}>{group.courseName}</span>
-                                            <span className={styles.termGroupCount}>{group.assessments.length} <span className={styles.countLabel}>items</span></span>
-                                        </div>
-                                        {group.termNames.length > 0 && (
-                                            <span className={styles.classGroupMeta}>{group.termNames.join(' · ')}</span>
-                                        )}
-                                    </div>
-                                    <div className={`${styles.colHeaders} ${styles.classGroupColumns}`}>
-                                        <div className={styles.colHeader}>Assessment</div>
-                                        <div className={`${styles.colHeader}`}>Due date</div>
-                                        <div className={styles.colHeader}>Status</div>
-                                        <div className={`${styles.colHeader} ${styles.colHeaderPoints}`}>Points</div>
-                                        <div className={`${styles.colHeader} ${styles.colHeaderActions}`}></div>
-                                    </div>
-                                    <div className={styles.classGroupRows}>
-                                        {group.assessments.map(a => (
-                                            <AssessmentRow
-                                                key={a.id}
-                                                assessment={a}
-                                                isHidden={showHidden}
-                                                isComplete={completeIds.has(String(a.id))}
-                                                onOpenDetails={onOpenDetails}
-                                                nowTick={nowTick}
-                                            />
-                                        ))}
-                                    </div>
+                    {(() => {
+                        if (emptyState) {
+                            return (
+                                <div className={styles.emptyState}>
+                                    <div className={styles.emptyIcon}>{emptyState.icon}</div>
+                                    <p className={styles.emptyTitle}>{emptyState.title}</p>
+                                    <p className={styles.emptySub}>{emptyState.sub}</p>
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        filteredTerms.map(term => (
+                            );
+                        }
+
+                        if (groupBy === 'class' || mode === 'completed' || mode === 'past') {
+                            return (
+                                <div className={`${styles.classGroupsGrid} ${groupBy === 'class' ? styles.classGroupsGridClassMode : ''}`}>
+                                    {activeClassGroups.map(group => (
+                                        <div key={`class-${group.key}`} className={styles.classGroupCard}>
+                                            <div className={styles.classGroupHeader}>
+                                                <div className={styles.classGroupHeaderLeft}>
+                                                    <span className={styles.classGroupName}>{group.courseName}</span>
+                                                    <span className={styles.termGroupCount}>{group.assessments.length} items</span>
+                                                </div>
+                                                {group.termNames.length > 0 && (
+                                                    <span className={styles.classGroupMeta}>{group.termNames.join(' · ')}</span>
+                                                )}
+                                            </div>
+                                            <div className={`${styles.colHeaders} ${styles.classGroupColumns}`}>
+                                                <div className={styles.colHeader}>Assessment</div>
+                                                <div className={`${styles.colHeader}`}>Due date</div>
+                                                <div className={styles.colHeader}>Status</div>
+                                                <div className={`${styles.colHeader} ${styles.colHeaderPoints}`}>Points</div>
+                                                <div className={`${styles.colHeader} ${styles.colHeaderActions}`}></div>
+                                            </div>
+                                            <div className={styles.classGroupRows}>
+                                                {group.assessments.map(a => (
+                                                    <AssessmentRow
+                                                        key={a.id}
+                                                        assessment={a}
+                                                        isHidden={showHidden}
+                                                        isComplete={completeIds.has(String(a.id))}
+                                                        onOpenDetails={onOpenDetails}
+                                                        nowTick={nowTick}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        }
+
+                        return filteredTerms.map(term => (
                             <div key={term.termName} className={styles.termGroup}>
                                 <div className={styles.termGroupHeader}>
                                     <span className={styles.termGroupName}>{term.termName}</span>
                                     <span className={styles.termGroupCount}>
-                                        {term.courses.reduce((s, c) => s + c.assessments.length, 0)} <span className={styles.countLabel}>items</span>
+                                        {term.courses.reduce((s, c) => s + c.assessments.length, 0)} items
                                     </span>
                                 </div>
                                 {term.courses
@@ -622,20 +766,34 @@ const ListView = memo(function ListView({ dueData, urgencyFilter, setUrgencyFilt
                                         />
                                     ))}
                             </div>
-                        ))
-                    )}
+                        ));
+                    })()}
                 </div>
             )}
         </>
     );
 });
 
+ListView.propTypes = {
+    dueData: PropTypes.object.isRequired,
+    urgencyFilter: PropTypes.string.isRequired,
+    setUrgencyFilter: PropTypes.func.isRequired,
+    filters: PropTypes.object.isRequired,
+    hiddenIds: PropTypes.instanceOf(Set).isRequired,
+    completeIds: PropTypes.instanceOf(Set).isRequired,
+    onOpenDetails: PropTypes.func.isRequired,
+    showHidden: PropTypes.bool.isRequired,
+    nowTick: PropTypes.number.isRequired,
+    groupBy: PropTypes.string,
+    mode: PropTypes.oneOf(['upcoming', 'completed', 'past']),
+};
+
 // ─── Calendar View ─────────────────────────────────────────────────────────
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, onUnhide, onOpenDetails, nowTick }) {
-    void onUnhide; void nowTick;
+    /* onUnhide and nowTick are intentionally unused in this view */
     const today = new Date();
     const [viewYear, setViewYear] = useState(today.getFullYear());
     const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -663,17 +821,62 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
     const goToday = () => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); setSelectedDay(null); };
 
     const cells = [];
-    for (let i = 0; i < firstDay; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    for (let i = 0; i < firstDay; i++) cells.push({ type: 'empty', key: `empty-${viewYear}-${viewMonth}-${i}` });
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ type: 'day', day: d, key: `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}` });
 
     const handleDayClick = (day) => {
         if (!day) return;
         const key = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        setSelectedDay(prev => prev && prev.key === key ? null : { key, day, assessments: assessmentsByDate[key] || [] });
+        setSelectedDay(prev => prev?.key === key ? null : { key, day, assessments: assessmentsByDate[key] || [] });
     };
 
-    // Re-use Home.module.css calendar styles by importing them
-    const homeStyles = {};
+    const getDotColor = (dayItems) => {
+        if (dayItems.length === 0) return null;
+        if (dayItems.some(a => getUrgency(a.dueTimestamp) === 'urgent')) return 'var(--urgent-stripe)';
+        if (dayItems.some(a => getUrgency(a.dueTimestamp) === 'warning')) return 'var(--warning-stripe)';
+        return 'var(--safe-stripe)';
+    };
+
+    const getUrgencyStyles = (urg) => {
+        let bg = 'var(--safe-bg)';
+        let col = 'var(--safe-text)';
+        let stripe = 'var(--safe-stripe)';
+
+        if (urg === 'urgent') {
+            bg = 'var(--urgent-bg)';
+            col = 'var(--urgent-text)';
+            stripe = 'var(--urgent-stripe)';
+        } else if (urg === 'warning') {
+            bg = 'var(--warning-bg)';
+            col = 'var(--warning-text)';
+            stripe = 'var(--warning-stripe)';
+        }
+
+        return { bg, col, stripe };
+    };
+
+    const getBorderColor = (isSelected, isToday) => {
+        if (isSelected) return 'var(--accent)';
+        if (isToday) return 'var(--accent-border)';
+        return 'transparent';
+    };
+
+    const getCellContainerStyle = (isSelected, isToday, hasItems) => {
+        let background = 'transparent';
+        if (isSelected || isToday) background = 'var(--accent-light)';
+        else if (hasItems) background = 'var(--bg-subtle)';
+
+        return {
+            minHeight: 80,
+            borderRadius: 8,
+            padding: '0.4rem',
+            cursor: 'pointer',
+            position: 'relative',
+            border: `1px solid ${getBorderColor(isSelected, isToday)}`,
+            background,
+            overflow: 'hidden',
+        };
+    };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -692,29 +895,22 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                 {DAYS.map(d => (
                     <div key={d} style={{ padding: '0.5rem 0', textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>{d}</div>
                 ))}
-                {cells.map((day, idx) => {
-                    if (!day) return <div key={`e-${idx}`} style={{ minHeight: 80 }} />;
-                    const key = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                {cells.map((cell) => {
+                    if (cell.type === 'empty') return <div key={cell.key} style={{ minHeight: 80 }} />;
+                    const { day, key } = cell;
                     const isToday = key === todayStr;
                     const dayItems = assessmentsByDate[key] || [];
                     const isSelected = selectedDay?.key === key;
-                    let dotColor = null;
-                    if (dayItems.length > 0) {
-                        if (dayItems.some(a => getUrgency(a.dueTimestamp) === 'urgent')) dotColor = 'var(--urgent-stripe)';
-                        else if (dayItems.some(a => getUrgency(a.dueTimestamp) === 'warning')) dotColor = 'var(--warning-stripe)';
-                        else dotColor = 'var(--safe-stripe)';
-                    }
+                    const dotColor = getDotColor(dayItems);
                     return (
-                        <div key={key} onClick={() => handleDayClick(day)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && handleDayClick(day)}
-                            style={{ minHeight: 80, borderRadius: 8, padding: '0.4rem', cursor: 'pointer', position: 'relative', border: `1px solid ${isSelected ? 'var(--accent)' : isToday ? 'var(--accent-border)' : 'transparent'}`, background: isSelected ? 'var(--accent-light)' : isToday ? 'var(--accent-light)' : dayItems.length > 0 ? 'var(--bg-subtle)' : 'transparent', overflow: 'hidden' }}
+                        <button key={key} onClick={() => handleDayClick(day)}
+                            style={getCellContainerStyle(isSelected, isToday, dayItems.length > 0)}
                         >
                             <span style={{ fontSize: '0.75rem', fontWeight: isToday ? 800 : 600, fontFamily: 'IBM Plex Mono, monospace', color: isToday ? 'var(--accent)' : 'var(--text-secondary)', display: 'block', lineHeight: 1 }}>{day}</span>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 3 }}>
                                 {dayItems.slice(0, 2).map(a => {
                                     const urg = getUrgency(a.dueTimestamp);
-                                    const bg = urg === 'urgent' ? 'var(--urgent-bg)' : urg === 'warning' ? 'var(--warning-bg)' : 'var(--safe-bg)';
-                                    const col = urg === 'urgent' ? 'var(--urgent-text)' : urg === 'warning' ? 'var(--warning-text)' : 'var(--safe-text)';
-                                    const stripe = urg === 'urgent' ? 'var(--urgent-stripe)' : urg === 'warning' ? 'var(--warning-stripe)' : 'var(--safe-stripe)';
+                                    const { bg, col, stripe } = getUrgencyStyles(urg);
                                     return (
                                         <div key={a.id} style={{ fontSize: '0.57rem', fontWeight: 600, padding: '0.1rem 0.3rem', borderRadius: 4, background: bg, color: col, borderLeft: `2px solid ${stripe}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {formatTime(a.dueAt)} {a.name}
@@ -724,7 +920,7 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                 {dayItems.length > 2 && <div style={{ fontSize: '0.55rem', fontWeight: 600, color: 'var(--text-muted)', padding: '0 0.3rem' }}>+{dayItems.length - 2} more</div>}
                             </div>
                             {dotColor && <span style={{ position: 'absolute', bottom: 4, right: 5, width: 6, height: 6, borderRadius: '50%', background: dotColor }} />}
-                        </div>
+                        </button>
                     );
                 })}
             </div>
@@ -741,16 +937,34 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                             {selectedDay.assessments.map(a => {
                                 const urg = getUrgency(a.dueTimestamp);
-                                const stripeColor = urg === 'urgent' ? 'var(--urgent-stripe)' : urg === 'warning' ? 'var(--warning-stripe)' : 'var(--safe-stripe)';
+                                let stripeColor;
+                                if (urg === 'urgent') {
+                                    stripeColor = 'var(--urgent-stripe)';
+                                } else if (urg === 'warning') {
+                                    stripeColor = 'var(--warning-stripe)';
+                                } else {
+                                    stripeColor = 'var(--safe-stripe)';
+                                }
                                 return (
-                                    <li key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => onOpenDetails(a)}>
+                                    <button
+                                        key={a.id}
+                                        tabIndex={0}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                                        onClick={() => onOpenDetails(a)}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                onOpenDetails(a);
+                                            }
+                                        }}
+                                    >
                                         <div style={{ width: 3, height: 36, borderRadius: 3, background: stripeColor, flexShrink: 0 }} />
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
                                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{a.courseName} · {formatShortDate(a.dueAt)}</div>
                                         </div>
                                         <button className={styles.moreBtn} style={{ opacity: 1 }} onClick={e => { e.stopPropagation(); onOpenDetails(a); }}>···</button>
-                                    </li>
+                                    </button>
                                 );
                             })}
                         </ul>
@@ -760,6 +974,25 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
         </div>
     );
 });
+
+CalendarView.propTypes = {
+    dueData: PropTypes.shape({
+        terms: PropTypes.arrayOf(
+            PropTypes.shape({
+                courses: PropTypes.arrayOf(
+                    PropTypes.shape({
+                        assessments: PropTypes.arrayOf(PropTypes.object).isRequired,
+                    })
+                ).isRequired,
+            })
+        ).isRequired,
+    }).isRequired,
+    hiddenIds: PropTypes.instanceOf(Set).isRequired,
+    onHide: PropTypes.func,
+    onUnhide: PropTypes.func,
+    onOpenDetails: PropTypes.func.isRequired,
+    nowTick: PropTypes.number,
+};
 
 // ─── Timetable & helpers (keep from original) ───────────────────────────────
 const TT_START_HOUR = 7;
@@ -787,7 +1020,7 @@ function toneIndexForSummary(summary) {
     const codeMatch = (summary || '').match(/[A-Z]{2,6}\d{3,5}[A-Z]?/);
     const key = codeMatch ? codeMatch[0] : (summary || '').split(',')[0].trim().toLowerCase();
     let hash = 0;
-    for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < key.length; i++) hash = key.codePointAt(i) + ((hash << 5) - hash);
     return Math.abs(hash) % TT_BLOCK_TONES;
 }
 
@@ -813,13 +1046,17 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     const [use24Hour, setUse24Hour] = useState(true);
 
     useEffect(() => {
-        try { const saved = localStorage.getItem('fr_tt_time_format'); if (saved === '12') setUse24Hour(false); if (saved === '24') setUse24Hour(true); } catch { }
+        try {
+            const saved = localStorage.getItem('fr_tt_time_format');
+            if (saved === '12') setUse24Hour(false);
+            else if (saved === '24') setUse24Hour(true);
+        } catch { }
     }, []);
     useEffect(() => { try { localStorage.setItem('fr_tt_time_format', use24Hour ? '24' : '12'); } catch { } }, [use24Hour]);
     useEffect(() => { const timer = setInterval(() => setLocalNow(new Date()), 1000); return () => clearInterval(timer); }, []);
     useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const media = window.matchMedia('(max-width: 900px), (orientation: portrait)');
+        if (globalThis.window === undefined) return;
+        const media = globalThis.matchMedia('(max-width: 900px), (orientation: portrait)');
         const updateMode = e => setIsVerticalTimetable(e.matches);
         updateMode(media); media.addEventListener('change', updateMode);
         return () => media.removeEventListener('change', updateMode);
@@ -838,7 +1075,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d; }), [weekStart]);
     const toDateKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const todayKey = toDateKey(today);
-    const eventsByDate = useMemo(() => { const map = {}; timetableEvents.forEach(ev => { const key = toDateKey(new Date(ev.start)); if (!map[key]) map[key] = []; map[key].push(ev); }); return map; }, [timetableEvents]);
+    const eventsByDate = useMemo(() => { const map = {}; timetableEvents.forEach(ev => { const key = toDateKey(new Date(ev.start)); if (!map[key]) { map[key] = []; } map[key].push(ev); }); return map; }, [timetableEvents]);
     const hours = Array.from({ length: TT_SPAN }, (_, i) => TT_START_HOUR + i);
     const weekLabel = (() => { const opts = { day: 'numeric', month: 'short' }; const s = weekDays[0].toLocaleDateString('en-AU', opts); const e = weekDays[6].toLocaleDateString('en-AU', { ...opts, year: 'numeric' }); return `${s} – ${e}${weekOffset === 0 ? ' (current week)' : ''}`; })();
     const formatLocalTime = value => new Date(value).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: !use24Hour });
@@ -901,13 +1138,15 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                 {dayEvents.map((ev, idx) => {
                                                     const pos = positionBlock(ev.start, ev.end);
                                                     const toneIndex = toneIndexForSummary(ev.className || ev.summary);
-                                                    const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === `${key}-${idx}`;
+                                                    const toneClass = homeStyles['ttBlockTone' + toneIndex];
+                                                    const eventKey = ev.uid || `${key}-${idx}`;
+                                                    const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
                                                     return (
-                                                        <div key={idx} className={`${homeStyles.ttBlock} ${homeStyles[`ttBlockTone${toneIndex}`]} ${isSelected ? homeStyles.ttBlockActive : ''}`} style={{ left: pos.left, width: pos.width }} role="button" tabIndex={0} onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey: `${key}-${idx}` })} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedClass({ ...ev, toneIndex, eventKey: `${key}-${idx}` }); } }}>
+                                                        <button key={eventKey} className={[homeStyles.ttBlock, toneClass, isSelected ? homeStyles.ttBlockActive : ''].join(' ')} style={{ left: pos.left, width: pos.width }} onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}>
                                                             <span className={homeStyles.ttBlockName}>{ev.summary}</span>
                                                             {ev.location && <span className={homeStyles.ttBlockLoc}>{ev.location}</span>}
                                                             <span className={homeStyles.ttBlockTime}>{formatLocalTime(ev.start)} – {formatLocalTime(ev.end)}</span>
-                                                        </div>
+                                                        </button>
                                                     );
                                                 })}
                                             </div>
@@ -923,7 +1162,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                 <span className={homeStyles.ttDayLabelLarge}>{selectedDayLabel}</span>
                                 <button className={homeStyles.ttNavBtn} onClick={() => setDayOffset(d => Math.min(6, d + 1))} disabled={dayOffset === 6}>›</button>
                             </div>
-                            {!isVerticalTimetable ? (
+                            {isVerticalTimetable ? (
                                 <div className={homeStyles.ttDayTimelineShell}>
                                     <div className={homeStyles.ttHourRow}>{hours.map(h => <div key={`day-${h}`} className={homeStyles.ttHourCell}>{formatHourLabel(h, use24Hour)}</div>)}</div>
                                     <div className={homeStyles.ttDayTimelineTrack}>
@@ -934,11 +1173,12 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                             const toneIndex = toneIndexForSummary(ev.className || ev.summary);
                                             const eventKey = `${selectedDayKey}-${idx}`;
                                             const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
+                                            const toneClass = homeStyles['ttBlockTone' + toneIndex];
                                             return (
-                                                <div key={eventKey} className={`${homeStyles.ttBlock} ${homeStyles.ttDayBlock} ${homeStyles[`ttBlockTone${toneIndex}`]} ${isSelected ? homeStyles.ttBlockActive : ''}`} style={{ left: pos.left, width: pos.width }} role="button" tabIndex={0} onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedClass({ ...ev, toneIndex, eventKey }); } }}>
+                                                <button key={eventKey} type="button" className={[homeStyles.ttBlock, homeStyles.ttDayBlock, toneClass, isSelected ? homeStyles.ttBlockActive : ''].join(' ')} style={{ left: pos.left, width: pos.width }} onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}>
                                                     <span className={homeStyles.ttBlockName}>{ev.summary}</span>
                                                     <span className={homeStyles.ttBlockTime}>{formatLocalTime(ev.start)} – {formatLocalTime(ev.end)}</span>
-                                                </div>
+                                                </button>
                                             );
                                         })}
                                     </div>
@@ -953,11 +1193,12 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                             const toneIndex = toneIndexForSummary(ev.className || ev.summary);
                                             const eventKey = `${selectedDayKey}-${idx}`;
                                             const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
+                                            const toneClass = homeStyles['ttBlockTone' + toneIndex];
                                             return (
-                                                <div key={`vertical-${eventKey}`} className={`${homeStyles.ttBlock} ${homeStyles.ttDayVerticalBlock} ${homeStyles[`ttBlockTone${toneIndex}`]} ${isSelected ? homeStyles.ttBlockActive : ''}`} style={{ top: pos.top, height: pos.height }} onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedClass({ ...ev, toneIndex, eventKey }); } }} role="button" tabIndex={0}>
+                                                <button key={`vertical-${eventKey}`} type="button" className={[homeStyles.ttBlock, homeStyles.ttDayVerticalBlock, toneClass, isSelected ? homeStyles.ttBlockActive : ''].join(' ')} style={{ top: pos.top, height: pos.height }} onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}>
                                                     <span className={homeStyles.ttBlockName}>{ev.summary}</span>
                                                     <span className={homeStyles.ttBlockTime}>{formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}</span>
-                                                </div>
+                                                </button>
                                             );
                                         })}
                                     </div>
@@ -988,7 +1229,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                     <div className={homeStyles.eventsListWrapper}>
                         {selectedClass ? (
                             <div className={homeStyles.eventCard}>
-                                <div className={`${homeStyles.ttDetailStripe} ${homeStyles[`ttBlockTone${selectedClass.toneIndex}`]}`} />
+                                <div className={`${homeStyles.ttDetailStripe} ${homeStyles['ttBlockTone' + selectedClass.toneIndex]}`} />
                                 <div className={homeStyles.eventDetailsSection} style={{ flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
                                         <span className={homeStyles.eventName}>{selectedClass.className || selectedClass.summary}</span>
@@ -1012,6 +1253,25 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
         </div>
     );
 });
+
+TimetableView.propTypes = {
+    timetableEvents: PropTypes.arrayOf(PropTypes.shape({
+        start: PropTypes.string.isRequired,
+        end: PropTypes.string.isRequired,
+        summary: PropTypes.string,
+        className: PropTypes.string,
+        location: PropTypes.string,
+        uid: PropTypes.string,
+    })),
+    timetableLoading: PropTypes.bool,
+    timetableError: PropTypes.string,
+};
+
+TimetableView.defaultProps = {
+    timetableEvents: [],
+    timetableLoading: false,
+    timetableError: null,
+};
 
 // ─── Settings Modal ────────────────────────────────────────────────────────
 function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours, onReminderHoursChange, notificationPermission, onEnableNotifications }) {
@@ -1041,20 +1301,32 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
             const payload = {};
             if (form.canvasApiToken) payload.canvasApiToken = form.canvasApiToken;
             if (form.timetableLink) payload.timetableLink = form.timetableLink;
-            const resolvedUrl = showCustomUrl ? form.canvasBaseUrl : (uniPreset !== initialPreset ? uniPreset : undefined);
+            let resolvedUrl;
+            if (showCustomUrl) {
+                resolvedUrl = form.canvasBaseUrl;
+            } else if (uniPreset === initialPreset) {
+                resolvedUrl = undefined;
+            } else {
+                resolvedUrl = uniPreset;
+            }
             if (resolvedUrl !== undefined) payload.canvasBaseUrl = resolvedUrl;
             payload.dashboardVersion = form.dashboardVersion;
             const res = await fetch('/api/auth/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json();
             if (!res.ok) { setError(data.message || 'Failed to save.'); return; }
             setSuccess('Settings saved! Encrypted with AES-256-GCM.');
-            onSaved && onSaved(data.user);
+            onSaved?.(data.user);
         } catch { setError('Network error. Please try again.'); }
         finally { setSaving(false); }
     };
 
     return (
-        <div className={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
+        <dialog
+            aria-modal="true"
+            className={styles.modalOverlay}
+            onCancel={onClose}
+            tabIndex={-1}
+        >
             <div className={styles.modal}>
                 <div className={styles.modalHeader}>
                     <h2 className={styles.modalTitle}>⚙️ Settings</h2>
@@ -1069,21 +1341,23 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
                     {success && <div className={styles.settingsSuccess}><span>✅</span> {success}</div>}
                     <form onSubmit={handleSave} className={styles.settingsForm}>
                         <div className={styles.settingsField}>
-                            <label className={styles.settingsLabel}>
-                                University / Canvas Instance
+                            <label htmlFor="uniPreset" className={styles.settingsLabel}>
+                                University / Canvas Instance{''}
                                 <span className={styles.settingsLabelHint}>Current: <code className={styles.urlCode}>{user?.canvasBaseUrl || defaultEnvUrl}</code></span>
                             </label>
-                            <select value={uniPreset} onChange={handleUniSelect} className={styles.settingsSelect}>
+                            <select id="uniPreset" value={uniPreset} onChange={handleUniSelect} className={styles.settingsSelect}>
                                 <option value="" disabled>Select your university…</option>
                                 {UNIVERSITIES.map(u => <option key={u.label} value={u.url}>{u.label}</option>)}
                             </select>
                         </div>
                         <div className={styles.settingsField}>
-                            <label className={styles.settingsLabel}>
+                            <label htmlFor="dashboardVersion" className={styles.settingsLabel}>
                                 Dashboard version
+                                {' '}
                                 <span className={styles.settingsLabelHint}>Switch between the default dashboard and v1</span>
                             </label>
                             <select
+                                id="dashboardVersion"
                                 value={form.dashboardVersion}
                                 onChange={e => setForm(f => ({ ...f, dashboardVersion: e.target.value }))}
                                 className={styles.settingsSelect}
@@ -1094,42 +1368,43 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
                         </div>
                         {showCustomUrl && (
                             <div className={styles.settingsField}>
-                                <label className={styles.settingsLabel}>Canvas API Base URL</label>
-                                <input name="canvasBaseUrl" type="url" value={form.canvasBaseUrl} onChange={handleChange} className={styles.settingsInput} placeholder="https://your-university.instructure.com/api/v1/" autoComplete="off" />
+                                <label htmlFor="canvasBaseUrl" className={styles.settingsLabel}>Canvas API Base URL</label>
+                                <input id="canvasBaseUrl" name="canvasBaseUrl" type="url" value={form.canvasBaseUrl} onChange={handleChange} className={styles.settingsInput} placeholder="https://your-university.instructure.com/api/v1/" autoComplete="off" />
                             </div>
                         )}
                         <div className={styles.settingsDivider} />
                         <div className={styles.settingsField}>
-                            <label className={styles.settingsLabel}>
-                                Canvas API Token
+                            <label htmlFor="canvasApiToken" className={styles.settingsLabel}>
+                                Canvas API Token{' '}
                                 <span className={styles.settingsLabelHint}>Canvas → Account → Settings → New Access Token</span>
                             </label>
                             <div className={styles.inputWithBadge}>
-                                <input name="canvasApiToken" type="password" value={form.canvasApiToken} onChange={handleChange} className={styles.settingsInput} placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste to update)' : 'Paste your Canvas API token'} autoComplete="off" />
+                                <input id="canvasApiToken" name="canvasApiToken" type="password" value={form.canvasApiToken} onChange={handleChange} className={styles.settingsInput} placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste to update)' : 'Paste your Canvas API token'} autoComplete="off" />
                                 {user?.hasCanvasToken && <span className={styles.savedBadge}>🔐 Encrypted &amp; saved</span>}
                             </div>
                         </div>
                         <div className={styles.settingsField}>
-                            <label className={styles.settingsLabel}>
+                            <label htmlFor="timetableLink" className={styles.settingsLabel}>
                                 Timetable iCal Link
+                                {' '}
                                 <span className={styles.settingsLabelHint}>Optional</span>
                             </label>
                             <div className={styles.inputWithBadge}>
-                                <input name="timetableLink" type="url" value={form.timetableLink} onChange={handleChange} className={styles.settingsInput} placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'} />
+                                <input id="timetableLink" name="timetableLink" type="url" value={form.timetableLink} onChange={handleChange} className={styles.settingsInput} placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'} />
                                 {user?.hasTimetableLink && <span className={styles.savedBadge}>🔐 Encrypted &amp; saved</span>}
                             </div>
                         </div>
                         <div className={styles.settingsDivider} />
                         <div className={styles.settingsField}>
-                            <label className={styles.settingsLabel}>
-                                Reminder threshold (hours)
-                                <span className={styles.settingsLabelHint}>Local device setting</span>
+                            <label htmlFor="reminderHours" className={styles.settingsLabel}>
+                                Reminder threshold (hours)<span className={styles.settingsLabelHint}>Local device setting</span>
                             </label>
-                            <input type="number" min="1" max="168" value={reminderHours} onChange={e => onReminderHoursChange(Math.min(168, Math.max(1, Number(e.target.value) || 1)))} className={styles.settingsInput} />
+                            <input id="reminderHours" type="number" min="1" max="168" value={reminderHours} onChange={e => onReminderHoursChange(Math.min(168, Math.max(1, Number(e.target.value) || 1)))} className={styles.settingsInput} />
                         </div>
                         <div className={styles.settingsField}>
                             <label className={styles.settingsLabel}>
                                 Browser notifications
+                                {' '}
                                 <span className={styles.settingsLabelHint}>Current: {notificationPermission}</span>
                             </label>
                             <button type="button" className={styles.settingsSave} onClick={onEnableNotifications} disabled={notificationPermission === 'granted'}>
@@ -1137,22 +1412,56 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
                             </button>
                         </div>
                         <div className={styles.settingsField}>
-                            <label className={styles.settingsLabel}>Calendar export<span className={styles.settingsLabelHint}>Download as .ics</span></label>
-                            <button type="button" className={styles.settingsSave} onClick={() => { window.location.href = '/api/assessments/export.ics'; }}>Export assessments (.ics)</button>
+                            <div className={styles.settingsLabel}>Calendar export<span className={styles.settingsLabelHint}>Download as .ics</span></div>
+                            <button type="button" className={styles.settingsSave} onClick={() => { globalThis.location.href = '/api/assessments/export.ics'; }}>Export assessments (.ics)</button>
                         </div>
                         <button type="submit" className={styles.settingsSave} disabled={saving}>{saving ? '🔐 Saving…' : 'Save settings'}</button>
                     </form>
                 </div>
             </div>
-        </div>
+        </dialog>
     );
 }
+
+SettingsModal.propTypes = {
+    user: PropTypes.shape({
+        username: PropTypes.string,
+        email: PropTypes.string,
+        canvasBaseUrl: PropTypes.string,
+        hasCanvasToken: PropTypes.bool,
+        hasTimetableLink: PropTypes.bool,
+    }),
+    dashboardVersion: PropTypes.string,
+    onClose: PropTypes.func.isRequired,
+    onSaved: PropTypes.func,
+    reminderHours: PropTypes.number.isRequired,
+    onReminderHoursChange: PropTypes.func.isRequired,
+    notificationPermission: PropTypes.string.isRequired,
+    onEnableNotifications: PropTypes.func.isRequired,
+};
 
 function HelpModal({ onClose }) {
     const shortcuts = [{ key: 'S', action: 'Focus search' }, { key: 'C', action: 'Open calendar tab' }, { key: 'T', action: 'Open timetable tab' }, { key: '?', action: 'Open this help modal' }];
     return (
-        <div className={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className={styles.modal}>
+        <dialog
+            className={styles.modalOverlay}
+            aria-modal="true"
+            tabIndex={-1}
+            open
+            onCancel={e => { e.preventDefault(); onClose(); }}
+        >
+            <button
+                className={styles.modal}
+                type="button"
+                tabIndex={0}
+                onClick={e => e.target === e.currentTarget && onClose()}
+                onKeyDown={e => {
+                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        onClose();
+                    }
+                }}
+            >
                 <div className={styles.modalHeader}><h2 className={styles.modalTitle}>⌨️ Keyboard shortcuts</h2><button className={styles.modalClose} onClick={onClose}>✕</button></div>
                 <div className={styles.modalBody}>
                     <div className={styles.shortcutList}>
@@ -1161,10 +1470,14 @@ function HelpModal({ onClose }) {
                         ))}
                     </div>
                 </div>
-            </div>
-        </div>
+            </button>
+        </dialog>
     );
 }
+
+HelpModal.propTypes = {
+    onClose: PropTypes.func.isRequired,
+};
 
 function AssessmentDetailModal({ assessment, onClose, isHidden, isComplete, onHide, onUnhide, onToggleComplete }) {
     if (!assessment) return null;
@@ -1173,7 +1486,18 @@ function AssessmentDetailModal({ assessment, onClose, isHidden, isComplete, onHi
     const showHideAction = !isHidden;
     const showRestoreAction = isHidden;
     return (
-        <div className={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
+        <button
+            className={styles.modalOverlay}
+            tabIndex={0}
+            aria-label="Close assessment details"
+            onClick={e => e.target === e.currentTarget && onClose()}
+            onKeyDown={e => {
+                if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+                    e.preventDefault();
+                    onClose();
+                }
+            }}
+        >
             <div className={styles.modal}>
                 <div className={styles.modalHeader}><h2 className={styles.modalTitle}>📘 {assessment.name}</h2><button className={styles.modalClose} onClick={onClose}>✕</button></div>
                 <div className={styles.modalBody}>
@@ -1181,7 +1505,7 @@ function AssessmentDetailModal({ assessment, onClose, isHidden, isComplete, onHi
                         <span className={styles.detailMetaItem}>📚 {assessment.courseName}</span>
                         <span className={styles.detailMetaItem}>📅 {formatShortDate(assessment.dueAt)}</span>
                         {assessment.pointsPossible != null && <span className={styles.detailMetaItem}>⭐ {assessment.pointsPossible} pts</span>}
-                        {assessment.score != null && <span className={styles.detailMetaItem}>🏁 Score: {assessment.score}{assessment.pointsPossible != null ? `/${assessment.pointsPossible}` : ''}</span>}
+                        {assessment.score != null && <span className={styles.detailMetaItem}>🏁 Score: {assessment.score}{assessment.pointsPossible !== null && assessment.pointsPossible !== undefined ? `/${assessment.pointsPossible}` : ''}</span>}
                         {assessment.grade && <span className={styles.detailMetaItem}>🧾 Grade: {assessment.grade}</span>}
                         {Array.isArray(assessment.submissionTypes) && assessment.submissionTypes.length > 0 && <span className={styles.detailMetaItem}>📤 {assessment.submissionTypes.join(', ')}</span>}
                     </div>
@@ -1203,9 +1527,31 @@ function AssessmentDetailModal({ assessment, onClose, isHidden, isComplete, onHi
                     </div>
                 </div>
             </div>
-        </div>
+        </button>
     );
 }
+
+AssessmentDetailModal.propTypes = {
+    assessment: PropTypes.shape({
+        id: PropTypes.string,
+        name: PropTypes.string,
+        courseName: PropTypes.string,
+        dueAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        pointsPossible: PropTypes.number,
+        score: PropTypes.number,
+        grade: PropTypes.string,
+        submissionTypes: PropTypes.arrayOf(PropTypes.string),
+        rubricUrl: PropTypes.string,
+        htmlUrl: PropTypes.string,
+        description: PropTypes.string,
+    }).isRequired,
+    onClose: PropTypes.func.isRequired,
+    isHidden: PropTypes.bool,
+    isComplete: PropTypes.bool,
+    onHide: PropTypes.func,
+    onUnhide: PropTypes.func,
+    onToggleComplete: PropTypes.func,
+};
 
 // ─── MAIN DASHBOARD ────────────────────────────────────────────────────────
 export default function Dashboard() {
@@ -1236,7 +1582,6 @@ export default function Dashboard() {
     const [filters, setFilters] = useState({ years: [], terms: [], courseIds: [], courseCodes: [], sortBy: 'dueDate', sortDir: 'asc' });
     const [hiddenIds, setHiddenIds] = useState(new Set());
     const [completeIds, setCompleteIds] = useState(new Set());
-    const [showHidden, setShowHidden] = useState(false);
 
     const searchInputRef = useRef(null);
     const pageDashboardVersion = 'base';
@@ -1246,7 +1591,7 @@ export default function Dashboard() {
         setCompleteIds(loadCompleted());
         setReminderHours(loadReminderHours());
         setRemindedMap(loadRemindedMap());
-        if (typeof window !== 'undefined' && 'Notification' in window) setNotificationPermission(Notification.permission);
+        if (globalThis.window !== undefined && 'Notification' in globalThis) setNotificationPermission(Notification.permission);
     }, []);
 
     useEffect(() => { const timer = setInterval(() => setNowTick(Date.now()), 30000); return () => clearInterval(timer); }, []);
@@ -1270,21 +1615,33 @@ export default function Dashboard() {
         });
     }, []);
     const clearAllHidden = useCallback(() => { setHiddenIds(new Set()); saveHidden(new Set()); }, []);
+
+    const collectCourseAssessmentIds = useCallback((courseId, hiddenSet) => {
+        if (!dueData?.terms) return;
+        for (const term of dueData.terms) {
+            if (!term?.courses) continue;
+            for (const course of term.courses) {
+                if (!course || String(course.courseId) !== String(courseId)) continue;
+                if (!Array.isArray(course.assessments)) continue;
+                for (const a of course.assessments) {
+                    hiddenSet.add(String(a.id));
+                }
+            }
+        }
+    }, [dueData]);
+
     const hideCourseAssessments = useCallback(courseId => {
         setHiddenIds(prev => {
             const next = new Set(prev);
-            dueData.terms.forEach(term => term.courses.forEach(course => {
-                if (String(course.courseId) !== String(courseId)) return;
-                course.assessments.forEach(a => next.add(String(a.id)));
-            }));
-            saveHidden(next); return next;
+            collectCourseAssessmentIds(courseId, next);
+            saveHidden(next);
+            return next;
         });
-    }, [dueData]);
+    }, [collectCourseAssessmentIds]);
 
     useEffect(() => {
         fetch('/api/auth/session').then(r => r.json()).then(data => {
-            if (!data.authenticated) { router.replace('/login'); }
-            else {
+            if (data.authenticated) {
                 setUser(data.user);
                 setAuthChecked(true);
                 if (data.user?.dashboardVersion && data.user.dashboardVersion !== pageDashboardVersion) {
@@ -1292,7 +1649,7 @@ export default function Dashboard() {
                     return;
                 }
                 if (router.query.welcome === '1') setSetupBanner('Welcome! Add your Canvas API token in Settings to get started.');
-            }
+            } else { router.replace('/login'); }
         }).catch(() => router.replace('/login'));
     }, [router]);
 
@@ -1335,7 +1692,7 @@ export default function Dashboard() {
     useEffect(() => { if (activeTab === 'timetable' && authChecked) fetchTimetableData(); }, [activeTab, authChecked, fetchTimetableData]);
 
     useEffect(() => {
-        if (typeof window === 'undefined' || !('Notification' in window) || notificationPermission !== 'granted') return;
+        if (globalThis.window === undefined || !('Notification' in globalThis) || notificationPermission !== 'granted') return;
         const allAssessments = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments));
         if (allAssessments.length === 0) return;
         const now = Date.now();
@@ -1355,7 +1712,7 @@ export default function Dashboard() {
     }, [dueData, reminderHours, notificationPermission, remindedMap, nowTick]);
 
     const handleEnableNotifications = useCallback(async () => {
-        if (typeof window === 'undefined' || !('Notification' in window)) return;
+        if (globalThis.window === undefined || !('Notification' in globalThis)) return;
         const permission = await Notification.requestPermission();
         setNotificationPermission(permission);
     }, []);
@@ -1370,8 +1727,8 @@ export default function Dashboard() {
             if (event.key === 't' || event.key === 'T') { event.preventDefault(); setActiveTab('timetable'); setShowHidden(false); return; }
             if (event.key === '?') { event.preventDefault(); setShowHelp(true); }
         };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
+        globalThis.addEventListener('keydown', onKeyDown);
+        return () => globalThis.removeEventListener('keydown', onKeyDown);
     }, []);
 
     const handleLogout = async () => {
@@ -1453,7 +1810,19 @@ export default function Dashboard() {
             )}
 
             {/* Mobile sidebar backdrop */}
-            {mobileSidebarOpen && <div className={styles.sidebarBackdrop} onClick={() => setMobileSidebarOpen(false)} />}
+            {mobileSidebarOpen && (
+                <button
+                    className={styles.sidebarBackdrop}
+                    tabIndex={0}
+                    aria-label="Close sidebar"
+                    onClick={() => setMobileSidebarOpen(false)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                            setMobileSidebarOpen(false);
+                        }
+                    }}
+                />
+            )}
 
             {/* ─── Sidebar ─── */}
             <aside className={`${styles.sidebar} ${mobileSidebarOpen ? styles.sidebarOpen : ''}`}>
@@ -1597,23 +1966,35 @@ export default function Dashboard() {
                                     <>
                                         {activeTab === 'hidden' && hiddenIds.size > 0 && (
                                             <div className={styles.hiddenBanner}>
-                                                <span>👁 Showing {hiddenIds.size} hidden assessment{hiddenIds.size !== 1 ? 's' : ''}</span>
+                                                <span>👁 Showing {hiddenIds.size} hidden assessment{hiddenIds.size === 1 ? '' : 's'}</span>
                                                 <button className={styles.clearHiddenBtn} onClick={clearAllHidden}>🗑 Clear all hidden</button>
                                             </div>
                                         )}
-                                        <ListView
-                                            dueData={dueData}
-                                            urgencyFilter={urgencyFilter}
-                                            setUrgencyFilter={setUrgencyFilter}
-                                            filters={filters}
-                                            hiddenIds={hiddenIds}
-                                            completeIds={completeIds}
-                                            onOpenDetails={assessment => setSelectedAssessment(assessment)}
-                                            showHidden={activeTab === 'hidden'}
-                                            nowTick={nowTick}
-                                            groupBy={groupBy}
-                                            mode={activeTab === 'completed' ? 'completed' : activeTab === 'past' ? 'past' : 'upcoming'}
-                                        />
+                                        {(() => {
+                                            let listViewMode;
+                                            if (activeTab === 'completed') {
+                                                listViewMode = 'completed';
+                                            } else if (activeTab === 'past') {
+                                                listViewMode = 'past';
+                                            } else {
+                                                listViewMode = 'upcoming';
+                                            }
+                                            return (
+                                                <ListView
+                                                    dueData={dueData}
+                                                    urgencyFilter={urgencyFilter}
+                                                    setUrgencyFilter={setUrgencyFilter}
+                                                    filters={filters}
+                                                    hiddenIds={hiddenIds}
+                                                    completeIds={completeIds}
+                                                    onOpenDetails={assessment => setSelectedAssessment(assessment)}
+                                                    showHidden={activeTab === 'hidden'}
+                                                    nowTick={nowTick}
+                                                    groupBy={groupBy}
+                                                    mode={listViewMode}
+                                                />
+                                            );
+                                        })()}
                                     </>
                                 )}
                                 {activeTab === 'calendar' && (
@@ -1640,3 +2021,7 @@ export default function Dashboard() {
         </div>
     );
 }
+
+SiteLogo.propTypes = {
+    size: PropTypes.number,
+};
