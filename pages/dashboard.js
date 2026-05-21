@@ -1043,15 +1043,14 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     const [isVerticalTimetable, setIsVerticalTimetable] = useState(false);
     const [localNow, setLocalNow] = useState(() => new Date());
     const [selectedClass, setSelectedClass] = useState(null);
-    const [use24Hour, setUse24Hour] = useState(true);
-
-    useEffect(() => {
+    const [use24Hour, setUse24Hour] = useState(() => {
         try {
             const saved = localStorage.getItem('fr_tt_time_format');
-            if (saved === '12') setUse24Hour(false);
-            else if (saved === '24') setUse24Hour(true);
+            if (saved === '12') return false;
+            if (saved === '24') return true;
         } catch { }
-    }, []);
+        return true;
+    });
     useEffect(() => { try { localStorage.setItem('fr_tt_time_format', use24Hour ? '24' : '12'); } catch { } }, [use24Hour]);
     useEffect(() => { const timer = setInterval(() => setLocalNow(new Date()), 1000); return () => clearInterval(timer); }, []);
     useEffect(() => {
@@ -1072,7 +1071,15 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [weekOffset]);
 
-    const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d; }), [weekStart]);
+    const weekDays = useMemo(() => {
+        const arr = [];
+        for (let i = 0; i < 7; i += 1) {
+            const d = new Date(weekStart);
+            d.setDate(weekStart.getDate() + i);
+            arr.push(d);
+        }
+        return arr;
+    }, [weekStart]);
     const toDateKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const todayKey = toDateKey(today);
     const eventsByDate = useMemo(() => { const map = {}; timetableEvents.forEach(ev => { const key = toDateKey(new Date(ev.start)); if (!map[key]) { map[key] = []; } map[key].push(ev); }); return map; }, [timetableEvents]);
@@ -1567,28 +1574,23 @@ export default function Dashboard() {
     // settings are now a tab; remove separate modal flag
     const [setupBanner, setSetupBanner] = useState('');
     const [nowTick, setNowTick] = useState(() => Date.now());
-    const [reminderHours, setReminderHours] = useState(36);
-    const [notificationPermission, setNotificationPermission] = useState('default');
-    const [remindedMap, setRemindedMap] = useState({});
+    const [reminderHours, setReminderHours] = useState(() => loadReminderHours());
+    const [notificationPermission, setNotificationPermission] = useState(() => {
+        if (globalThis.window !== undefined && 'Notification' in globalThis) return Notification.permission;
+        return 'default';
+    });
+    const [remindedMap, setRemindedMap] = useState(() => loadRemindedMap());
     const [showHelp, setShowHelp] = useState(false);
     const [selectedAssessment, setSelectedAssessment] = useState(null);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [groupBy, setGroupBy] = useState('term');
     const [filters, setFilters] = useState({ years: [], terms: [], courseIds: [], courseCodes: [], sortBy: 'dueDate', sortDir: 'asc' });
-    const [hiddenIds, setHiddenIds] = useState(new Set());
-    const [completeIds, setCompleteIds] = useState(new Set());
+    const [hiddenIds, setHiddenIds] = useState(() => loadHidden());
+    const [completeIds, setCompleteIds] = useState(() => loadCompleted());
 
     const searchInputRef = useRef(null);
     const pageDashboardVersion = 'base';
-
-    useEffect(() => {
-        setHiddenIds(loadHidden());
-        setCompleteIds(loadCompleted());
-        setReminderHours(loadReminderHours());
-        setRemindedMap(loadRemindedMap());
-        if (globalThis.window !== undefined && 'Notification' in globalThis) setNotificationPermission(Notification.permission);
-    }, []);
 
     useEffect(() => { const timer = setInterval(() => setNowTick(Date.now()), 30000); return () => clearInterval(timer); }, []);
     useEffect(() => { saveReminderHours(reminderHours); }, [reminderHours]);
@@ -1685,7 +1687,11 @@ export default function Dashboard() {
         finally { setTimetableLoading(false); }
     }, []);
 
-    useEffect(() => { if (activeTab === 'timetable' && authChecked) fetchTimetableData(); }, [activeTab, authChecked, fetchTimetableData]);
+    useEffect(() => {
+        if (activeTab !== 'timetable' || !authChecked) return;
+        const timer = setTimeout(() => { fetchTimetableData(); }, 0);
+        return () => clearTimeout(timer);
+    }, [activeTab, authChecked, fetchTimetableData]);
 
     useEffect(() => {
         if (globalThis.window === undefined || !('Notification' in globalThis) || notificationPermission !== 'granted') return;
@@ -1704,8 +1710,11 @@ export default function Dashboard() {
                 nextMap[key] = true; changed = true;
             }
         });
-        if (changed) setRemindedMap(nextMap);
-    }, [dueData, reminderHours, notificationPermission, remindedMap, nowTick]);
+        if (changed) {
+            // avoid synchronous setState inside effect to prevent cascading renders
+            setTimeout(() => setRemindedMap(nextMap), 0);
+        }
+    }, [dueData, reminderHours, notificationPermission, remindedMap, nowTick, setRemindedMap]);
 
     const handleEnableNotifications = useCallback(async () => {
         if (globalThis.window === undefined || !('Notification' in globalThis)) return;
