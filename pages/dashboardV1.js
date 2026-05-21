@@ -955,17 +955,16 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     const [isVerticalTimetable, setIsVerticalTimetable] = useState(false);
     const [localNow, setLocalNow] = useState(() => new Date());
     const [selectedClass, setSelectedClass] = useState(null);
-    const [use24Hour, setUse24Hour] = useState(true);
-
-    useEffect(() => {
+    const [use24Hour, setUse24Hour] = useState(() => {
         try {
             const saved = localStorage.getItem('fr_tt_time_format');
-            if (saved === '12') setUse24Hour(false);
-            if (saved === '24') setUse24Hour(true);
+            if (saved === '12') return false;
+            if (saved === '24') return true;
         } catch {
             // Ignore storage issues
         }
-    }, []);
+        return true;
+    });
 
     useEffect(() => {
         try {
@@ -1004,11 +1003,11 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [weekOffset]);
 
-    const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(weekStart);
         d.setDate(weekStart.getDate() + i);
         return d;
-    }), [weekStart]);
+    });
 
     const toDateKey = (d) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1455,6 +1454,7 @@ function SettingsModal({
     onReminderHoursChange,
     notificationPermission,
     onEnableNotifications,
+    inline = false,
 }) {
     const defaultEnvUrl = 'https://rmit.instructure.com/api/v1/';
     const savedUrl = user?.canvasBaseUrl || defaultEnvUrl;
@@ -1507,155 +1507,149 @@ function SettingsModal({
         globalThis.location.href = '/api/assessments/export.ics';
     };
 
-    return (
-        <dialog
-            className={dashStyles.modalOverlay}
-            aria-label="Close settings modal"
-        >
-            <button
-                className={dashStyles.modal}
-                aria-label="Close settings dialog "
-                onClick={(e) => e.target === e.currentTarget && onClose()}
-                onKeyDown={(e) => {
-                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
-                        e.preventDefault();
-                        onClose();
-                    }
-                }}
-                tabIndex={0}
-            >
-                <div className={dashStyles.modalHeader}>
-                    <h2 className={dashStyles.modalTitle}>⚙️ Settings</h2>
-                    <button className={dashStyles.modalClose} onClick={onClose}>✕</button>
+    const content = (
+        <div className={inline ? dashStyles.settingsPanel : dashStyles.modal}>
+            <div className={dashStyles.modalHeader}>
+                <h2 className={dashStyles.modalTitle}>⚙️ Settings</h2>
+                <button className={dashStyles.modalClose} onClick={onClose}>✕</button>
+            </div>
+            <div className={inline ? `${dashStyles.modalBody} ${dashStyles.settingsPanelBody}` : dashStyles.modalBody}>
+                <div className={dashStyles.userInfo}>
+                    <div className={dashStyles.userAvatar}>{user?.username?.[0]?.toUpperCase() || '?'}</div>
+                    <div>
+                        <div className={dashStyles.userName}>{user?.username}</div>
+                        <div className={dashStyles.userEmail}>{user?.email}</div>
+                    </div>
                 </div>
-                <div className={dashStyles.modalBody}>
-                    <div className={dashStyles.userInfo}>
-                        <div className={dashStyles.userAvatar}>{user?.username?.[0]?.toUpperCase() || '?'}</div>
-                        <div>
-                            <div className={dashStyles.userName}>{user?.username}</div>
-                            <div className={dashStyles.userEmail}>{user?.email}</div>
-                        </div>
+                {error && <div className={dashStyles.settingsError}><span>⚠️</span> {error}</div>}
+                {success && <div className={dashStyles.settingsSuccess}><span>✅</span> {success}</div>}
+                <form onSubmit={handleSave} className={dashStyles.settingsForm}>
+                    <div className={dashStyles.settingsField}>
+                        <label htmlFor="uniPreset" className={dashStyles.settingsLabel}>
+                            University / Canvas Instance{' '}
+                            <span className={dashStyles.settingsLabelHint}>Current: <code className={dashStyles.urlCode}>{currentDisplayUrl}</code></span>
+                        </label>
+                        <select id="uniPreset" value={uniPreset} onChange={handleUniSelect} className={dashStyles.settingsSelect}>
+                            <option value="" disabled>Select your university…</option>
+                            {UNIVERSITIES.map((u) => (<option key={u.label} value={u.url}>{u.label}</option>))}
+                        </select>
                     </div>
-                    <div className={dashStyles.encryptionBadge}>
-                        <span className={dashStyles.encryptBadgeIcon}>🔐</span>
-                        <span>API token and timetable link are encrypted with <strong>AES-256-GCM</strong> before being stored.</span>
+                    <div className={dashStyles.settingsField}>
+                        <label htmlFor="dashboardVersion" className={dashStyles.settingsLabel}>
+                            Dashboard version{' '}
+                            <span className={dashStyles.settingsLabelHint}>Switch between the default dashboard and old dashboard</span>
+                        </label>
+                        <select
+                            id="dashboardVersion"
+                            value={form.dashboardVersion}
+                            onChange={e => setForm(f => ({ ...f, dashboardVersion: e.target.value }))}
+                            className={dashStyles.settingsSelect}
+                        >
+                            <option value="base">Default dashboard</option>
+                            <option value="v1">Old dashboard</option>
+                        </select>
                     </div>
-                    {error && <div className={dashStyles.settingsError}><span>⚠️</span> {error}</div>}
-                    {success && <div className={dashStyles.settingsSuccess}><span>✅</span> {success}</div>}
-                    <form onSubmit={handleSave} className={dashStyles.settingsForm}>
+                    {showCustomUrl && (
                         <div className={dashStyles.settingsField}>
-                            <label htmlFor="uniPreset" className={dashStyles.settingsLabel}>
-                                University / Canvas Instance{' '}
-                                <span className={dashStyles.settingsLabelHint}>Current: <code className={dashStyles.urlCode}>{currentDisplayUrl}</code></span>
-                            </label>
-                            <select id="uniPreset" value={uniPreset} onChange={handleUniSelect} className={dashStyles.settingsSelect}>
-                                <option value="" disabled>Select your university…</option>
-                                {UNIVERSITIES.map((u) => (<option key={u.label} value={u.url}>{u.label}</option>))}
-                            </select>
+                            <label htmlFor="canvasBaseUrl" className={dashStyles.settingsLabel}>Canvas API Base URL</label>
+                            <input id="canvasBaseUrl" name="canvasBaseUrl" type="url" value={form.canvasBaseUrl} onChange={handleChange}
+                                className={dashStyles.settingsInput} placeholder="https://your-university.instructure.com/api/v1/" autoComplete="off" />
                         </div>
-                        <div className={dashStyles.settingsField}>
-                            <label htmlFor="dashboardVersion" className={dashStyles.settingsLabel}>
-                                Dashboard version{' '}
-                                <span className={dashStyles.settingsLabelHint}>Switch between the default dashboard and old dashboard</span>
-                            </label>
-                            <select
-                                id="dashboardVersion"
-                                value={form.dashboardVersion}
-                                onChange={e => setForm(f => ({ ...f, dashboardVersion: e.target.value }))}
-                                className={dashStyles.settingsSelect}
-                            >
-                                <option value="base">Default dashboard</option>
-                                <option value="v1">Old dashboard</option>
-                            </select>
-                        </div>
-                        {showCustomUrl && (
-                            <div className={dashStyles.settingsField}>
-                                <label htmlFor="canvasBaseUrl" className={dashStyles.settingsLabel}>Canvas API Base URL</label>
-                                <input id="canvasBaseUrl" name="canvasBaseUrl" type="url" value={form.canvasBaseUrl} onChange={handleChange}
-                                    className={dashStyles.settingsInput} placeholder="https://your-university.instructure.com/api/v1/" autoComplete="off" />
-                            </div>
-                        )}
-                        <div className={dashStyles.settingsDivider} />
-                        <div className={dashStyles.settingsField}>
-                            <label htmlFor="canvasApiToken" className={dashStyles.settingsLabel}>
-                                Canvas API Token{' '}
-                                <span className={dashStyles.settingsLabelHint}>Canvas → Account → Settings → New Access Token</span>
-                            </label>
-                            <div className={dashStyles.inputWithBadge}>
-                                <input id="canvasApiToken" name="canvasApiToken" type="password" value={form.canvasApiToken} onChange={handleChange}
-                                    className={dashStyles.settingsInput}
-                                    placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste new to update)' : 'Paste your Canvas API token here'}
-                                    autoComplete="off" />
-                                {user?.hasCanvasToken && <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>}
-                            </div>
-                        </div>
-                        <div className={dashStyles.settingsField}>
-                            <label htmlFor="timetableLink" className={dashStyles.settingsLabel}>
-                                Timetable iCal Link{' '}
-                                <span className={dashStyles.settingsLabelHint}>Optional</span>
-                            </label>
-                            <div className={dashStyles.inputWithBadge}>
-                                <input id="timetableLink" name="timetableLink" type="url" value={form.timetableLink} onChange={handleChange}
-                                    className={dashStyles.settingsInput}
-                                    placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'} />
-                                {user?.hasTimetableLink && <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>}
-                            </div>
-                        </div>
-
-                        <div className={dashStyles.settingsDivider} />
-
-                        <div className={dashStyles.settingsField}>
-                            <label htmlFor="reminderHours" className={dashStyles.settingsLabel}>
-                                Browser reminder threshold (hours){' '}
-                                <span className={dashStyles.settingsLabelHint}>Local setting on this device</span>
-                            </label>
-                            <input
-                                id="reminderHours"
-                                type="number"
-                                min="1"
-                                max="168"
-                                value={reminderHours}
-                                onChange={(e) => onReminderHoursChange(Math.min(168, Math.max(1, Number(e.target.value) || 1)))}
+                    )}
+                    <div className={dashStyles.settingsDivider} />
+                    <div className={dashStyles.settingsField}>
+                        <label htmlFor="canvasApiToken" className={dashStyles.settingsLabel}>
+                            Canvas API Token{' '}
+                            <span className={dashStyles.settingsLabelHint}>Canvas → Account → Settings → New Access Token</span>
+                        </label>
+                        <div className={dashStyles.inputWithBadge}>
+                            <input id="canvasApiToken" name="canvasApiToken" type="password" value={form.canvasApiToken} onChange={handleChange}
                                 className={dashStyles.settingsInput}
-                            />
+                                placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste new to update)' : 'Paste your Canvas API token here'}
+                                autoComplete="off" />
+                            {user?.hasCanvasToken && <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>}
                         </div>
-
-                        <div className={dashStyles.settingsField}>
-                            <label className={dashStyles.settingsLabel}>
-                                Browser notifications{' '}
-                                <span className={dashStyles.settingsLabelHint}>Current: {notificationPermission}</span>
-                            </label>
-                            <button
-                                type="button"
-                                className={dashStyles.settingsSave}
-                                onClick={onEnableNotifications}
-                                disabled={notificationPermission === 'granted'}
-                            >
-                                {notificationPermission === 'granted' ? 'Notifications enabled' : 'Enable browser notifications'}
-                            </button>
+                    </div>
+                    <div className={dashStyles.settingsField}>
+                        <label htmlFor="timetableLink" className={dashStyles.settingsLabel}>
+                            Timetable iCal Link{' '}
+                            <span className={dashStyles.settingsLabelHint}>Optional</span>
+                        </label>
+                        <div className={dashStyles.inputWithBadge}>
+                            <input id="timetableLink" name="timetableLink" type="url" value={form.timetableLink} onChange={handleChange}
+                                className={dashStyles.settingsInput}
+                                placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'} />
+                            {user?.hasTimetableLink && <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>}
                         </div>
+                    </div>
 
-                        <div className={dashStyles.settingsField}>
-                            <label className={dashStyles.settingsLabel}>
-                                Calendar export{' '}
-                                <span className={dashStyles.settingsLabelHint}>Download upcoming assessments as .ics</span>
-                            </label>
-                            <button
-                                type="button"
-                                className={dashStyles.settingsSave}
-                                onClick={handleExportCalendar}
-                            >
-                                Export assessments (.ics)
-                            </button>
-                        </div>
+                    <div className={dashStyles.settingsDivider} />
 
-                        <button type="submit" className={dashStyles.settingsSave} disabled={saving}>
-                            {saving ? '🔐 Encrypting & saving…' : 'Save settings'}
+                    <div className={dashStyles.settingsField}>
+                        <label htmlFor="reminderHours" className={dashStyles.settingsLabel}>
+                            Browser reminder threshold (hours){' '}
+                            <span className={dashStyles.settingsLabelHint}>Local setting on this device</span>
+                        </label>
+                        <input
+                            id="reminderHours"
+                            type="number"
+                            min="1"
+                            max="168"
+                            value={reminderHours}
+                            onChange={(e) => onReminderHoursChange(Math.min(168, Math.max(1, Number(e.target.value) || 1)))}
+                            className={dashStyles.settingsInput}
+                        />
+                    </div>
+
+                    <div className={dashStyles.settingsField}>
+                        <label className={dashStyles.settingsLabel}>
+                            Browser notifications{' '}
+                            <span className={dashStyles.settingsLabelHint}>Current: {notificationPermission}</span>
+                        </label>
+                        <button
+                            type="button"
+                            className={dashStyles.settingsSave}
+                            onClick={onEnableNotifications}
+                            disabled={notificationPermission === 'granted'}
+                        >
+                            {notificationPermission === 'granted' ? 'Notifications enabled' : 'Enable browser notifications'}
                         </button>
-                    </form>
-                </div>
-            </button>
-        </dialog>
+                    </div>
+
+                    <div className={dashStyles.settingsField}>
+                        <label className={dashStyles.settingsLabel}>
+                            Calendar export{' '}
+                            <span className={dashStyles.settingsLabelHint}>Download upcoming assessments as .ics</span>
+                        </label>
+                        <button
+                            type="button"
+                            className={dashStyles.settingsSave}
+                            onClick={handleExportCalendar}
+                        >
+                            Export assessments (.ics)
+                        </button>
+                    </div>
+
+                    <button type="submit" className={dashStyles.settingsSave} disabled={saving}>
+                        {saving ? '🔐 Encrypting & saving…' : 'Save settings'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+
+    if (inline) return content;
+
+    return (
+        <div className={dashStyles.modalOverlay}>
+            <button
+                type="button"
+                className={dashStyles.modalBackdrop}
+                onClick={onClose}
+                aria-label="Close settings"
+            />
+            {content}
+        </div>
     );
 }
 
@@ -1675,6 +1669,7 @@ SettingsModal.propTypes = {
     notificationPermission: PropTypes.string.isRequired,
     onEnableNotifications: PropTypes.func.isRequired,
 };
+SettingsModal.propTypes.inline = PropTypes.bool;
 
 function HelpModal({ onClose }) {
     const shortcuts = [
@@ -1722,17 +1717,13 @@ function AssessmentDetailModal({ assessment, onClose }) {
         .trim();
 
     return (
-        <button
-            className={dashStyles.modalOverlay}
-            tabIndex={0}
-            onClick={(e) => e.target === e.currentTarget && onClose()}
-            onKeyDown={(e) => {
-                if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
-                    e.preventDefault();
-                    onClose();
-                }
-            }}
-        >
+        <div className={dashStyles.modalOverlay}>
+            <button
+                type="button"
+                className={dashStyles.modalBackdrop}
+                onClick={onClose}
+                aria-label="Close assessment details"
+            />
             <div className={dashStyles.modal}>
                 <div className={dashStyles.modalHeader}>
                     <h2 className={dashStyles.modalTitle}>📘 {assessment.name}</h2>
@@ -1756,14 +1747,11 @@ function AssessmentDetailModal({ assessment, onClose }) {
                     </div>
 
                     <div className={dashStyles.detailActions}>
-                        {assessment.rubricUrl && (
-                            <a className={dashStyles.settingsSave} href={assessment.rubricUrl} target="_blank" rel="noopener noreferrer">View rubric</a>
-                        )}
                         <a className={dashStyles.settingsSave} href={assessment.htmlUrl} target="_blank" rel="noopener noreferrer">Open in Canvas</a>
                     </div>
                 </div>
             </div>
-        </button>
+        </div>
     );
 }
 
@@ -1788,12 +1776,17 @@ export default function Dashboard() {
     const [timetableEvents, setTimetableEvents] = useState([]);
     const [timetableLoading, setTimetableLoading] = useState(false);
     const [timetableError, setTimetableError] = useState('');
-    const [showSettings, setShowSettings] = useState(false);
+
     const [setupBanner, setSetupBanner] = useState('');
     const [nowTick, setNowTick] = useState(() => Date.now());
-    const [reminderHours, setReminderHours] = useState(36);
-    const [notificationPermission, setNotificationPermission] = useState('default');
-    const [remindedMap, setRemindedMap] = useState({});
+    const [reminderHours, setReminderHours] = useState(() => loadReminderHours());
+    const [notificationPermission, setNotificationPermission] = useState(() => {
+        if (globalThis.window !== undefined && 'Notification' in globalThis) {
+            return Notification.permission;
+        }
+        return 'default';
+    });
+    const [remindedMap, setRemindedMap] = useState(() => loadRemindedMap());
     const [showHelp, setShowHelp] = useState(false);
     const [selectedAssessment, setSelectedAssessment] = useState(null);
     const [showHeaderMenu, setShowHeaderMenu] = useState(false);
@@ -1807,17 +1800,7 @@ export default function Dashboard() {
         sortBy: 'dueDate', sortDir: 'asc'
     });
 
-    const [hiddenIds, setHiddenIds] = useState(new Set());
-    const [setShowHidden] = useState(false);
-
-    useEffect(() => {
-        setHiddenIds(loadHidden());
-        setReminderHours(loadReminderHours());
-        setRemindedMap(loadRemindedMap());
-        if (globalThis.window !== undefined && 'Notification' in globalThis) {
-            setNotificationPermission(Notification.permission);
-        }
-    }, []);
+    const [hiddenIds, setHiddenIds] = useState(() => loadHidden());
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -1901,6 +1884,10 @@ export default function Dashboard() {
             .catch(() => router.replace('/login'));
     }, [router]);
 
+    useEffect(() => {
+        router.prefetch(getDashboardRoute('v1')).catch(() => { });
+    }, [router]);
+
     const fetchDueAssessments = useCallback(async (queryText = '') => {
         setLoading(true); setError(null);
         try {
@@ -1948,7 +1935,12 @@ export default function Dashboard() {
         finally { setTimetableLoading(false); }
     }, []);
 
-    useEffect(() => { if (activeTab === 'timetable' && authChecked) fetchTimetableData(); }, [activeTab, authChecked, fetchTimetableData]);
+    useEffect(() => {
+        if (!(activeTab === 'timetable' && authChecked)) return;
+        // defer the fetch to avoid setting state synchronously within the effect
+        const id = setTimeout(() => { fetchTimetableData(); }, 0);
+        return () => clearTimeout(id);
+    }, [activeTab, authChecked, fetchTimetableData]);
 
     useEffect(() => {
         if (globalThis.window === undefined || !('Notification' in globalThis) || notificationPermission !== 'granted') {
@@ -1990,7 +1982,10 @@ export default function Dashboard() {
         });
 
         if (changed) {
-            setRemindedMap(nextMap);
+            const id = setTimeout(() => {
+                setRemindedMap(nextMap);
+            }, 0);
+            return () => clearTimeout(id);
         }
     }, [dueData, reminderHours, notificationPermission, remindedMap, nowTick]);
 
@@ -2015,14 +2010,12 @@ export default function Dashboard() {
             if (event.key === 'c' || event.key === 'C') {
                 event.preventDefault();
                 setActiveTab('calendar');
-                setShowHidden(false);
                 return;
             }
 
             if (event.key === 't' || event.key === 'T') {
                 event.preventDefault();
                 setActiveTab('timetable');
-                setShowHidden(false);
                 return;
             }
 
@@ -2034,7 +2027,7 @@ export default function Dashboard() {
 
         globalThis.addEventListener('keydown', onKeyDown);
         return () => globalThis.removeEventListener('keydown', onKeyDown);
-    }, [setShowHidden]);
+    }, []);
 
     useEffect(() => {
         if (!showHeaderMenu) return;
@@ -2056,15 +2049,13 @@ export default function Dashboard() {
 
     const switchDashboardVersion = useCallback(async () => {
         const nextVersion = 'base';
-        try {
-            await fetch('/api/auth/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dashboardVersion: nextVersion }),
-            });
-        } finally {
-            router.replace(getDashboardRoute(nextVersion));
-        }
+        fetch('/api/auth/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dashboardVersion: nextVersion }),
+            keepalive: true,
+        }).catch(() => { });
+        router.replace(getDashboardRoute(nextVersion));
     }, [router]);
 
     const activeFilterCount = (filters.years?.length || 0) + (filters.terms?.length || 0) +
@@ -2088,27 +2079,7 @@ export default function Dashboard() {
             {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
             {selectedAssessment && <AssessmentDetailModal assessment={selectedAssessment} onClose={() => setSelectedAssessment(null)} />}
 
-            {showSettings && (
-                <SettingsModal
-                    user={user}
-                    dashboardVersion={pageDashboardVersion}
-                    onClose={() => { setShowSettings(false); }}
-                    reminderHours={reminderHours}
-                    onReminderHoursChange={setReminderHours}
-                    notificationPermission={notificationPermission}
-                    onEnableNotifications={handleEnableNotifications}
-                    onSaved={(updatedUser) => {
-                        setUser(updatedUser);
-                        setSetupBanner('');
-                        if (updatedUser?.dashboardVersion && updatedUser.dashboardVersion !== pageDashboardVersion) {
-                            setShowSettings(false);
-                            router.replace(getDashboardRoute(updatedUser.dashboardVersion));
-                            return;
-                        }
-                        setTimeout(() => { setShowSettings(false); fetchDueAssessments(''); }, 800);
-                    }}
-                />
-            )}
+
 
             <div className={styles.bgDecor} aria-hidden="true">
                 <div className={styles.blob1} /><div className={styles.blob2} /><div className={styles.blob3} />
@@ -2161,7 +2132,7 @@ export default function Dashboard() {
                                         </a>
                                     ))}
                                     <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); switchDashboardVersion(); }}>Switch to default dashboard</button>
-                                    <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); setShowSettings(true); }}>⚙️ Settings</button>
+                                    <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); setActiveTab('settings'); }}>⚙️ Settings</button>
                                     <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); setShowHelp(true); }}>⌨️ Shortcuts</button>
                                     <button className={styles.menuActionDanger} onClick={() => { setShowHeaderMenu(false); handleLogout(); }}>Sign out</button>
                                 </div>
@@ -2175,7 +2146,7 @@ export default function Dashboard() {
                 <div className={dashStyles.setupBanner}>
                     <span>{setupBanner}</span>
                     <div className={dashStyles.setupBannerActions}>
-                        <button className={dashStyles.setupBannerBtn} onClick={() => setShowSettings(true)}>Open Settings</button>
+                        <button className={dashStyles.setupBannerBtn} onClick={() => setActiveTab('settings')}>Open Settings</button>
                         <button className={dashStyles.setupBannerClose} onClick={() => setSetupBanner('')}>✕</button>
                     </div>
                 </div>
@@ -2201,18 +2172,18 @@ export default function Dashboard() {
                 <div className={dashStyles.tabsAndFilter}>
                     <div className={styles.tabRow}>
                         <button className={`${styles.tabBtn} ${activeTab === 'active' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('active'); setShowHidden(false); }}>📋 Active</button>
+                            onClick={() => { setActiveTab('active'); }}>📋 Active</button>
                         <button className={`${styles.tabBtn} ${activeTab === 'passedYear' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('passedYear'); setShowHidden(false); }}>✅ Passed This Year</button>
+                            onClick={() => { setActiveTab('passedYear'); }}>✅ Passed This Year</button>
                         <button className={`${styles.tabBtn} ${activeTab === 'pastClasses' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('pastClasses'); setShowHidden(false); }}>🗂️ Past Classes</button>
+                            onClick={() => { setActiveTab('pastClasses'); }}>🗂️ Past Classes</button>
                         <button className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('calendar'); setShowHidden(false); }}>📅 Calendar</button>
+                            onClick={() => { setActiveTab('calendar'); }}>📅 Calendar</button>
                         <button className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('timetable'); setShowHidden(false); }}>🕐 Timetable</button>
+                            onClick={() => { setActiveTab('timetable'); }}>🕐 Timetable</button>
                         <button
                             className={`${styles.tabBtn} ${activeTab === 'hidden' ? styles.tabBtnActive : ''} ${dashStyles.hiddenTab}`}
-                            onClick={() => { setActiveTab('hidden'); setShowHidden(true); }}
+                            onClick={() => { setActiveTab('hidden'); }}
                         >
                             👁 Hidden
                             {hiddenIds.size > 0 && <span className={dashStyles.hiddenBadge}>{hiddenIds.size}</span>}
@@ -2300,6 +2271,29 @@ export default function Dashboard() {
                                 timetableLoading={timetableLoading}
                                 timetableError={timetableError}
                             />
+                        )}
+                        {activeTab === 'settings' && (
+                            <div className={dashStyles.settingsPageShell}>
+                                <SettingsModal
+                                    inline
+                                    user={user}
+                                    dashboardVersion={pageDashboardVersion}
+                                    onClose={() => setActiveTab('active')}
+                                    reminderHours={reminderHours}
+                                    onReminderHoursChange={setReminderHours}
+                                    notificationPermission={notificationPermission}
+                                    onEnableNotifications={handleEnableNotifications}
+                                    onSaved={(updatedUser) => {
+                                        setUser(updatedUser);
+                                        setSetupBanner('');
+                                        if (updatedUser?.dashboardVersion && updatedUser.dashboardVersion !== pageDashboardVersion) {
+                                            router.replace(getDashboardRoute(updatedUser.dashboardVersion));
+                                            return;
+                                        }
+                                        setTimeout(() => { setActiveTab('active'); fetchDueAssessments(''); }, 800);
+                                    }}
+                                />
+                            </div>
                         )}
                     </div>
                 </div>

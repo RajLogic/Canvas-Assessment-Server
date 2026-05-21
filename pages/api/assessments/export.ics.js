@@ -3,10 +3,10 @@ import { DEFAULT_CANVAS_BASE_URL, normalizeCanvasBaseUrl } from '../../../lib/ca
 
 function escapeIcsText(value) {
     return String(value || '')
-        .replace(/\\/g, '\\\\')
-        .replace(/\r?\n/g, '\\n')
-        .replace(/,/g, '\\,')
-        .replace(/;/g, '\\;');
+        .replaceAll('\\', '\\\\')
+        .replace(/\r?\n/g, String.raw`\n`)
+        .replaceAll(',', String.raw`\,`)
+        .replaceAll(';', String.raw`\;`);
 }
 
 function formatUtcDate(dateLike) {
@@ -41,7 +41,7 @@ async function fetchPaginated(initialUrl, apiToken) {
         items = items.concat(pageItems);
 
         const link = response.headers.get('link');
-        const nextMatch = link?.match(/<([^>]+)>;\s*rel="next"/);
+        const nextMatch = new RegExp(/<([^>]+)>;\s*rel="next"/).exec(link);
         url = nextMatch ? nextMatch[1] : null;
     }
 
@@ -73,16 +73,19 @@ function toIcs(assessments) {
             `Submitted: ${assessment.hasSubmitted ? 'Yes' : 'No'}`,
         ].join('\n');
 
-        lines.push('BEGIN:VEVENT');
-        lines.push(`UID:${escapeIcsText(`${assessment.courseId}-${assessment.id}@finalreckoning`)}`);
-        lines.push(`DTSTAMP:${dtStamp}`);
-        lines.push(`DTSTART:${formatUtcDate(start)}`);
-        lines.push(`DTEND:${formatUtcDate(end)}`);
-        lines.push(`SUMMARY:${escapeIcsText(assessment.name)}`);
-        lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
-        lines.push(`URL:${escapeIcsText(assessment.htmlUrl)}`);
-        lines.push(`CATEGORIES:${escapeIcsText(assessment.courseName)}`);
-        lines.push('END:VEVENT');
+        const uid = `${assessment.courseId}-${assessment.id}@finalreckoning`;
+        lines.push(
+            'BEGIN:VEVENT',
+            `UID:${escapeIcsText(uid)}`,
+            `DTSTAMP:${dtStamp}`,
+            `DTSTART:${formatUtcDate(start)}`,
+            `DTEND:${formatUtcDate(end)}`,
+            `SUMMARY:${escapeIcsText(assessment.name)}`,
+            `DESCRIPTION:${escapeIcsText(description)}`,
+            `URL:${escapeIcsText(assessment.htmlUrl)}`,
+            `CATEGORIES:${escapeIcsText(assessment.courseName)}`,
+            'END:VEVENT'
+        );
     });
 
     lines.push('END:VCALENDAR');

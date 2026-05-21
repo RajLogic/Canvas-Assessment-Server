@@ -946,25 +946,29 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                     stripeColor = 'var(--safe-stripe)';
                                 }
                                 return (
-                                    <button
-                                        key={a.id}
-                                        tabIndex={0}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                                        onClick={() => onOpenDetails(a)}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault();
-                                                onOpenDetails(a);
-                                            }
-                                        }}
-                                    >
-                                        <div style={{ width: 3, height: 36, borderRadius: 3, background: stripeColor, flexShrink: 0 }} />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{a.courseName} · {formatShortDate(a.dueAt)}</div>
+                                    <li key={a.id} style={{ listStyle: 'none', borderBottom: '1px solid var(--border)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem' }}>
+                                            <button
+                                                type="button"
+                                                tabIndex={0}
+                                                onClick={() => onOpenDetails(a)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        onOpenDetails(a);
+                                                    }
+                                                }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', flex: 1, minWidth: 0, border: 'none', background: 'transparent', padding: 0, textAlign: 'left' }}
+                                            >
+                                                <div style={{ width: 3, height: 36, borderRadius: 3, background: stripeColor, flexShrink: 0 }} />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{a.courseName} · {formatShortDate(a.dueAt)}</div>
+                                                </div>
+                                            </button>
+                                            <button className={styles.moreBtn} style={{ opacity: 1 }} onClick={e => { e.stopPropagation(); onOpenDetails(a); }}>···</button>
                                         </div>
-                                        <button className={styles.moreBtn} style={{ opacity: 1 }} onClick={e => { e.stopPropagation(); onOpenDetails(a); }}>···</button>
-                                    </button>
+                                    </li>
                                 );
                             })}
                         </ul>
@@ -1043,15 +1047,14 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     const [isVerticalTimetable, setIsVerticalTimetable] = useState(false);
     const [localNow, setLocalNow] = useState(() => new Date());
     const [selectedClass, setSelectedClass] = useState(null);
-    const [use24Hour, setUse24Hour] = useState(true);
-
-    useEffect(() => {
+    const [use24Hour, setUse24Hour] = useState(() => {
         try {
             const saved = localStorage.getItem('fr_tt_time_format');
-            if (saved === '12') setUse24Hour(false);
-            else if (saved === '24') setUse24Hour(true);
+            if (saved === '12') return false;
+            if (saved === '24') return true;
         } catch { }
-    }, []);
+        return true;
+    });
     useEffect(() => { try { localStorage.setItem('fr_tt_time_format', use24Hour ? '24' : '12'); } catch { } }, [use24Hour]);
     useEffect(() => { const timer = setInterval(() => setLocalNow(new Date()), 1000); return () => clearInterval(timer); }, []);
     useEffect(() => {
@@ -1072,7 +1075,15 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [weekOffset]);
 
-    const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d; }), [weekStart]);
+    const weekDays = useMemo(() => {
+        const arr = [];
+        for (let i = 0; i < 7; i += 1) {
+            const d = new Date(weekStart);
+            d.setDate(weekStart.getDate() + i);
+            arr.push(d);
+        }
+        return arr;
+    }, [weekStart]);
     const toDateKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const todayKey = toDateKey(today);
     const eventsByDate = useMemo(() => { const map = {}; timetableEvents.forEach(ev => { const key = toDateKey(new Date(ev.start)); if (!map[key]) { map[key] = []; } map[key].push(ev); }); return map; }, [timetableEvents]);
@@ -1274,13 +1285,14 @@ TimetableView.defaultProps = {
 };
 
 // ─── Settings Modal ────────────────────────────────────────────────────────
-function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours, onReminderHoursChange, notificationPermission, onEnableNotifications }) {
+function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours, onReminderHoursChange, notificationPermission, onEnableNotifications, inline = false }) {
     const defaultEnvUrl = 'https://rmit.instructure.com/api/v1/';
     const savedUrl = user?.canvasBaseUrl || defaultEnvUrl;
     const matchedPreset = UNIVERSITIES.find(u => u.url && u.url.toLowerCase() === savedUrl.toLowerCase());
     const initialPreset = matchedPreset ? matchedPreset.url : '';
+    const initialCanvasBaseUrl = !matchedPreset && Boolean(user?.canvasBaseUrl) ? user.canvasBaseUrl : '';
 
-    const [form, setForm] = useState({ canvasApiToken: '', timetableLink: '', canvasBaseUrl: '', dashboardVersion: dashboardVersion || 'base' });
+    const [form, setForm] = useState({ canvasApiToken: '', timetableLink: '', canvasBaseUrl: initialCanvasBaseUrl, dashboardVersion: dashboardVersion || 'base' });
     const [uniPreset, setUniPreset] = useState(initialPreset);
     const [showCustomUrl, setShowCustomUrl] = useState(!matchedPreset && Boolean(user?.canvasBaseUrl));
     const [saving, setSaving] = useState(false);
@@ -1291,7 +1303,7 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
     const handleUniSelect = e => {
         const val = e.target.value;
         setUniPreset(val);
-        if (val === '') { setShowCustomUrl(true); setForm(f => ({ ...f, canvasBaseUrl: '' })); }
+        if (val === '') { setShowCustomUrl(true); setForm(f => ({ ...f, canvasBaseUrl: f.canvasBaseUrl || user?.canvasBaseUrl || '' })); }
         else { setShowCustomUrl(false); setForm(f => ({ ...f, canvasBaseUrl: val })); }
         setError(''); setSuccess('');
     };
@@ -1314,115 +1326,160 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
             const res = await fetch('/api/auth/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json();
             if (!res.ok) { setError(data.message || 'Failed to save.'); return; }
-            setSuccess('Settings saved! Encrypted with AES-256-GCM.');
+            setSuccess('Settings saved and Encrypted');
             onSaved?.(data.user);
         } catch { setError('Network error. Please try again.'); }
         finally { setSaving(false); }
     };
 
-    return (
-        <dialog
-            aria-modal="true"
-            className={styles.modalOverlay}
-            onCancel={onClose}
-            tabIndex={-1}
-        >
-            <div className={styles.modal}>
-                <div className={styles.modalHeader}>
-                    <h2 className={styles.modalTitle}>⚙️ Settings</h2>
-                    <button className={styles.modalClose} onClick={onClose}>✕</button>
+    const inlineSummary = [
+        { label: 'Canvas URL', value: savedUrl },
+        { label: 'Dashboard', value: form.dashboardVersion === 'base' ? 'Default dashboard' : 'Dashboard v1' },
+        { label: 'API token', value: user?.hasCanvasToken ? 'Saved and encrypted' : 'Not saved yet' },
+        { label: 'Timetable link', value: user?.hasTimetableLink ? 'Saved and encrypted' : 'Not saved yet' },
+        { label: 'Reminders', value: `${reminderHours} hours` },
+        { label: 'Notifications', value: notificationPermission === 'granted' ? 'Enabled' : notificationPermission },
+    ];
+
+    const panel = (
+        <>
+            <div className={styles.modalHeader}>
+                <h2 className={styles.modalTitle}>⚙️ Settings</h2>
+                <button className={styles.modalClose} onClick={onClose}>✕</button>
+            </div>
+            <div className={inline ? `${styles.modalBody} ${styles.settingsPanelBody}` : styles.modalBody}>
+                <div className={styles.userInfo}>
+                    <div className={styles.userAvatar}>{user?.username?.[0]?.toUpperCase() || '?'}</div>
+                    <div><div className={styles.userName}>{user?.username}</div><div className={styles.userEmail}>{user?.email}</div></div>
                 </div>
-                <div className={styles.modalBody}>
-                    <div className={styles.userInfo}>
-                        <div className={styles.userAvatar}>{user?.username?.[0]?.toUpperCase() || '?'}</div>
-                        <div><div className={styles.userName}>{user?.username}</div><div className={styles.userEmail}>{user?.email}</div></div>
+                {error && <div className={styles.settingsError}><span>⚠️</span> {error}</div>}
+                {success && <div className={styles.settingsSuccess}><span>✅</span> {success}</div>}
+                <form onSubmit={handleSave} className={styles.settingsForm}>
+                    <div className={styles.settingsField}>
+                        <label htmlFor="uniPreset" className={styles.settingsLabel}>
+                            University / Canvas Instance{''}
+                            <span className={styles.settingsLabelHint}>Current: <code className={styles.urlCode}>{user?.canvasBaseUrl || defaultEnvUrl}</code></span>
+                        </label>
+                        <select id="uniPreset" value={uniPreset} onChange={handleUniSelect} className={styles.settingsSelect}>
+                            <option value="" disabled>Select your university…</option>
+                            {UNIVERSITIES.map(u => <option key={u.label} value={u.url}>{u.label}</option>)}
+                        </select>
                     </div>
-                    {error && <div className={styles.settingsError}><span>⚠️</span> {error}</div>}
-                    {success && <div className={styles.settingsSuccess}><span>✅</span> {success}</div>}
-                    <form onSubmit={handleSave} className={styles.settingsForm}>
+                    <div className={styles.settingsField}>
+                        <label htmlFor="dashboardVersion" className={styles.settingsLabel}>
+                            Dashboard version
+                            {' '}
+                            <span className={styles.settingsLabelHint}>Switch between the default dashboard and v1</span>
+                        </label>
+                        <select
+                            id="dashboardVersion"
+                            value={form.dashboardVersion}
+                            onChange={e => setForm(f => ({ ...f, dashboardVersion: e.target.value }))}
+                            className={styles.settingsSelect}
+                        >
+                            <option value="base">Default dashboard</option>
+                            <option value="v1">Dashboard v1</option>
+                        </select>
+                    </div>
+                    {showCustomUrl && (
                         <div className={styles.settingsField}>
-                            <label htmlFor="uniPreset" className={styles.settingsLabel}>
-                                University / Canvas Instance{''}
-                                <span className={styles.settingsLabelHint}>Current: <code className={styles.urlCode}>{user?.canvasBaseUrl || defaultEnvUrl}</code></span>
-                            </label>
-                            <select id="uniPreset" value={uniPreset} onChange={handleUniSelect} className={styles.settingsSelect}>
-                                <option value="" disabled>Select your university…</option>
-                                {UNIVERSITIES.map(u => <option key={u.label} value={u.url}>{u.label}</option>)}
-                            </select>
+                            <label htmlFor="canvasBaseUrl" className={styles.settingsLabel}>Canvas API Base URL</label>
+                            <input id="canvasBaseUrl" name="canvasBaseUrl" type="url" value={form.canvasBaseUrl} onChange={handleChange} className={styles.settingsInput} placeholder="https://your-university.instructure.com/api/v1/" autoComplete="off" />
                         </div>
-                        <div className={styles.settingsField}>
-                            <label htmlFor="dashboardVersion" className={styles.settingsLabel}>
-                                Dashboard version
-                                {' '}
-                                <span className={styles.settingsLabelHint}>Switch between the default dashboard and v1</span>
-                            </label>
-                            <select
-                                id="dashboardVersion"
-                                value={form.dashboardVersion}
-                                onChange={e => setForm(f => ({ ...f, dashboardVersion: e.target.value }))}
-                                className={styles.settingsSelect}
-                            >
-                                <option value="base">Default dashboard</option>
-                                <option value="v1">Dashboard v1</option>
-                            </select>
+                    )}
+                    <div className={styles.settingsDivider} />
+                    <div className={styles.settingsField}>
+                        <label htmlFor="canvasApiToken" className={styles.settingsLabel}>
+                            Canvas API Token{' '}
+                            <span className={styles.settingsLabelHint}>Canvas → Account → Settings → New Access Token</span>
+                        </label>
+                        <div className={styles.inputWithBadge}>
+                            <input id="canvasApiToken" name="canvasApiToken" type="password" value={form.canvasApiToken} onChange={handleChange} className={styles.settingsInput} placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste to update)' : 'Paste your Canvas API token'} autoComplete="off" />
+                            {user?.hasCanvasToken && <span className={styles.savedBadge}>🔐 Encrypted &amp; saved</span>}
                         </div>
-                        {showCustomUrl && (
-                            <div className={styles.settingsField}>
-                                <label htmlFor="canvasBaseUrl" className={styles.settingsLabel}>Canvas API Base URL</label>
-                                <input id="canvasBaseUrl" name="canvasBaseUrl" type="url" value={form.canvasBaseUrl} onChange={handleChange} className={styles.settingsInput} placeholder="https://your-university.instructure.com/api/v1/" autoComplete="off" />
-                            </div>
-                        )}
-                        <div className={styles.settingsDivider} />
-                        <div className={styles.settingsField}>
-                            <label htmlFor="canvasApiToken" className={styles.settingsLabel}>
-                                Canvas API Token{' '}
-                                <span className={styles.settingsLabelHint}>Canvas → Account → Settings → New Access Token</span>
-                            </label>
-                            <div className={styles.inputWithBadge}>
-                                <input id="canvasApiToken" name="canvasApiToken" type="password" value={form.canvasApiToken} onChange={handleChange} className={styles.settingsInput} placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste to update)' : 'Paste your Canvas API token'} autoComplete="off" />
-                                {user?.hasCanvasToken && <span className={styles.savedBadge}>🔐 Encrypted &amp; saved</span>}
-                            </div>
+                    </div>
+                    <div className={styles.settingsField}>
+                        <label htmlFor="timetableLink" className={styles.settingsLabel}>
+                            Timetable iCal Link
+                            {' '}
+                            <span className={styles.settingsLabelHint}>Optional</span>
+                        </label>
+                        <div className={styles.inputWithBadge}>
+                            <input id="timetableLink" name="timetableLink" type="url" value={form.timetableLink} onChange={handleChange} className={styles.settingsInput} placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'} />
+                            {user?.hasTimetableLink && <span className={styles.savedBadge}>🔐 Encrypted &amp; saved</span>}
                         </div>
-                        <div className={styles.settingsField}>
-                            <label htmlFor="timetableLink" className={styles.settingsLabel}>
-                                Timetable iCal Link
-                                {' '}
-                                <span className={styles.settingsLabelHint}>Optional</span>
-                            </label>
-                            <div className={styles.inputWithBadge}>
-                                <input id="timetableLink" name="timetableLink" type="url" value={form.timetableLink} onChange={handleChange} className={styles.settingsInput} placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'} />
-                                {user?.hasTimetableLink && <span className={styles.savedBadge}>🔐 Encrypted &amp; saved</span>}
-                            </div>
+                    </div>
+                    <div className={styles.settingsDivider} />
+                    <div className={styles.settingsField}>
+                        <label htmlFor="reminderHours" className={styles.settingsLabel}>
+                            Reminder threshold (hours)<span className={styles.settingsLabelHint}>Local device setting</span>
+                        </label>
+                        <input id="reminderHours" type="number" min="1" max="168" value={reminderHours} onChange={e => onReminderHoursChange(Math.min(168, Math.max(1, Number(e.target.value) || 1)))} className={styles.settingsInput} />
+                    </div>
+                    <div className={styles.settingsField}>
+                        <label className={styles.settingsLabel}>
+                            Browser notifications
+                            {' '}
+                            <span className={styles.settingsLabelHint}>Current: {notificationPermission}</span>
+                        </label>
+                        <button type="button" className={styles.settingsSave} onClick={onEnableNotifications} disabled={notificationPermission === 'granted'}>
+                            {notificationPermission === 'granted' ? 'Notifications enabled' : 'Enable notifications'}
+                        </button>
+                    </div>
+                    <div className={styles.settingsField}>
+                        <div className={styles.settingsLabel}>Calendar export<span className={styles.settingsLabelHint}>Download as .ics</span></div>
+                        <button type="button" className={styles.settingsSave} onClick={() => { globalThis.location.href = '/api/assessments/export.ics'; }}>Export assessments (.ics)</button>
+                    </div>
+                    <button type="submit" className={styles.settingsSave} disabled={saving}>{saving ? '🔐 Saving…' : 'Save settings'}</button>
+                </form>
+            </div>
+        </>
+    );
+
+    const content = inline ? (
+        <div className={styles.settingsPageShell}>
+            <div className={styles.settingsPageIntro}>
+                <div className={styles.settingsPageHeading}>
+                    <p className={styles.settingsEyebrow}>Account &amp; preferences</p>
+                    <h2 className={styles.settingsPageTitle}>Settings</h2>
+                    <p className={styles.settingsPageDescription}>
+                        Manage Canvas access, timetable sync, dashboard mode, reminders, and browser notifications from one place.
+                    </p>
+                </div>
+                <div className={styles.settingsSummaryGrid}>
+                    {inlineSummary.map(item => (
+                        <div key={item.label} className={styles.settingsSummaryCard}>
+                            <span className={styles.settingsSummaryLabel}>{item.label}</span>
+                            <span className={styles.settingsSummaryValue}>{item.value}</span>
                         </div>
-                        <div className={styles.settingsDivider} />
-                        <div className={styles.settingsField}>
-                            <label htmlFor="reminderHours" className={styles.settingsLabel}>
-                                Reminder threshold (hours)<span className={styles.settingsLabelHint}>Local device setting</span>
-                            </label>
-                            <input id="reminderHours" type="number" min="1" max="168" value={reminderHours} onChange={e => onReminderHoursChange(Math.min(168, Math.max(1, Number(e.target.value) || 1)))} className={styles.settingsInput} />
-                        </div>
-                        <div className={styles.settingsField}>
-                            <label className={styles.settingsLabel}>
-                                Browser notifications
-                                {' '}
-                                <span className={styles.settingsLabelHint}>Current: {notificationPermission}</span>
-                            </label>
-                            <button type="button" className={styles.settingsSave} onClick={onEnableNotifications} disabled={notificationPermission === 'granted'}>
-                                {notificationPermission === 'granted' ? 'Notifications enabled' : 'Enable notifications'}
-                            </button>
-                        </div>
-                        <div className={styles.settingsField}>
-                            <div className={styles.settingsLabel}>Calendar export<span className={styles.settingsLabelHint}>Download as .ics</span></div>
-                            <button type="button" className={styles.settingsSave} onClick={() => { globalThis.location.href = '/api/assessments/export.ics'; }}>Export assessments (.ics)</button>
-                        </div>
-                        <button type="submit" className={styles.settingsSave} disabled={saving}>{saving ? '🔐 Saving…' : 'Save settings'}</button>
-                    </form>
+                    ))}
                 </div>
             </div>
-        </dialog>
+
+            <div className={styles.settingsPanel}>
+                {panel}
+            </div>
+        </div>
+    ) : (
+        <div className={styles.modal}>
+            {panel}
+        </div>
+    );
+
+    if (inline) return content;
+
+    return (
+        <div className={styles.modalOverlay}>
+            <button
+                type="button"
+                className={styles.modalBackdrop}
+                aria-label="Close settings"
+                onClick={onClose}
+            />
+            {content}
+        </div>
     );
 }
-
 SettingsModal.propTypes = {
     user: PropTypes.shape({
         username: PropTypes.string,
@@ -1438,29 +1495,23 @@ SettingsModal.propTypes = {
     onReminderHoursChange: PropTypes.func.isRequired,
     notificationPermission: PropTypes.string.isRequired,
     onEnableNotifications: PropTypes.func.isRequired,
+    inline: PropTypes.bool,
 };
 
 function HelpModal({ onClose }) {
     const shortcuts = [{ key: 'S', action: 'Focus search' }, { key: 'C', action: 'Open calendar tab' }, { key: 'T', action: 'Open timetable tab' }, { key: '?', action: 'Open this help modal' }];
     return (
-        <dialog
+        <div
             className={styles.modalOverlay}
-            aria-modal="true"
-            tabIndex={-1}
-            open
-            onCancel={e => { e.preventDefault(); onClose(); }}
         >
             <button
-                className={styles.modal}
                 type="button"
-                tabIndex={0}
-                onClick={e => e.target === e.currentTarget && onClose()}
-                onKeyDown={e => {
-                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
-                        e.preventDefault();
-                        onClose();
-                    }
-                }}
+                className={styles.modalBackdrop}
+                aria-label="Close keyboard shortcuts"
+                onClick={onClose}
+            />
+            <div
+                className={styles.modal}
             >
                 <div className={styles.modalHeader}><h2 className={styles.modalTitle}>⌨️ Keyboard shortcuts</h2><button className={styles.modalClose} onClick={onClose}>✕</button></div>
                 <div className={styles.modalBody}>
@@ -1470,8 +1521,8 @@ function HelpModal({ onClose }) {
                         ))}
                     </div>
                 </div>
-            </button>
-        </dialog>
+            </div>
+        </div>
     );
 }
 
@@ -1486,18 +1537,15 @@ function AssessmentDetailModal({ assessment, onClose, isHidden, isComplete, onHi
     const showHideAction = !isHidden;
     const showRestoreAction = isHidden;
     return (
-        <button
+        <div
             className={styles.modalOverlay}
-            tabIndex={0}
-            aria-label="Close assessment details"
-            onClick={e => e.target === e.currentTarget && onClose()}
-            onKeyDown={e => {
-                if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
-                    e.preventDefault();
-                    onClose();
-                }
-            }}
         >
+            <button
+                type="button"
+                className={styles.modalBackdrop}
+                aria-label="Close assessment details"
+                onClick={onClose}
+            />
             <div className={styles.modal}>
                 <div className={styles.modalHeader}><h2 className={styles.modalTitle}>📘 {assessment.name}</h2><button className={styles.modalClose} onClick={onClose}>✕</button></div>
                 <div className={styles.modalBody}>
@@ -1511,7 +1559,6 @@ function AssessmentDetailModal({ assessment, onClose, isHidden, isComplete, onHi
                     </div>
                     <div className={styles.detailDescription}>{plainDescription || 'No description available.'}</div>
                     <div className={styles.detailActions}>
-                        {assessment.rubricUrl && <a className={styles.settingsSave} href={assessment.rubricUrl} target="_blank" rel="noopener noreferrer">View rubric</a>}
                         <a className={styles.settingsSave} href={assessment.htmlUrl} target="_blank" rel="noopener noreferrer">Open in Canvas</a>
                         {showCompleteAction && (
                             <button className={styles.settingsSave} onClick={() => onToggleComplete(assessment.id)}>
@@ -1527,7 +1574,7 @@ function AssessmentDetailModal({ assessment, onClose, isHidden, isComplete, onHi
                     </div>
                 </div>
             </div>
-        </button>
+        </div>
     );
 }
 
@@ -1568,31 +1615,26 @@ export default function Dashboard() {
     const [timetableEvents, setTimetableEvents] = useState([]);
     const [timetableLoading, setTimetableLoading] = useState(false);
     const [timetableError, setTimetableError] = useState('');
-    const [showSettings, setShowSettings] = useState(false);
+    // settings are now a tab; remove separate modal flag
     const [setupBanner, setSetupBanner] = useState('');
     const [nowTick, setNowTick] = useState(() => Date.now());
-    const [reminderHours, setReminderHours] = useState(36);
-    const [notificationPermission, setNotificationPermission] = useState('default');
-    const [remindedMap, setRemindedMap] = useState({});
+    const [reminderHours, setReminderHours] = useState(() => loadReminderHours());
+    const [notificationPermission, setNotificationPermission] = useState(() => {
+        if (globalThis.window !== undefined && 'Notification' in globalThis) return Notification.permission;
+        return 'default';
+    });
+    const [remindedMap, setRemindedMap] = useState(() => loadRemindedMap());
     const [showHelp, setShowHelp] = useState(false);
     const [selectedAssessment, setSelectedAssessment] = useState(null);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [groupBy, setGroupBy] = useState('term');
     const [filters, setFilters] = useState({ years: [], terms: [], courseIds: [], courseCodes: [], sortBy: 'dueDate', sortDir: 'asc' });
-    const [hiddenIds, setHiddenIds] = useState(new Set());
-    const [completeIds, setCompleteIds] = useState(new Set());
+    const [hiddenIds, setHiddenIds] = useState(() => loadHidden());
+    const [completeIds, setCompleteIds] = useState(() => loadCompleted());
 
     const searchInputRef = useRef(null);
     const pageDashboardVersion = 'base';
-
-    useEffect(() => {
-        setHiddenIds(loadHidden());
-        setCompleteIds(loadCompleted());
-        setReminderHours(loadReminderHours());
-        setRemindedMap(loadRemindedMap());
-        if (globalThis.window !== undefined && 'Notification' in globalThis) setNotificationPermission(Notification.permission);
-    }, []);
 
     useEffect(() => { const timer = setInterval(() => setNowTick(Date.now()), 30000); return () => clearInterval(timer); }, []);
     useEffect(() => { saveReminderHours(reminderHours); }, [reminderHours]);
@@ -1653,6 +1695,10 @@ export default function Dashboard() {
         }).catch(() => router.replace('/login'));
     }, [router]);
 
+    useEffect(() => {
+        router.prefetch(getDashboardRoute('base')).catch(() => { });
+    }, [router]);
+
     const fetchDueAssessments = useCallback(async (queryText = '') => {
         setLoading(true); setError(null);
         try {
@@ -1689,7 +1735,11 @@ export default function Dashboard() {
         finally { setTimetableLoading(false); }
     }, []);
 
-    useEffect(() => { if (activeTab === 'timetable' && authChecked) fetchTimetableData(); }, [activeTab, authChecked, fetchTimetableData]);
+    useEffect(() => {
+        if (activeTab !== 'timetable' || !authChecked) return;
+        const timer = setTimeout(() => { fetchTimetableData(); }, 0);
+        return () => clearTimeout(timer);
+    }, [activeTab, authChecked, fetchTimetableData]);
 
     useEffect(() => {
         if (globalThis.window === undefined || !('Notification' in globalThis) || notificationPermission !== 'granted') return;
@@ -1708,8 +1758,11 @@ export default function Dashboard() {
                 nextMap[key] = true; changed = true;
             }
         });
-        if (changed) setRemindedMap(nextMap);
-    }, [dueData, reminderHours, notificationPermission, remindedMap, nowTick]);
+        if (changed) {
+            // avoid synchronous setState inside effect to prevent cascading renders
+            setTimeout(() => setRemindedMap(nextMap), 0);
+        }
+    }, [dueData, reminderHours, notificationPermission, remindedMap, nowTick, setRemindedMap]);
 
     const handleEnableNotifications = useCallback(async () => {
         if (globalThis.window === undefined || !('Notification' in globalThis)) return;
@@ -1723,8 +1776,8 @@ export default function Dashboard() {
             const isTyping = targetTag === 'INPUT' || targetTag === 'TEXTAREA' || event.target?.isContentEditable;
             if (isTyping && event.key !== '?') return;
             if (event.key === 's' || event.key === 'S') { event.preventDefault(); searchInputRef.current?.focus(); return; }
-            if (event.key === 'c' || event.key === 'C') { event.preventDefault(); setActiveTab('calendar'); setShowHidden(false); return; }
-            if (event.key === 't' || event.key === 'T') { event.preventDefault(); setActiveTab('timetable'); setShowHidden(false); return; }
+            if (event.key === 'c' || event.key === 'C') { event.preventDefault(); setActiveTab('calendar'); return; }
+            if (event.key === 't' || event.key === 'T') { event.preventDefault(); setActiveTab('timetable'); return; }
             if (event.key === '?') { event.preventDefault(); setShowHelp(true); }
         };
         globalThis.addEventListener('keydown', onKeyDown);
@@ -1738,15 +1791,13 @@ export default function Dashboard() {
 
     const switchDashboardVersion = useCallback(async () => {
         const nextVersion = 'v1';
-        try {
-            await fetch('/api/auth/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dashboardVersion: nextVersion }),
-            });
-        } finally {
-            router.replace(getDashboardRoute(nextVersion));
-        }
+        fetch('/api/auth/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dashboardVersion: nextVersion }),
+            keepalive: true,
+        }).catch(() => { });
+        router.replace(getDashboardRoute(nextVersion));
     }, [router]);
 
     const quickLinks = useMemo(() => getQuickLinks(user?.canvasBaseUrl), [user?.canvasBaseUrl]);
@@ -1767,6 +1818,7 @@ export default function Dashboard() {
         list: 'Assessments',
         completed: 'Past assessments',
         past: 'Past classes',
+        settings: 'Settings',
         calendar: 'Calendar',
         timetable: 'Timetable',
         hidden: 'Hidden assessments',
@@ -1794,20 +1846,7 @@ export default function Dashboard() {
                     onToggleComplete={toggleAssessmentComplete}
                 />
             )}
-            {showSettings && (
-                <SettingsModal user={user} dashboardVersion={pageDashboardVersion} onClose={() => setShowSettings(false)} reminderHours={reminderHours} onReminderHoursChange={setReminderHours} notificationPermission={notificationPermission} onEnableNotifications={handleEnableNotifications}
-                    onSaved={updatedUser => {
-                        setUser(updatedUser);
-                        setSetupBanner('');
-                        if (updatedUser?.dashboardVersion && updatedUser.dashboardVersion !== pageDashboardVersion) {
-                            setShowSettings(false);
-                            router.replace(getDashboardRoute(updatedUser.dashboardVersion));
-                            return;
-                        }
-                        setTimeout(() => { setShowSettings(false); fetchDueAssessments(''); }, 800);
-                    }}
-                />
-            )}
+            {/* Settings are rendered as a normal tab (see below in content rendering) */}
 
             {/* Mobile sidebar backdrop */}
             {mobileSidebarOpen && (
@@ -1838,7 +1877,7 @@ export default function Dashboard() {
                     <span className={styles.sidebarSection}>Dashboard</span>
                     {tabConfig.map(tab => (
                         <button key={tab.key} className={`${styles.sidebarNavBtn} ${activeTab === tab.key ? styles.sidebarNavBtnActive : ''}`}
-                            onClick={() => { setActiveTab(tab.key); setShowHidden(tab.key === 'hidden'); setMobileSidebarOpen(false); }}>
+                            onClick={() => { setActiveTab(tab.key); setMobileSidebarOpen(false); }}>
                             <span className={styles.sidebarNavIcon}>{tab.icon}</span>
                             {tab.label}
                             {tab.badge && <span className={styles.sidebarNavBadge}>{tab.badge}</span>}
@@ -1856,7 +1895,7 @@ export default function Dashboard() {
                 </nav>
 
                 <div className={styles.sidebarBottom}>
-                    <button className={styles.sidebarNavBtn} onClick={() => { setShowSettings(true); setMobileSidebarOpen(false); }}>
+                    <button className={styles.sidebarNavBtn} onClick={() => { setActiveTab('settings'); setMobileSidebarOpen(false); }}>
                         <span className={styles.sidebarNavIcon}>⚙️</span> Settings
                     </button>
                     <button className={styles.sidebarNavBtn} onClick={() => { setMobileSidebarOpen(false); switchDashboardVersion(); }}>
@@ -1883,7 +1922,7 @@ export default function Dashboard() {
                     <div className={styles.setupBanner}>
                         <span>{setupBanner}</span>
                         <div className={styles.setupBannerActions}>
-                            <button className={styles.setupBannerBtn} onClick={() => setShowSettings(true)}>Open Settings</button>
+                            <button className={styles.setupBannerBtn} onClick={() => setActiveTab('settings')}>Open Settings</button>
                             <button className={styles.setupBannerClose} onClick={() => setSetupBanner('')}>✕</button>
                         </div>
                     </div>
@@ -2002,6 +2041,29 @@ export default function Dashboard() {
                                 )}
                                 {activeTab === 'timetable' && (
                                     <TimetableView timetableEvents={timetableEvents} timetableLoading={timetableLoading} timetableError={timetableError} />
+                                )}
+                                {activeTab === 'settings' && (
+                                    <div className={styles.settingsPageHost}>
+                                        <SettingsModal
+                                            inline
+                                            user={user}
+                                            dashboardVersion={pageDashboardVersion}
+                                            onClose={() => setActiveTab('list')}
+                                            reminderHours={reminderHours}
+                                            onReminderHoursChange={setReminderHours}
+                                            notificationPermission={notificationPermission}
+                                            onEnableNotifications={handleEnableNotifications}
+                                            onSaved={updatedUser => {
+                                                setUser(updatedUser);
+                                                setSetupBanner('');
+                                                if (updatedUser?.dashboardVersion && updatedUser.dashboardVersion !== pageDashboardVersion) {
+                                                    router.replace(getDashboardRoute(updatedUser.dashboardVersion));
+                                                    return;
+                                                }
+                                                setTimeout(() => { setActiveTab('list'); fetchDueAssessments(''); }, 800);
+                                            }}
+                                        />
+                                    </div>
                                 )}
                             </div>
                         </div>

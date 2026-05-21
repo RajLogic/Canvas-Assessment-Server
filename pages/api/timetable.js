@@ -118,8 +118,8 @@ function parseEvent(eventData) {
 }
 
 function extractICalField(eventData, fieldName) {
-    const escapedField = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(`^${escapedField}(?:;[^:\\r\\n]*)?:(.*(?:\\r?\\n[ \\t].*)*)`, 'mi');
+    const escapedField = fieldName.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    const pattern = new RegExp(String.raw`^${escapedField}(?:;[^:\r\n]*)?:(.*(?:\r?\n[ \t].*)*)`, 'mi');
     const match = eventData.match(pattern);
     if (!match) return '';
     return match[1].replace(/\r?\n[ \t]/g, '');
@@ -132,19 +132,19 @@ function getClassNameFromSummary(summary) {
 function parseICalDate(dateStr) {
     dateStr = dateStr.trim();
     if (dateStr.length === 8) {
-        const year = parseInt(dateStr.substring(0, 4));
-        const month = parseInt(dateStr.substring(4, 6)) - 1;
-        const day = parseInt(dateStr.substring(6, 8));
+        const year = Number.parseInt(dateStr.substring(0, 4));
+        const month = Number.parseInt(dateStr.substring(4, 6)) - 1;
+        const day = Number.parseInt(dateStr.substring(6, 8));
         return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     } else if (dateStr.includes('T')) {
         const isUtc = dateStr.endsWith('Z');
         const basePart = isUtc ? dateStr.slice(0, -1) : dateStr;
-        const year = parseInt(basePart.substring(0, 4));
-        const month = parseInt(basePart.substring(4, 6)) - 1;
-        const day = parseInt(basePart.substring(6, 8));
-        const hour = parseInt(basePart.substring(9, 11)) || 0;
-        const minute = parseInt(basePart.substring(11, 13)) || 0;
-        const second = parseInt(basePart.substring(13, 15)) || 0;
+        const year = Number.parseInt(basePart.substring(0, 4));
+        const month = Number.parseInt(basePart.substring(4, 6)) - 1;
+        const day = Number.parseInt(basePart.substring(6, 8));
+        const hour = Number.parseInt(basePart.substring(9, 11)) || 0;
+        const minute = Number.parseInt(basePart.substring(11, 13)) || 0;
+        const second = Number.parseInt(basePart.substring(13, 15)) || 0;
         if (isUtc) return new Date(Date.UTC(year, month, day, hour, minute, second)).toISOString();
         return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
     }
@@ -152,5 +152,5 @@ function parseICalDate(dateStr) {
 }
 
 function decodeICalText(text) {
-    return text.replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\,/g, ',').replace(/\\:/g, ':').replace(/\\;/g, ';').replace(/\\\\\\/g, '\\');
+    return text.replaceAll(String.raw`\n`, '\n').replaceAll(String.raw`\r`, '\r').replaceAll(String.raw`\,`, ',').replaceAll(String.raw`\:`, ':').replaceAll(String.raw`\;`, ';').replaceAll('\\\\\\', '\\');
 }
