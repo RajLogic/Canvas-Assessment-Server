@@ -693,6 +693,17 @@
     border-radius: 20px;
 }
 
+/* Small-screen tweak: hide the word label (e.g. "items") to save space */
+.countLabel {
+    margin-left: 0.35rem;
+}
+
+@media (max-width: 600px) {
+    .countLabel {
+        display: none;
+    }
+}
+
 .classGroupName {
     font-size: 0.76rem;
     font-weight: 700;
@@ -741,7 +752,7 @@
 
 .classGroupRows .assessmentRow {
     padding: 0 0.9rem;
-    min-height: 62px;
+    min-height: 48px;
 }
 
 .classGroupRows .assessmentRow:last-child {
@@ -764,7 +775,7 @@
     gap: 0;
     padding: 0 1.25rem;
     align-items: center;
-    min-height: 68px;
+    min-height: 52px;
     border-bottom: 1px solid var(--border);
     border-left: 0;
     border-right: 0;
@@ -828,7 +839,7 @@
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    padding: 0.875rem 0;
+    padding: 0.625rem 0;
     min-width: 0;
 }
 
@@ -847,7 +858,7 @@
 }
 
 .rowName {
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
@@ -862,7 +873,7 @@
 }
 
 .rowCourseName {
-    font-size: 0.78rem;
+    font-size: 0.68rem;
     color: var(--text-muted);
     margin-top: 0.1rem;
     white-space: nowrap;
@@ -871,14 +882,14 @@
 }
 
 .rowCell {
-    padding: 0.5rem 0;
-    font-size: 0.88rem;
+    padding: 0.375rem 0;
+    font-size: 0.78rem;
     color: var(--text-secondary);
 }
 
 .rowDateCell {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
     line-height: 1.5;
 }
@@ -890,11 +901,11 @@
 
 .rowDateSub {
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: 0.64rem;
 }
 
 .rowPoints {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-secondary);
 }
@@ -2036,7 +2047,7 @@
 
     .colHeaders,
     .assessmentRow {
-        grid-template-columns: 1fr 100px;
+        grid-template-columns: 1fr 70px;
     }
 
     .colHeaderCourse,
