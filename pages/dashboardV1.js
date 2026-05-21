@@ -955,17 +955,16 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     const [isVerticalTimetable, setIsVerticalTimetable] = useState(false);
     const [localNow, setLocalNow] = useState(() => new Date());
     const [selectedClass, setSelectedClass] = useState(null);
-    const [use24Hour, setUse24Hour] = useState(true);
-
-    useEffect(() => {
+    const [use24Hour, setUse24Hour] = useState(() => {
         try {
             const saved = localStorage.getItem('fr_tt_time_format');
-            if (saved === '12') setUse24Hour(false);
-            if (saved === '24') setUse24Hour(true);
+            if (saved === '12') return false;
+            if (saved === '24') return true;
         } catch {
             // Ignore storage issues
         }
-    }, []);
+        return true;
+    });
 
     useEffect(() => {
         try {
@@ -1004,11 +1003,11 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [weekOffset]);
 
-    const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(weekStart);
         d.setDate(weekStart.getDate() + i);
         return d;
-    }), [weekStart]);
+    });
 
     const toDateKey = (d) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1522,10 +1521,6 @@ function SettingsModal({
                         <div className={dashStyles.userEmail}>{user?.email}</div>
                     </div>
                 </div>
-                <div className={dashStyles.encryptionBadge}>
-                    <span className={dashStyles.encryptBadgeIcon}>🔐</span>
-                    <span>API token and timetable link are encrypted with <strong>AES-256-GCM</strong> before being stored.</span>
-                </div>
                 {error && <div className={dashStyles.settingsError}><span>⚠️</span> {error}</div>}
                 {success && <div className={dashStyles.settingsSuccess}><span>✅</span> {success}</div>}
                 <form onSubmit={handleSave} className={dashStyles.settingsForm}>
@@ -1784,9 +1779,14 @@ export default function Dashboard() {
 
     const [setupBanner, setSetupBanner] = useState('');
     const [nowTick, setNowTick] = useState(() => Date.now());
-    const [reminderHours, setReminderHours] = useState(36);
-    const [notificationPermission, setNotificationPermission] = useState('default');
-    const [remindedMap, setRemindedMap] = useState({});
+    const [reminderHours, setReminderHours] = useState(() => loadReminderHours());
+    const [notificationPermission, setNotificationPermission] = useState(() => {
+        if (globalThis.window !== undefined && 'Notification' in globalThis) {
+            return Notification.permission;
+        }
+        return 'default';
+    });
+    const [remindedMap, setRemindedMap] = useState(() => loadRemindedMap());
     const [showHelp, setShowHelp] = useState(false);
     const [selectedAssessment, setSelectedAssessment] = useState(null);
     const [showHeaderMenu, setShowHeaderMenu] = useState(false);
@@ -1800,16 +1800,7 @@ export default function Dashboard() {
         sortBy: 'dueDate', sortDir: 'asc'
     });
 
-    const [hiddenIds, setHiddenIds] = useState(new Set());
-
-    useEffect(() => {
-        setHiddenIds(loadHidden());
-        setReminderHours(loadReminderHours());
-        setRemindedMap(loadRemindedMap());
-        if (globalThis.window !== undefined && 'Notification' in globalThis) {
-            setNotificationPermission(Notification.permission);
-        }
-    }, []);
+    const [hiddenIds, setHiddenIds] = useState(() => loadHidden());
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -1940,7 +1931,12 @@ export default function Dashboard() {
         finally { setTimetableLoading(false); }
     }, []);
 
-    useEffect(() => { if (activeTab === 'timetable' && authChecked) fetchTimetableData(); }, [activeTab, authChecked, fetchTimetableData]);
+    useEffect(() => {
+        if (!(activeTab === 'timetable' && authChecked)) return;
+        // defer the fetch to avoid setting state synchronously within the effect
+        const id = setTimeout(() => { fetchTimetableData(); }, 0);
+        return () => clearTimeout(id);
+    }, [activeTab, authChecked, fetchTimetableData]);
 
     useEffect(() => {
         if (globalThis.window === undefined || !('Notification' in globalThis) || notificationPermission !== 'granted') {
@@ -1982,7 +1978,10 @@ export default function Dashboard() {
         });
 
         if (changed) {
-            setRemindedMap(nextMap);
+            const id = setTimeout(() => {
+                setRemindedMap(nextMap);
+            }, 0);
+            return () => clearTimeout(id);
         }
     }, [dueData, reminderHours, notificationPermission, remindedMap, nowTick]);
 
