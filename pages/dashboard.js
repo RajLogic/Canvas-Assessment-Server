@@ -948,8 +948,9 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                 return (
                                     <div
                                         key={a.id}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
                                         type="button"
+                                        tabIndex={0}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
                                         onClick={() => onOpenDetails(a)}
                                         onKeyDown={e => {
                                             if (e.key === 'Enter' || e.key === ' ') {
