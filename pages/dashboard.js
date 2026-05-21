@@ -946,10 +946,11 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                     stripeColor = 'var(--safe-stripe)';
                                 }
                                 return (
-                                    <button
+                                    <div
                                         key={a.id}
                                         tabIndex={0}
                                         style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                                        type="button"
                                         onClick={() => onOpenDetails(a)}
                                         onKeyDown={e => {
                                             if (e.key === 'Enter' || e.key === ' ') {
@@ -964,7 +965,7 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{a.courseName} · {formatShortDate(a.dueAt)}</div>
                                         </div>
                                         <button className={styles.moreBtn} style={{ opacity: 1 }} onClick={e => { e.stopPropagation(); onOpenDetails(a); }}>···</button>
-                                    </button>
+                                    </div>
                                 );
                             })}
                         </ul>
@@ -1651,6 +1652,10 @@ export default function Dashboard() {
         }).catch(() => router.replace('/login'));
     }, [router]);
 
+    useEffect(() => {
+        router.prefetch(getDashboardRoute('base')).catch(() => { });
+    }, [router]);
+
     const fetchDueAssessments = useCallback(async (queryText = '') => {
         setLoading(true); setError(null);
         try {
@@ -1743,15 +1748,13 @@ export default function Dashboard() {
 
     const switchDashboardVersion = useCallback(async () => {
         const nextVersion = 'v1';
-        try {
-            await fetch('/api/auth/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dashboardVersion: nextVersion }),
-            });
-        } finally {
-            router.replace(getDashboardRoute(nextVersion));
-        }
+        fetch('/api/auth/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dashboardVersion: nextVersion }),
+            keepalive: true,
+        }).catch(() => { });
+        router.replace(getDashboardRoute(nextVersion));
     }, [router]);
 
     const quickLinks = useMemo(() => getQuickLinks(user?.canvasBaseUrl), [user?.canvasBaseUrl]);

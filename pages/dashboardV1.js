@@ -1884,6 +1884,10 @@ export default function Dashboard() {
             .catch(() => router.replace('/login'));
     }, [router]);
 
+    useEffect(() => {
+        router.prefetch(getDashboardRoute('v1')).catch(() => { });
+    }, [router]);
+
     const fetchDueAssessments = useCallback(async (queryText = '') => {
         setLoading(true); setError(null);
         try {
@@ -2045,15 +2049,13 @@ export default function Dashboard() {
 
     const switchDashboardVersion = useCallback(async () => {
         const nextVersion = 'base';
-        try {
-            await fetch('/api/auth/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dashboardVersion: nextVersion }),
-            });
-        } finally {
-            router.replace(getDashboardRoute(nextVersion));
-        }
+        fetch('/api/auth/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dashboardVersion: nextVersion }),
+            keepalive: true,
+        }).catch(() => { });
+        router.replace(getDashboardRoute(nextVersion));
     }, [router]);
 
     const activeFilterCount = (filters.years?.length || 0) + (filters.terms?.length || 0) +
