@@ -948,7 +948,6 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                 return (
                                     <div
                                         key={a.id}
-                                        tabIndex={0}
                                         style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
                                         type="button"
                                         onClick={() => onOpenDetails(a)}
@@ -1287,8 +1286,9 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
     const savedUrl = user?.canvasBaseUrl || defaultEnvUrl;
     const matchedPreset = UNIVERSITIES.find(u => u.url && u.url.toLowerCase() === savedUrl.toLowerCase());
     const initialPreset = matchedPreset ? matchedPreset.url : '';
+    const initialCanvasBaseUrl = !matchedPreset && Boolean(user?.canvasBaseUrl) ? user.canvasBaseUrl : '';
 
-    const [form, setForm] = useState({ canvasApiToken: '', timetableLink: '', canvasBaseUrl: '', dashboardVersion: dashboardVersion || 'base' });
+    const [form, setForm] = useState({ canvasApiToken: '', timetableLink: '', canvasBaseUrl: initialCanvasBaseUrl, dashboardVersion: dashboardVersion || 'base' });
     const [uniPreset, setUniPreset] = useState(initialPreset);
     const [showCustomUrl, setShowCustomUrl] = useState(!matchedPreset && Boolean(user?.canvasBaseUrl));
     const [saving, setSaving] = useState(false);
@@ -1299,7 +1299,7 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
     const handleUniSelect = e => {
         const val = e.target.value;
         setUniPreset(val);
-        if (val === '') { setShowCustomUrl(true); setForm(f => ({ ...f, canvasBaseUrl: '' })); }
+        if (val === '') { setShowCustomUrl(true); setForm(f => ({ ...f, canvasBaseUrl: f.canvasBaseUrl || user?.canvasBaseUrl || '' })); }
         else { setShowCustomUrl(false); setForm(f => ({ ...f, canvasBaseUrl: val })); }
         setError(''); setSuccess('');
     };
@@ -1322,19 +1322,28 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
             const res = await fetch('/api/auth/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json();
             if (!res.ok) { setError(data.message || 'Failed to save.'); return; }
-            setSuccess('Settings saved! Encrypted with AES-256-GCM.');
+            setSuccess('Settings saved and Encrypted');
             onSaved?.(data.user);
         } catch { setError('Network error. Please try again.'); }
         finally { setSaving(false); }
     };
 
-    const content = (
-        <div className={styles.modal}>
+    const inlineSummary = [
+        { label: 'Canvas URL', value: savedUrl },
+        { label: 'Dashboard', value: form.dashboardVersion === 'base' ? 'Default dashboard' : 'Dashboard v1' },
+        { label: 'API token', value: user?.hasCanvasToken ? 'Saved and encrypted' : 'Not saved yet' },
+        { label: 'Timetable link', value: user?.hasTimetableLink ? 'Saved and encrypted' : 'Not saved yet' },
+        { label: 'Reminders', value: `${reminderHours} hours` },
+        { label: 'Notifications', value: notificationPermission === 'granted' ? 'Enabled' : notificationPermission },
+    ];
+
+    const panel = (
+        <>
             <div className={styles.modalHeader}>
                 <h2 className={styles.modalTitle}>⚙️ Settings</h2>
                 <button className={styles.modalClose} onClick={onClose}>✕</button>
             </div>
-            <div className={styles.modalBody}>
+            <div className={inline ? `${styles.modalBody} ${styles.settingsPanelBody}` : styles.modalBody}>
                 <div className={styles.userInfo}>
                     <div className={styles.userAvatar}>{user?.username?.[0]?.toUpperCase() || '?'}</div>
                     <div><div className={styles.userName}>{user?.username}</div><div className={styles.userEmail}>{user?.email}</div></div>
@@ -1420,6 +1429,36 @@ function SettingsModal({ user, dashboardVersion, onClose, onSaved, reminderHours
                     <button type="submit" className={styles.settingsSave} disabled={saving}>{saving ? '🔐 Saving…' : 'Save settings'}</button>
                 </form>
             </div>
+        </>
+    );
+
+    const content = inline ? (
+        <div className={styles.settingsPageShell}>
+            <div className={styles.settingsPageIntro}>
+                <div className={styles.settingsPageHeading}>
+                    <p className={styles.settingsEyebrow}>Account &amp; preferences</p>
+                    <h2 className={styles.settingsPageTitle}>Settings</h2>
+                    <p className={styles.settingsPageDescription}>
+                        Manage Canvas access, timetable sync, dashboard mode, reminders, and browser notifications from one place.
+                    </p>
+                </div>
+                <div className={styles.settingsSummaryGrid}>
+                    {inlineSummary.map(item => (
+                        <div key={item.label} className={styles.settingsSummaryCard}>
+                            <span className={styles.settingsSummaryLabel}>{item.label}</span>
+                            <span className={styles.settingsSummaryValue}>{item.value}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className={styles.settingsPanel}>
+                {panel}
+            </div>
+        </div>
+    ) : (
+        <div className={styles.modal}>
+            {panel}
         </div>
     );
 
@@ -1767,7 +1806,6 @@ export default function Dashboard() {
         { key: 'completed', icon: '✅', label: 'Past assessments' },
         { key: 'past', icon: '🕓', label: 'Past classes' },
         { key: 'calendar', icon: '📅', label: 'Calendar' },
-        { key: 'settings', icon: '⚙️', label: 'Settings' },
         { key: 'timetable', icon: '🕐', label: 'Timetable' },
         { key: 'hidden', icon: '👁', label: 'Hidden', badge: hiddenIds.size > 0 ? hiddenIds.size : null },
     ];
@@ -2001,7 +2039,7 @@ export default function Dashboard() {
                                     <TimetableView timetableEvents={timetableEvents} timetableLoading={timetableLoading} timetableError={timetableError} />
                                 )}
                                 {activeTab === 'settings' && (
-                                    <div style={{ padding: '1rem' }}>
+                                    <div className={styles.settingsPageHost}>
                                         <SettingsModal
                                             inline
                                             user={user}

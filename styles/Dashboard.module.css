@@ -1333,6 +1333,107 @@
     animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+.settingsPageHost {
+    width: 100%;
+    padding: 0.5rem 0;
+}
+
+.settingsPageShell {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    min-height: calc(100vh - 14rem);
+}
+
+.settingsPageIntro {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: stretch;
+}
+
+.settingsPageHeading {
+    background: linear-gradient(135deg, var(--bg-card), var(--bg-subtle));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1.25rem 1.35rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.settingsEyebrow {
+    margin: 0 0 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+}
+
+.settingsPageTitle {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+}
+
+.settingsPageDescription {
+    margin: 0.5rem 0 0;
+    max-width: 60ch;
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    line-height: 1.6;
+}
+
+.settingsSummaryGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.settingsSummaryCard {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 0.95rem 1rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.settingsSummaryLabel {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.settingsSummaryValue {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    word-break: break-word;
+    line-height: 1.45;
+}
+
+.settingsPanel {
+    width: 100%;
+    max-width: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+}
+
+.settingsPanelBody {
+    max-height: none;
+    overflow: visible;
+}
+
 @keyframes modalIn {
     from {
         opacity: 0;
@@ -1615,6 +1716,12 @@
 .settingsSave:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+@media (max-width: 920px) {
+    .settingsPageIntro {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Shortcut list */

@@ -69,6 +69,20 @@ function createEmptyCacheEntry() {
     };
 }
 
+function matchesAssessmentFilter(assessment, normalizedFilter) {
+    return [assessment.termName, assessment.courseName, assessment.name]
+        .some((value) => (value || '').toLowerCase().includes(normalizedFilter));
+}
+
+function groupAssessmentsByTermAndCourse(filteredAssessments) {
+    return filteredAssessments.reduce((acc, assessment) => {
+        if (!acc[assessment.termName]) acc[assessment.termName] = {};
+        if (!acc[assessment.termName][assessment.courseName]) acc[assessment.termName][assessment.courseName] = [];
+        acc[assessment.termName][assessment.courseName].push(assessment);
+        return acc;
+    }, {});
+}
+
 function filterCachedTerms(cachedData, normalizedFilter) {
     if (!normalizedFilter) {
         return cachedData.terms;
@@ -76,19 +90,11 @@ function filterCachedTerms(cachedData, normalizedFilter) {
 
     const filteredAssessments = (cachedData.terms || []).flatMap((term) =>
         (term.courses || []).flatMap((course) =>
-            (course.assessments || []).filter((assessment) =>
-                [assessment.termName, assessment.courseName, assessment.name]
-                    .some((value) => (value || '').toLowerCase().includes(normalizedFilter))
-            )
+            (course.assessments || []).filter((assessment) => matchesAssessmentFilter(assessment, normalizedFilter))
         )
     );
 
-    const groupedByTerm = filteredAssessments.reduce((acc, assessment) => {
-        if (!acc[assessment.termName]) acc[assessment.termName] = {};
-        if (!acc[assessment.termName][assessment.courseName]) acc[assessment.termName][assessment.courseName] = [];
-        acc[assessment.termName][assessment.courseName].push(assessment);
-        return acc;
-    }, {});
+    const groupedByTerm = groupAssessmentsByTermAndCourse(filteredAssessments);
 
     const terms = Object.entries(groupedByTerm).map(([tName, courseMap]) => {
         const coursesInTerm = Object.entries(courseMap).map(([cName, assessments]) => ({
@@ -159,7 +165,7 @@ async function buildDueAssessmentsResult({ canvasBaseUrl, apiToken, includeOnlyA
                     };
                 });
         })
-        .filter((a) => a.dueTimestamp >= Date.now())
+        .filter((a) => (includeOnlyActive ? a.dueTimestamp >= Date.now() : true))
         .sort((a, b) => a.dueTimestamp - b.dueTimestamp);
 
     const groupedByTerm = dueAssessments.reduce((acc, a) => {
@@ -255,24 +261,7 @@ function ensureRefreshLoop() {
     refreshState.timer.unref?.();
 }
 
-export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'GET') return res.status(405).json({ message: 'Method not allowed' });
-
-    const user = await getAuthUser(req);
-    const apiToken = user?.canvasApiToken || process.env.API_KEY || '';
-    const canvasBaseUrl = resolveBaseUrl(user);
-
-    if (!apiToken) {
-        return res.status(401).json({
-            message: 'No Canvas API token configured. Please add your token in Settings.',
-            requiresSetup: true,
-        });
-    }
-
+async function processGet(req, res, user, apiToken, canvasBaseUrl) {
     try {
         const { term, search, q, onlyActive, sync } = req.query;
         const termFilter =
@@ -334,4 +323,25 @@ export default async function handler(req, res) {
         console.error('Fetch due assessments error:', error);
         return res.status(500).json({ message: error.message || 'Internal server error' });
     }
+}
+
+export default async function handler(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'GET') return res.status(405).json({ message: 'Method not allowed' });
+
+    const user = await getAuthUser(req);
+    const apiToken = user?.canvasApiToken || process.env.API_KEY || '';
+    const canvasBaseUrl = resolveBaseUrl(user);
+
+    if (!apiToken) {
+        return res.status(401).json({
+            message: 'No Canvas API token configured. Please add your token in Settings.',
+            requiresSetup: true,
+        });
+    }
+
+    return processGet(req, res, user, apiToken, canvasBaseUrl);
 }

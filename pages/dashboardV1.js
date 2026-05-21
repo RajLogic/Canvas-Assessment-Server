@@ -1508,12 +1508,12 @@ function SettingsModal({
     };
 
     const content = (
-        <div className={dashStyles.modal}>
+        <div className={inline ? dashStyles.settingsPanel : dashStyles.modal}>
             <div className={dashStyles.modalHeader}>
                 <h2 className={dashStyles.modalTitle}>⚙️ Settings</h2>
                 <button className={dashStyles.modalClose} onClick={onClose}>✕</button>
             </div>
-            <div className={dashStyles.modalBody}>
+            <div className={inline ? `${dashStyles.modalBody} ${dashStyles.settingsPanelBody}` : dashStyles.modalBody}>
                 <div className={dashStyles.userInfo}>
                     <div className={dashStyles.userAvatar}>{user?.username?.[0]?.toUpperCase() || '?'}</div>
                     <div>
@@ -2179,8 +2179,6 @@ export default function Dashboard() {
                             onClick={() => { setActiveTab('pastClasses'); }}>🗂️ Past Classes</button>
                         <button className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`}
                             onClick={() => { setActiveTab('calendar'); }}>📅 Calendar</button>
-                        <button className={`${styles.tabBtn} ${activeTab === 'settings' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('settings'); }}>⚙️ Settings</button>
                         <button className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`}
                             onClick={() => { setActiveTab('timetable'); }}>🕐 Timetable</button>
                         <button
@@ -2275,7 +2273,7 @@ export default function Dashboard() {
                             />
                         )}
                         {activeTab === 'settings' && (
-                            <div style={{ padding: '1rem' }}>
+                            <div className={dashStyles.settingsPageShell}>
                                 <SettingsModal
                                     inline
                                     user={user}
