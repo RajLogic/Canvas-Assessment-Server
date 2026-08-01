@@ -1,4 +1,5 @@
 import { getCanvasAuthDiagnostics } from '../../../lib/canvasApi';
+import { getServerRuntimeConfig } from '../../../lib/config.js';
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,6 +14,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
         ok: diagnostics.hasToken && diagnostics.baseUrlStatus === 'valid',
         generatedAt: new Date().toISOString(),
+        runtime: getServerRuntimeConfig(),
         diagnostics,
     });
 }

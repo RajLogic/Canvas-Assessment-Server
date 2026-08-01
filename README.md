@@ -2,13 +2,13 @@
 
 This project has been upgraded to use **Next.js** for a modern React-based frontend and API routes.
 
-## What's New
+## Production readiness highlights
 
-- ✅ **Next.js 14** - React framework for production
-- ✅ **API Routes** - Built-in API handlers in `/pages/api`
-- ✅ **React Frontend** - Interactive UI for viewing courses
-- ✅ **Custom Server** - Express server integration with Next.js
-- ✅ **CORS Support** - Built-in CORS handling for all endpoints
+- ✅ **Production build verified** with Next.js and ESLint
+- ✅ **Security headers** enabled for deployed environments
+- ✅ **Centralized runtime config** for safer env handling
+- ✅ **Health diagnostics** for Canvas auth and runtime configuration
+- ✅ **Deployment-friendly docs** for Vercel and local production runs
 
 ## Project Structure
 
@@ -49,6 +49,7 @@ DATABASE_URL=your_neon_postgres_connection_string
 ```
 
 Notes:
+
 - `API_KEY` is the primary variable; `CANVAS_API_TOKEN`, `CANVAS_TOKEN`, and `CANVAS_ACCESS_TOKEN` are also supported.
 - Use the raw token only (do not include a `Bearer ` prefix or surrounding quotes).
 - `TIMETABLE_LINK` (optional) is used server-side by the timetable API.
@@ -60,41 +61,60 @@ Notes:
 ## Running the Server
 
 ### Development Mode
+
 ```bash
 npm run dev
 ```
+
 Starts Next.js development server with hot reload on `http://localhost:3000`
 
 ### Production Build
+
 ```bash
 npm run build
 npm start
 ```
 
+### Production environment checklist
+
+- Set `NODE_ENV=production`
+- Set a strong `ENCRYPTION_KEY`
+- Ensure `DATABASE_URL` is configured for auth/session storage
+- Set `API_KEY` or another supported Canvas token variable
+- Use `npm run build` before deploying
+
 ### Using Custom Server
+
 ```bash
 node server.js
 ```
+
 Runs with the custom Express server for more control
 
 ## API Endpoints
 
 ### Get All Courses
+
 ```
 GET /api/courses
 ```
+
 Returns an array of all Canvas courses for the authenticated user.
 
 ### Get Course Assignments
+
 ```
 GET /api/courses/[courseId]/assignments
 ```
+
 Returns assignments for a specific course.
 
 ### Canvas Auth Diagnostics
+
 ```
 GET /api/health/canvas-auth
 ```
+
 Returns safe auth diagnostics (token presence/fingerprint/source and base URL validity) without exposing the token.
 
 ## Frontend

@@ -1,18 +1,25 @@
-// This file is kept for backward compatibility with local development
-// For production (Vercel, etc.), use: npm start (runs 'next start')
-// For development, use: npm run dev (runs 'next dev')
+// This file is kept for backward compatibility with local development.
+// For production (Vercel, etc.), use: npm start (runs 'next start').
+// For development, use: npm run dev (runs 'next dev').
 
 import dotenv from 'dotenv';
+import { getServerRuntimeConfig } from './lib/config.js';
+
 dotenv.config();
 
-const apiToken = process.env.API_KEY;
+const runtimeConfig = getServerRuntimeConfig();
 
-if (!apiToken) {
-    console.warn("API Key is missing! Set API_KEY in environment variables.");
+if (!runtimeConfig.apiKeyConfigured) {
+    console.warn('Canvas API token is missing. Set API_KEY (or another supported token variable) before production use.');
+}
+
+if (!runtimeConfig.encryptionKeyConfigured) {
+    console.warn('ENCRYPTION_KEY is not set. User tokens and links will not be encrypted in the database.');
 }
 
 console.log('Canvas Assessment Server configured and ready.');
-console.log('\nTo start the server:');
+console.log(`Runtime: ${runtimeConfig.nodeEnv} on port ${runtimeConfig.port}`);
+console.log('To start the server:');
 console.log('  Development: npm run dev');
 console.log('  Production:  npm start');
-console.log('\nNote: Next.js handles all API routing automatically.');
+console.log('Note: Next.js handles all API routing automatically.');
