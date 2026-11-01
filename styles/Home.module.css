@@ -2393,97 +2393,49 @@
     z-index: 7;
 }
 
-[data-theme="light"] .ttBlockTone0 {
-    background: #AFA9EC;
-    border-color: #7F77DD;
-    color: #1a1650;
-}
-
-[data-theme="light"] .ttBlockTone1 {
-    background: #5DCAA5;
-    border-color: #1D9E75;
-    color: #022620;
-}
-
-[data-theme="light"] .ttBlockTone2 {
-    background: #F0997B;
-    border-color: #D85A30;
-    color: #3a1005;
-}
-
-[data-theme="light"] .ttBlockTone3 {
-    background: #85B7EB;
-    border-color: #378ADD;
-    color: #021f3d;
-}
-
-[data-theme="light"] .ttBlockTone4 {
-    background: #ED93B1;
-    border-color: #D4537E;
-    color: #380e1d;
-}
-
-[data-theme="light"] .ttBlockTone5 {
-    background: #97C459;
-    border-color: #639922;
-    color: #0f2302;
-}
-
-[data-theme="light"] .ttBlockTone6 {
-    background: #FAC775;
-    border-color: #EF9F27;
-    color: #2e1800;
-}
-
-[data-theme="light"] .ttBlockTone7 {
-    background: #9FE1CB;
-    border-color: #0F6E56;
-    color: #022620;
-}
-
-[data-theme="dark"] .ttBlockTone0 {
+.ttBlockTone0 {
     background: #3C3489;
     border-color: #534AB7;
     color: #CECBF6;
 }
 
-[data-theme="dark"] .ttBlockTone1 {
+.ttBlockTone1 {
     background: #0F6E56;
     border-color: #1D9E75;
     color: #E0F7F3;
 }
 
-[data-theme="dark"] .ttBlockTone2 {
+.ttBlockTone2 {
     background: #993C1D;
     border-color: #D85A30;
     color: #FFFFFF;
 }
 
-[data-theme="dark"] .ttBlockTone3 {
+.ttBlockTone3 {
     background: #185FA5;
     border-color: #378ADD;
     color: #FFFFFF;
 }
 
-[data-theme="dark"] .ttBlockTone4 {
+.ttBlockTone4 {
     background: #993556;
     border-color: #D4537E;
     color: #FFFFFF;
 }
 
-[data-theme="dark"] .ttBlockTone5 {
+.ttBlockTone5 {
     background: #3B6D11;
     border-color: #639922;
     color: #FFFFFF;
 }
 
-[data-theme="dark"] .ttBlockTone6 {
+.ttBlockTone6 {
     background: #854F0B;
     border-color: #EF9F27;
     color: #FFFFFF;
 }
 
-[data-theme="dark"] .ttBlockTone7 {
+.ttBlockTone7 {
     background: #085041;
     border-color: #1D9E75;
     color: #9FE1CB;

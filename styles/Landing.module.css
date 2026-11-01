@@ -640,10 +640,6 @@
     margin: 0 0 2rem;
 }
 
-[data-theme="dark"] .ctaBannerTitle {
-    color: var(--bg);
-}
-
 .footer {
     position: relative;
     z-index: 5;

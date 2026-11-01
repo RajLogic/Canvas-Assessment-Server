@@ -1,67 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 /* ═══════════════════════════════════════════════
-   LIGHT THEME (default)
-═══════════════════════════════════════════════ */
-:root,
-[data-theme="light"] {
-    --bg: #f4f2ee;
-    --bg-card: #ffffff;
-    --bg-subtle: #edeae4;
-    --bg-hover: #e5e1da;
-
-    --text-primary: #1a1814;
-    --text-secondary: #6b6660;
-    --text-muted: #9c9690;
-    --text-on-accent: #ffffff;
-
-    --accent: #d4622a;
-    --accent-hover: #c0561e;
-    --accent-warm: #e8834c;
-    --accent-light: #fdf0e8;
-    --accent-border: rgba(212, 98, 42, 0.25);
-
-    --border: rgba(26, 24, 20, 0.1);
-    --border-strong: rgba(26, 24, 20, 0.18);
-
-    --shadow-sm: 0 1px 3px rgba(26, 24, 20, 0.07), 0 1px 2px rgba(26, 24, 20, 0.05);
-    --shadow-md: 0 4px 12px rgba(26, 24, 20, 0.08), 0 2px 4px rgba(26, 24, 20, 0.05);
-    --shadow-lg: 0 16px 40px rgba(26, 24, 20, 0.1), 0 4px 12px rgba(26, 24, 20, 0.06);
-
-    --urgent-bg: rgba(220, 38, 38, 0.06);
-    --urgent-border: rgba(220, 38, 38, 0.15);
-    --urgent-text: #dc2626;
-    --urgent-stripe: #dc2626;
-
-    --warning-bg: rgba(217, 119, 6, 0.06);
-    --warning-border: rgba(217, 119, 6, 0.15);
-    --warning-text: #d97706;
-    --warning-stripe: #d97706;
-
-    --safe-bg: rgba(22, 163, 74, 0.05);
-    --safe-border: rgba(22, 163, 74, 0.14);
-    --safe-text: #16a34a;
-    --safe-stripe: #16a34a;
-
-    --error-bg: #fef2f2;
-    --error-border: rgba(220, 38, 38, 0.2);
-    --error-text: #dc2626;
-
-    --success-bg: #f0fdf4;
-    --success-border: rgba(22, 163, 74, 0.2);
-    --success-text: #16a34a;
-
-    --grid-line: rgba(26, 24, 20, 0.03);
-    --glow-accent: rgba(212, 98, 42, 0.08);
-
-    --radius: 12px;
-    --radius-lg: 18px;
-}
-
-/* ═══════════════════════════════════════════════
    DARK THEME
 ═══════════════════════════════════════════════ */
-[data-theme="dark"] {
+:root {
     --bg: #141210;
     --bg-card: #1e1b18;
     --bg-subtle: #272320;
