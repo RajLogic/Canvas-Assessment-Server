@@ -135,7 +135,6 @@ export default function Register() {
     return (
         <div className={styles.root}>
             <div className={styles.bg} aria-hidden="true">
-                <div className={styles.grid} />
                 <div className={styles.glow} />
             </div>
 
@@ -147,6 +146,28 @@ export default function Register() {
             </nav>
 
             <main className={styles.main}>
+                <section className={styles.hero}>
+                    <span className={styles.eyebrow}>A clearer way to study</span>
+                    <h1 className={styles.heroTitle}>Make room for what matters.</h1>
+                    <p className={styles.heroText}>
+                        Create your free account and turn a busy Canvas schedule into a plan you can actually follow.
+                    </p>
+                    <div className={styles.heroStats}>
+                        <div>
+                            <strong>01</strong>
+                            <span>Connect your routine</span>
+                        </div>
+                        <div>
+                            <strong>02</strong>
+                            <span>Prioritise your work</span>
+                        </div>
+                        <div>
+                            <strong>03</strong>
+                            <span>Keep moving forward</span>
+                        </div>
+                    </div>
+                </section>
+
                 <div className={styles.card}>
                     <div className={styles.cardHeader}>
                         <div className={styles.iconWrap}>✨</div>

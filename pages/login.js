@@ -84,7 +84,6 @@ export default function Login() {
     return (
         <div className={styles.root}>
             <div className={styles.bg} aria-hidden="true">
-                <div className={styles.grid} />
                 <div className={styles.glow} />
             </div>
 
@@ -96,6 +95,28 @@ export default function Login() {
             </nav>
 
             <main className={styles.main}>
+                <section className={styles.hero}>
+                    <span className={styles.eyebrow}>Your academic command centre</span>
+                    <h1 className={styles.heroTitle}>Stay ahead of every deadline.</h1>
+                    <p className={styles.heroText}>
+                        Final Reckoning brings your Canvas assessments, due dates, and timetable into one calm, focused view.
+                    </p>
+                    <div className={styles.heroStats}>
+                        <div>
+                            <strong>01</strong>
+                            <span>Sign in once</span>
+                        </div>
+                        <div>
+                            <strong>02</strong>
+                            <span>See what&apos;s next</span>
+                        </div>
+                        <div>
+                            <strong>03</strong>
+                            <span>Take control</span>
+                        </div>
+                    </div>
+                </section>
+
                 <div className={styles.card}>
                     <div className={styles.cardHeader}>
                         <div className={styles.iconWrap}>🔑</div>
