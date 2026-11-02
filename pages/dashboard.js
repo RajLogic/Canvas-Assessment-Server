@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
@@ -70,14 +70,19 @@ function getDaysLeftLabel(dueTimestamp) {
 
 function formatShortDate(dateString) {
     return new Date(dateString).toLocaleString('en-AU', {
-        weekday: 'short', day: '2-digit', month: 'short',
-        year: 'numeric', hour: '2-digit', minute: '2-digit',
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
     });
 }
 
 function formatTime(dateString) {
     return new Date(dateString).toLocaleTimeString('en-AU', {
-        hour: '2-digit', minute: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
     });
 }
 
@@ -95,59 +100,21 @@ function getAssessmentView(assessment, now = new Date()) {
 
 // ─── Hidden assessments storage ────────────────────────────────────────────
 const HIDDEN_KEY = 'fr_hidden_assessments';
-const REMINDER_HOURS_KEY = 'fr_reminder_hours';
-const REMINDED_ITEMS_KEY = 'fr_reminded_items';
 
 function loadHidden() {
     try {
         const raw = localStorage.getItem(HIDDEN_KEY);
         return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch { return new Set(); }
+    } catch {
+        return new Set();
+    }
 }
 
 function saveHidden(set) {
     try {
         localStorage.setItem(HIDDEN_KEY, JSON.stringify([...set]));
-    } catch { /* ignore */ }
-}
-
-function loadReminderHours() {
-    try {
-        const raw = localStorage.getItem(REMINDER_HOURS_KEY);
-        const parsed = Number(raw);
-        if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 168) {
-            return parsed;
-        }
     } catch {
-        // Ignore storage issues.
-    }
-    return 36;
-}
-
-function saveReminderHours(value) {
-    try {
-        localStorage.setItem(REMINDER_HOURS_KEY, String(value));
-    } catch {
-        // Ignore storage issues.
-    }
-}
-
-function loadRemindedMap() {
-    try {
-        const raw = localStorage.getItem(REMINDED_ITEMS_KEY);
-        const parsed = raw ? JSON.parse(raw) : {};
-        if (parsed && typeof parsed === 'object') return parsed;
-    } catch {
-        // Ignore storage issues.
-    }
-    return {};
-}
-
-function saveRemindedMap(map) {
-    try {
-        localStorage.setItem(REMINDED_ITEMS_KEY, JSON.stringify(map));
-    } catch {
-        // Ignore storage issues.
+        /* ignore */
     }
 }
 
@@ -155,52 +122,65 @@ function saveRemindedMap(map) {
 function applyFiltersAndSort(dueData, filters, hiddenIds, showHidden) {
     const allTerms = dueData.terms;
 
-    const filtered = allTerms.map(term => {
-        const courses = term.courses.map(course => {
-            let assessments = course.assessments.filter(a => {
-                const isHidden = hiddenIds.has(String(a.id));
-                if (showHidden) return isHidden;
-                return !isHidden;
-            });
+    const filtered = allTerms
+        .map((term) => {
+            const courses = term.courses
+                .map((course) => {
+                    let assessments = course.assessments.filter((a) => {
+                        const isHidden = hiddenIds.has(String(a.id));
+                        if (showHidden) return isHidden;
+                        return !isHidden;
+                    });
 
-            if (filters.years?.length > 0) {
-                assessments = assessments.filter(a =>
-                    filters.years.includes(new Date(a.dueAt).getFullYear())
-                );
-            }
+                    if (filters.years?.length > 0) {
+                        assessments = assessments.filter((a) =>
+                            filters.years.includes(new Date(a.dueAt).getFullYear())
+                        );
+                    }
 
-            if (filters.terms?.length > 0) {
-                if (!filters.terms.includes(term.termName)) return { ...course, assessments: [] };
-            }
+                    if (filters.terms?.length > 0) {
+                        if (!filters.terms.includes(term.termName)) return { ...course, assessments: [] };
+                    }
 
-            if (filters.courseIds?.length > 0) {
-                if (!filters.courseIds.includes(course.courseId)) return { ...course, assessments: [] };
-            }
+                    if (filters.courseIds?.length > 0) {
+                        if (!filters.courseIds.includes(course.courseId)) return { ...course, assessments: [] };
+                    }
 
-            if (filters.courseCodes?.length > 0) {
-                const codeMatch = course.courseName.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/);
-                const code = codeMatch ? codeMatch[1] : null;
-                if (!code || !filters.courseCodes.includes(code)) return { ...course, assessments: [] };
-            }
+                    if (filters.courseCodes?.length > 0) {
+                        const codeMatch = course.courseName.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/);
+                        const code = codeMatch ? codeMatch[1] : null;
+                        if (!code || !filters.courseCodes.includes(code)) return { ...course, assessments: [] };
+                    }
 
-            const sortBy = filters.sortBy || 'dueDate';
-            const sortDir = filters.sortDir || 'asc';
-            assessments = [...assessments].sort((a, b) => {
-                let av, bv;
-                if (sortBy === 'dueDate') { av = a.dueTimestamp; bv = b.dueTimestamp; }
-                else if (sortBy === 'courseName') { av = a.courseName; bv = b.courseName; }
-                else if (sortBy === 'points') { av = a.pointsPossible ?? -1; bv = b.pointsPossible ?? -1; }
-                else if (sortBy === 'name') { av = a.name; bv = b.name; }
-                if (av < bv) return sortDir === 'asc' ? -1 : 1;
-                if (av > bv) return sortDir === 'asc' ? 1 : -1;
-                return 0;
-            });
+                    const sortBy = filters.sortBy || 'dueDate';
+                    const sortDir = filters.sortDir || 'asc';
+                    assessments = [...assessments].sort((a, b) => {
+                        let av, bv;
+                        if (sortBy === 'dueDate') {
+                            av = a.dueTimestamp;
+                            bv = b.dueTimestamp;
+                        } else if (sortBy === 'courseName') {
+                            av = a.courseName;
+                            bv = b.courseName;
+                        } else if (sortBy === 'points') {
+                            av = a.pointsPossible ?? -1;
+                            bv = b.pointsPossible ?? -1;
+                        } else if (sortBy === 'name') {
+                            av = a.name;
+                            bv = b.name;
+                        }
+                        if (av < bv) return sortDir === 'asc' ? -1 : 1;
+                        if (av > bv) return sortDir === 'asc' ? 1 : -1;
+                        return 0;
+                    });
 
-            return { ...course, assessments };
-        }).filter(c => c.assessments.length > 0);
+                    return { ...course, assessments };
+                })
+                .filter((c) => c.assessments.length > 0);
 
-        return { ...term, courses };
-    }).filter(t => t.courses.length > 0);
+            return { ...term, courses };
+        })
+        .filter((t) => t.courses.length > 0);
 
     return filtered;
 }
@@ -220,7 +200,11 @@ const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp, nowTick }) {
     return (
         <span
             className={`${styles.badge} ${styles['badge_' + urgency]}`}
-            style={isOverdue ? { background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-muted)' } : undefined}
+            style={
+                isOverdue
+                    ? { background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-muted)' }
+                    : undefined
+            }
         >
             {icon} {label}
         </span>
@@ -232,14 +216,25 @@ UrgencyBadge.propTypes = {
     nowTick: PropTypes.number.isRequired,
 };
 
-const AssessmentCard = memo(function AssessmentCard({ assessment, onHide, onUnhide, onOpenDetails, isHidden, nowTick }) {
+const AssessmentCard = memo(function AssessmentCard({
+    assessment,
+    onHide,
+    onUnhide,
+    onOpenDetails,
+    isHidden,
+    nowTick,
+}) {
     const { dueTimestamp } = assessment;
     const urgency = getUrgency(dueTimestamp);
     const isOverdue = dueTimestamp < nowTick;
     return (
         <li
             className={`${styles.assessmentItem} ${styles[isHidden ? 'item_safe' : 'item_' + urgency]} ${isHidden ? dashStyles.hiddenItem : ''}`}
-            style={isOverdue ? { background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-muted)' } : undefined}
+            style={
+                isOverdue
+                    ? { background: 'var(--bg-subtle)', borderColor: 'var(--border)', color: 'var(--text-muted)' }
+                    : undefined
+            }
         >
             <div className={styles.assessmentLeft}>
                 <div
@@ -257,7 +252,10 @@ const AssessmentCard = memo(function AssessmentCard({ assessment, onHide, onUnhi
                             <span className={styles.points}>⭐ {assessment.pointsPossible} pts</span>
                         )}
                         {assessment.score != null && (
-                            <span className={styles.gradeBadge}>🏁 {assessment.score}{assessment.pointsPossible == null ? '' : `/${assessment.pointsPossible}`}</span>
+                            <span className={styles.gradeBadge}>
+                                🏁 {assessment.score}
+                                {assessment.pointsPossible == null ? '' : `/${assessment.pointsPossible}`}
+                            </span>
                         )}
                         {/* Submitted tag intentionally removed for V1 */}
                         {isHidden && <span className={dashStyles.hiddenTag}>Hidden</span>}
@@ -268,7 +266,7 @@ const AssessmentCard = memo(function AssessmentCard({ assessment, onHide, onUnhi
                 {!isHidden && <UrgencyBadge dueTimestamp={assessment.dueTimestamp} nowTick={nowTick} />}
                 <button
                     className={isHidden ? dashStyles.unhideBtn : dashStyles.hideBtn}
-                    onClick={() => isHidden ? onUnhide(assessment.id) : onHide(assessment.id)}
+                    onClick={() => (isHidden ? onUnhide(assessment.id) : onHide(assessment.id))}
                     title={isHidden ? 'Restore assessment' : 'Hide assessment'}
                     aria-label={isHidden ? `Restore ${assessment.name}` : `Hide ${assessment.name}`}
                 >
@@ -298,13 +296,17 @@ const UrgencyLegend = memo(function UrgencyLegend({ urgencyFilter, setUrgencyFil
     return (
         <div className={styles.legendRow}>
             {filters.map((f) => (
-                <button key={f.key}
+                <button
+                    key={f.key}
                     className={`${styles.filterChip} ${urgencyFilter === f.key ? styles.filterChipActive : ''}`}
-                    onClick={() => setUrgencyFilter(f.key)}>
+                    onClick={() => setUrgencyFilter(f.key)}
+                >
                     {f.icon} {f.label}
                 </button>
             ))}
+            
         </div>
+        
     );
 });
 
@@ -313,27 +315,46 @@ UrgencyLegend.propTypes = {
     setUrgencyFilter: PropTypes.func.isRequired,
 };
 
-const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersChange, isOpen, onClose, onHideCourse }) {
-    const allAssessments = dueData.terms.flatMap(t => t.courses.flatMap(c => c.assessments));
+const FilterSidebar = memo(function FilterSidebar({
+    dueData,
+    filters,
+    onFiltersChange,
+    isOpen,
+    onClose,
+    onHideCourse,
+}) {
+    const allAssessments = dueData.terms.flatMap((t) => t.courses.flatMap((c) => c.assessments));
 
-    const years = [...new Set(allAssessments.map(a => new Date(a.dueAt).getFullYear()))].sort((a, b) => b - a);
-    const terms = [...new Set(dueData.terms.map(t => t.termName))].sort((a, b) => a.localeCompare(b));
-    const courses = [...new Map(allAssessments.map(a => [a.courseId, { id: a.courseId, name: a.courseName }])).values()]
-        .sort((a, b) => a.name.localeCompare(b.name));
-    const courseCodes = [...new Set(
-        courses.map(c => { const m = c.name.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/); return m ? m[1] : null; }).filter(Boolean)
-    )].sort((a, b) => a.localeCompare(b));
+    const years = [...new Set(allAssessments.map((a) => new Date(a.dueAt).getFullYear()))].sort((a, b) => b - a);
+    const terms = [...new Set(dueData.terms.map((t) => t.termName))].sort((a, b) => a.localeCompare(b));
+    const courses = [
+        ...new Map(allAssessments.map((a) => [a.courseId, { id: a.courseId, name: a.courseName }])).values(),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    const courseCodes = [
+        ...new Set(
+            courses
+                .map((c) => {
+                    const m = c.name.match(/^([A-Z]{2,6}\d{3,5}[A-Z]?)/);
+                    return m ? m[1] : null;
+                })
+                .filter(Boolean)
+        ),
+    ].sort((a, b) => a.localeCompare(b));
 
     const toggle = (key, value) => {
         const current = filters[key] || [];
-        const next = current.includes(value) ? current.filter(v => v !== value) : [...current, value];
+        const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
         onFiltersChange({ ...filters, [key]: next });
     };
 
-    const clearAll = () => onFiltersChange({ years: [], terms: [], courseIds: [], courseCodes: [], sortBy: 'dueDate', sortDir: 'asc' });
+    const clearAll = () =>
+        onFiltersChange({ years: [], terms: [], courseIds: [], courseCodes: [], sortBy: 'dueDate', sortDir: 'asc' });
 
-    const activeCount = (filters.years?.length || 0) + (filters.terms?.length || 0) +
-        (filters.courseIds?.length || 0) + (filters.courseCodes?.length || 0);
+    const activeCount =
+        (filters.years?.length || 0) +
+        (filters.terms?.length || 0) +
+        (filters.courseIds?.length || 0) +
+        (filters.courseCodes?.length || 0);
 
     return (
         <>
@@ -343,7 +364,6 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
                     className={sidebarStyles.backdrop}
                     onClick={onClose}
                     tabIndex={0}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') onClose(); }}
                     aria-label="Close filters"
                 />
             )}
@@ -351,9 +371,13 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
                 <div className={sidebarStyles.sidebarHeader}>
                     <span className={sidebarStyles.sidebarTitle}>Filters &amp; Sort</span>
                     {activeCount > 0 && (
-                        <button className={sidebarStyles.clearBtn} onClick={clearAll}>Clear all ({activeCount})</button>
+                        <button className={sidebarStyles.clearBtn} onClick={clearAll}>
+                            Clear all ({activeCount})
+                        </button>
                     )}
-                    <button className={sidebarStyles.closeBtn} onClick={onClose} aria-label="Close">✕</button>
+                    <button className={sidebarStyles.closeBtn} onClick={onClose} aria-label="Close">
+                        ✕
+                    </button>
                 </div>
 
                 <div className={sidebarStyles.sidebarBody}>
@@ -363,7 +387,7 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
                             <select
                                 className={sidebarStyles.select}
                                 value={filters.sortBy || 'dueDate'}
-                                onChange={e => onFiltersChange({ ...filters, sortBy: e.target.value })}
+                                onChange={(e) => onFiltersChange({ ...filters, sortBy: e.target.value })}
                             >
                                 <option value="dueDate">Due date</option>
                                 <option value="courseName">Course name</option>
@@ -372,7 +396,9 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
                             </select>
                             <button
                                 className={sidebarStyles.dirBtn}
-                                onClick={() => onFiltersChange({ ...filters, sortDir: filters.sortDir === 'asc' ? 'desc' : 'asc' })}
+                                onClick={() =>
+                                    onFiltersChange({ ...filters, sortDir: filters.sortDir === 'asc' ? 'desc' : 'asc' })
+                                }
                             >
                                 {filters.sortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
                             </button>
@@ -383,13 +409,19 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
                         <section className={sidebarStyles.section}>
                             <h3 className={sidebarStyles.sectionTitle}>
                                 Year
-                                {filters.years?.length > 0 && <span className={sidebarStyles.activeCount}>{filters.years.length}</span>}
+                                {filters.years?.length > 0 && (
+                                    <span className={sidebarStyles.activeCount}>{filters.years.length}</span>
+                                )}
                             </h3>
                             <div className={sidebarStyles.chipGroup}>
-                                {years.map(y => (
-                                    <button key={y}
+                                {years.map((y) => (
+                                    <button
+                                        key={y}
                                         className={`${sidebarStyles.chip} ${filters.years?.includes(y) ? sidebarStyles.chipActive : ''}`}
-                                        onClick={() => toggle('years', y)}>{y}</button>
+                                        onClick={() => toggle('years', y)}
+                                    >
+                                        {y}
+                                    </button>
                                 ))}
                             </div>
                         </section>
@@ -399,13 +431,19 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
                         <section className={sidebarStyles.section}>
                             <h3 className={sidebarStyles.sectionTitle}>
                                 Semester
-                                {filters.terms?.length > 0 && <span className={sidebarStyles.activeCount}>{filters.terms.length}</span>}
+                                {filters.terms?.length > 0 && (
+                                    <span className={sidebarStyles.activeCount}>{filters.terms.length}</span>
+                                )}
                             </h3>
                             <div className={sidebarStyles.chipGroup}>
-                                {terms.map(t => (
-                                    <button key={t}
+                                {terms.map((t) => (
+                                    <button
+                                        key={t}
                                         className={`${sidebarStyles.chip} ${filters.terms?.includes(t) ? sidebarStyles.chipActive : ''}`}
-                                        onClick={() => toggle('terms', t)}>{t}</button>
+                                        onClick={() => toggle('terms', t)}
+                                    >
+                                        {t}
+                                    </button>
                                 ))}
                             </div>
                         </section>
@@ -415,13 +453,19 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
                         <section className={sidebarStyles.section}>
                             <h3 className={sidebarStyles.sectionTitle}>
                                 Course code
-                                {filters.courseCodes?.length > 0 && <span className={sidebarStyles.activeCount}>{filters.courseCodes.length}</span>}
+                                {filters.courseCodes?.length > 0 && (
+                                    <span className={sidebarStyles.activeCount}>{filters.courseCodes.length}</span>
+                                )}
                             </h3>
                             <div className={sidebarStyles.chipGroup}>
-                                {courseCodes.map(code => (
-                                    <button key={code}
+                                {courseCodes.map((code) => (
+                                    <button
+                                        key={code}
                                         className={`${sidebarStyles.chip} ${filters.courseCodes?.includes(code) ? sidebarStyles.chipActive : ''}`}
-                                        onClick={() => toggle('courseCodes', code)}>{code}</button>
+                                        onClick={() => toggle('courseCodes', code)}
+                                    >
+                                        {code}
+                                    </button>
                                 ))}
                             </div>
                         </section>
@@ -431,18 +475,26 @@ const FilterSidebar = memo(function FilterSidebar({ dueData, filters, onFiltersC
                         <section className={sidebarStyles.section}>
                             <h3 className={sidebarStyles.sectionTitle}>
                                 Course
-                                {filters.courseIds?.length > 0 && <span className={sidebarStyles.activeCount}>{filters.courseIds.length}</span>}
+                                {filters.courseIds?.length > 0 && (
+                                    <span className={sidebarStyles.activeCount}>{filters.courseIds.length}</span>
+                                )}
                             </h3>
                             <div className={sidebarStyles.courseList}>
-                                {courses.map(c => (
+                                {courses.map((c) => (
                                     <div key={c.id} className={sidebarStyles.courseRow}>
                                         <label className={sidebarStyles.courseFilterLabel}>
-                                            <input type="checkbox" className={sidebarStyles.checkbox}
+                                            <input
+                                                type="checkbox"
+                                                className={sidebarStyles.checkbox}
                                                 checked={filters.courseIds?.includes(c.id) || false}
-                                                onChange={() => toggle('courseIds', c.id)} />
+                                                onChange={() => toggle('courseIds', c.id)}
+                                            />
                                             <span className={sidebarStyles.courseLabel}>{c.name}</span>
                                         </label>
-                                        <button className={sidebarStyles.courseHideBtn} onClick={() => onHideCourse(c.id)}>
+                                        <button
+                                            className={sidebarStyles.courseHideBtn}
+                                            onClick={() => onHideCourse(c.id)}
+                                        >
                                             Hide all
                                         </button>
                                     </div>
@@ -519,7 +571,7 @@ function getUrgencyFilterTag(urgencyFilter) {
 }
 
 function filterCourse(course, showHidden, assessmentView, urgencyFilter, nowDate) {
-    const assessments = course.assessments.filter(a =>
+    const assessments = course.assessments.filter((a) =>
         shouldIncludeAssessmentInList(a, showHidden, assessmentView, urgencyFilter, nowDate)
     );
     return { ...course, assessments };
@@ -528,36 +580,46 @@ function filterCourse(course, showHidden, assessmentView, urgencyFilter, nowDate
 function filterTermWithCourses(term, showHidden, assessmentView, urgencyFilter, nowDate) {
     // returns a term object with courses filtered to only include assessments
     const courses = term.courses
-        .map(course => filterCourse(course, showHidden, assessmentView, urgencyFilter, nowDate))
-        .filter(c => c.assessments.length > 0);
+        .map((course) => filterCourse(course, showHidden, assessmentView, urgencyFilter, nowDate))
+        .filter((c) => c.assessments.length > 0);
 
     return { ...term, courses };
 }
 
 const ListView = memo(function ListView({
-    dueData, assessmentView, urgencyFilter, setUrgencyFilter, filters, hiddenIds, onHide, onUnhide, onOpenDetails, showHidden, nowTick
+    dueData,
+    assessmentView,
+    urgencyFilter,
+    setUrgencyFilter,
+    filters,
+    hiddenIds,
+    onHide,
+    onUnhide,
+    onOpenDetails,
+    showHidden,
+    nowTick,
 }) {
     const nowDate = useMemo(() => new Date(nowTick), [nowTick]);
 
     const filteredTerms = useMemo(() => {
         const base = applyFiltersAndSort(dueData, filters, hiddenIds, showHidden);
         return base
-            .map(term => filterTermWithCourses(term, showHidden, assessmentView, urgencyFilter, nowDate))
-            .filter(t => t.courses.length > 0);
+            .map((term) => filterTermWithCourses(term, showHidden, assessmentView, urgencyFilter, nowDate))
+            .filter((t) => t.courses.length > 0);
     }, [assessmentView, dueData, filters, hiddenIds, urgencyFilter, showHidden, nowDate]);
 
-    const allVisible = filteredTerms.flatMap(t => t.courses.flatMap(c => c.assessments));
+    const allVisible = filteredTerms.flatMap((t) => t.courses.flatMap((c) => c.assessments));
     const allRaw = useMemo(() => {
         return applyFiltersAndSort(dueData, { ...filters, sortBy: 'dueDate', sortDir: 'asc' }, hiddenIds, showHidden)
-            .flatMap(t => t.courses.flatMap(c => c.assessments))
-            .filter(a => shouldIncludeAssessmentInList(a, showHidden, assessmentView, urgencyFilter, nowDate));
+            .flatMap((t) => t.courses.flatMap((c) => c.assessments))
+            .filter((a) => shouldIncludeAssessmentInList(a, showHidden, assessmentView, urgencyFilter, nowDate));
     }, [assessmentView, dueData, filters, hiddenIds, urgencyFilter, showHidden, nowDate]);
 
-    const urgentCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'urgent').length;
-    const warningCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'warning').length;
-    const safeCount = allRaw.filter(a => getUrgency(a.dueTimestamp) === 'safe').length;
+    const urgentCount = allRaw.filter((a) => getUrgency(a.dueTimestamp) === 'urgent').length;
+    const warningCount = allRaw.filter((a) => getUrgency(a.dueTimestamp) === 'warning').length;
+    const safeCount = allRaw.filter((a) => getUrgency(a.dueTimestamp) === 'safe').length;
     const { viewTitle, emptyTitle, emptySub, emptyIcon } = getListViewText(showHidden, assessmentView);
-    const showActiveStats = !showHidden && assessmentView === 'active' && allRaw.length > 0;
+    const showActiveStats = !showHidden && assessmentView === 'active';
     const showUrgencyTag = !showHidden && assessmentView === 'active' && urgencyFilter !== 'all';
     let emptySubText = emptySub;
     if (showHidden && urgencyFilter === 'all') {
@@ -569,7 +631,9 @@ const ListView = memo(function ListView({
             <div className={styles.emptyState}>
                 <div className={styles.emptyIcon}>👁</div>
                 <p className={styles.emptyTitle}>No hidden assessments</p>
-                <p className={styles.emptySub}>Assessments you hide will appear here. Click ✕ Hide on any item to hide it.</p>
+                <p className={styles.emptySub}>
+                    Assessments you hide will appear here. Click ✕ Hide on any item to hide it.
+                </p>
             </div>
         );
     }
@@ -616,13 +680,18 @@ const ListView = memo(function ListView({
                             <span className={styles.statLabel}>📋 Total</span>
                         </button>
                     </div>
+                    <br></br>
                     <UrgencyLegend urgencyFilter={urgencyFilter} setUrgencyFilter={setUrgencyFilter} />
+                    <br></br>
                 </>
             )}
 
             {showHidden && (
                 <div className={dashStyles.hiddenBanner}>
-                    <span>👁 Showing {hiddenIds.size} hidden assessment{hiddenIds.size === 1 ? '' : 's'}. Click ↩ Restore to bring them back.</span>
+                    <span>
+                        Showing {hiddenIds.size} hidden assessment{hiddenIds.size === 1 ? '' : 's'}. Click ↩ Restore
+                        to bring them back.
+                    </span>
                 </div>
             )}
 
@@ -638,9 +707,7 @@ const ListView = memo(function ListView({
                         <h2 className={styles.resultsTitle}>
                             {allVisible.length} {viewTitle.toLowerCase()}
                             {showUrgencyTag && (
-                                <span className={styles.filterTag}>
-                                    {getUrgencyFilterTag(urgencyFilter)}
-                                </span>
+                                <span className={styles.filterTag}>{getUrgencyFilterTag(urgencyFilter)}</span>
                             )}
                         </h2>
                     </div>
@@ -700,8 +767,20 @@ ListView.propTypes = {
 // ─── CALENDAR VIEW ─────────────────────────────────────────────────────────
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+];
 
 const UNIVERSITY_CONFIG = [
     {
@@ -733,7 +812,7 @@ const DEFAULT_QUICK_LINKS = [
 function getQuickLinks(canvasBaseUrl) {
     if (!canvasBaseUrl) return DEFAULT_QUICK_LINKS;
     const normalised = normalizeCanvasBaseUrl(canvasBaseUrl).toLowerCase().replace(/\/$/, '');
-    const match = UNIVERSITY_CONFIG.find(u => u.url.toLowerCase().replace(/\/$/, '') === normalised);
+    const match = UNIVERSITY_CONFIG.find((u) => u.url.toLowerCase().replace(/\/$/, '') === normalised);
     if (match) return [...match.links, GITHUB_LINK];
     try {
         const parsed = new URL(normalised);
@@ -766,9 +845,25 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-    const prevMonth = () => { setSelectedDay(null); if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); };
-    const nextMonth = () => { setSelectedDay(null); if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); };
-    const goToday = () => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); setSelectedDay(null); };
+    const prevMonth = () => {
+        setSelectedDay(null);
+        if (viewMonth === 0) {
+            setViewMonth(11);
+            setViewYear((y) => y - 1);
+        } else setViewMonth((m) => m - 1);
+    };
+    const nextMonth = () => {
+        setSelectedDay(null);
+        if (viewMonth === 11) {
+            setViewMonth(0);
+            setViewYear((y) => y + 1);
+        } else setViewMonth((m) => m + 1);
+    };
+    const goToday = () => {
+        setViewYear(today.getFullYear());
+        setViewMonth(today.getMonth());
+        setSelectedDay(null);
+    };
 
     const cells = [];
     for (let i = 0; i < firstDay; i++) cells.push(null);
@@ -777,34 +872,66 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
     const handleDayClick = (day) => {
         if (!day) return;
         const key = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        setSelectedDay(prev => prev?.key === key ? null : { key, day, assessments: assessmentsByDate[key] || [] });
+        setSelectedDay((prev) => (prev?.key === key ? null : { key, day, assessments: assessmentsByDate[key] || [] }));
     };
 
     return (
         <div className={styles.calendarWrap}>
             <div className={styles.calNav}>
-                <button className={styles.calNavBtn} onClick={prevMonth} aria-label="Previous month">‹</button>
+                <button className={styles.calNavBtn} onClick={prevMonth} aria-label="Previous month">
+                    ‹
+                </button>
                 <div className={styles.calNavCenter}>
-                    <span className={styles.calMonthLabel}>{MONTHS[viewMonth]} {viewYear}</span>
-                    <button className={styles.calTodayBtn} onClick={goToday}>Today</button>
+                    <span className={styles.calMonthLabel}>
+                        {MONTHS[viewMonth]} {viewYear}
+                    </span>
+                    <button className={styles.calTodayBtn} onClick={goToday}>
+                        Today
+                    </button>
                 </div>
-                <button className={styles.calNavBtn} onClick={nextMonth} aria-label="Next month">›</button>
+                <button className={styles.calNavBtn} onClick={nextMonth} aria-label="Next month">
+                    ›
+                </button>
             </div>
+            <br></br>
 
             <div className={styles.calLegend}>
-                <span className={styles.calLegendItem}><span className={`${styles.calLegendDot} ${styles.dotToday}`} />Today</span>
-                <span className={styles.calLegendItem}><span className={`${styles.calLegendDot} ${styles.dotUrgent}`} />≤5 days</span>
-                <span className={styles.calLegendItem}><span className={`${styles.calLegendDot} ${styles.dotWarning}`} />≤2 weeks</span>
-                <span className={styles.calLegendItem}><span className={`${styles.calLegendDot} ${styles.dotSafe}`} />&gt;2 weeks</span>
+                <span className={styles.calLegendItem}>
+                    <span className={`${styles.calLegendDot} ${styles.dotToday}`} />
+                    Today
+                </span>
+                <span className={styles.calLegendItem}>
+                    <span className={`${styles.calLegendDot} ${styles.dotUrgent}`} />
+                    ≤5 days
+                </span>
+                <span className={styles.calLegendItem}>
+                    <span className={`${styles.calLegendDot} ${styles.dotWarning}`} />
+                    ≤2 weeks
+                </span>
+                <span className={styles.calLegendItem}>
+                    <span className={`${styles.calLegendDot} ${styles.dotSafe}`} />
+                    &gt;2 weeks
+                </span>
             </div>
 
+            <br></br>
+
             <div className={styles.calGrid}>
-                {DAYS.map((d) => (<div key={d} className={styles.calDayHeader}>{d}</div>))}
+                {DAYS.map((d) => (
+                    <div key={d} className={styles.calDayHeader}>
+                        {d}
+                    </div>
+                ))}
                 {(() => {
                     let emptyKeyCount = 0;
                     return cells.map((day) => {
                         if (!day) {
-                            return <div key={`empty-${viewYear}-${viewMonth}-${emptyKeyCount++}`} className={styles.calEmptyCell} />;
+                            return (
+                                <div
+                                    key={`empty-${viewYear}-${viewMonth}-${emptyKeyCount++}`}
+                                    className={styles.calEmptyCell}
+                                />
+                            );
                         }
                         const key = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         const isToday = key === todayStr;
@@ -812,28 +939,47 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                         const isSelected = selectedDay?.key === key;
                         let dotUrgency = null;
                         if (dayItems.length > 0) {
-                            if (dayItems.some(a => getUrgency(a.dueTimestamp) === 'urgent')) dotUrgency = 'urgent';
-                            else if (dayItems.some(a => getUrgency(a.dueTimestamp) === 'warning')) dotUrgency = 'warning';
+                            if (dayItems.some((a) => getUrgency(a.dueTimestamp) === 'urgent')) dotUrgency = 'urgent';
+                            else if (dayItems.some((a) => getUrgency(a.dueTimestamp) === 'warning'))
+                                dotUrgency = 'warning';
                             else dotUrgency = 'safe';
                         }
                         return (
-                            <button key={key}
+                            <button
+                                key={key}
                                 type="button"
-                                className={[styles.calCell, isToday ? styles.calCellToday : '', isSelected ? styles.calCellSelected : '', dayItems.length > 0 ? styles.calCellHasItems : ''].filter(Boolean).join(' ')}
-                                onClick={() => handleDayClick(day)}>
+                                className={[
+                                    styles.calCell,
+                                    isToday ? styles.calCellToday : '',
+                                    isSelected ? styles.calCellSelected : '',
+                                    dayItems.length > 0 ? styles.calCellHasItems : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                onClick={() => handleDayClick(day)}
+                            >
                                 <span className={styles.calDayNum}>{day}</span>
                                 <div className={styles.calPills}>
                                     {dayItems.slice(0, 2).map((a) => {
                                         const pillUrgency = getUrgency(a.dueTimestamp);
                                         return (
-                                            <div key={a.id} className={styles.calPill + ' ' + styles['calPill_' + pillUrgency]}>
+                                            <div
+                                                key={a.id}
+                                                className={styles.calPill + ' ' + styles['calPill_' + pillUrgency]}
+                                            >
                                                 {formatTime(a.dueAt)} {a.name}
                                             </div>
                                         );
                                     })}
-                                    {dayItems.length > 2 && (<div className={styles.calPillMore}>+{dayItems.length - 2} more</div>)}
+                                    {dayItems.length > 2 && (
+                                        <div className={styles.calPillMore}>+{dayItems.length - 2} more</div>
+                                    )}
                                 </div>
-                                {dotUrgency && (() => { const dotClass = `dot_${dotUrgency}`; return <span className={`${styles.calDot} ${styles[dotClass]}`} />; })()}
+                                {dotUrgency &&
+                                    (() => {
+                                        const dotClass = `dot_${dotUrgency}`;
+                                        return <span className={`${styles.calDot} ${styles[dotClass]}`} />;
+                                    })()}
                             </button>
                         );
                     });
@@ -843,8 +989,12 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
             {selectedDay && (
                 <div className={styles.calDetail}>
                     <div className={styles.calDetailHeader}>
-                        <h3 className={styles.calDetailTitle}>{selectedDay.day} {MONTHS[viewMonth]} {viewYear}</h3>
-                        <button className={styles.calDetailClose} onClick={() => setSelectedDay(null)}>✕</button>
+                        <h3 className={styles.calDetailTitle}>
+                            {selectedDay.day} {MONTHS[viewMonth]} {viewYear}
+                        </h3>
+                        <button className={styles.calDetailClose} onClick={() => setSelectedDay(null)}>
+                            ✕
+                        </button>
                     </div>
                     {selectedDay.assessments.length === 0 ? (
                         <p className={styles.calDetailEmpty}>No assessments due this day.</p>
@@ -857,16 +1007,33 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                     <li key={a.id} className={`${styles.calDetailItem} ${styles[urgClass]}`}>
                                         <div className={styles.calDetailStripe} data-urgency={urg} />
                                         <div className={styles.calDetailContent}>
-                                            <button className={styles.calDetailNameBtn} onClick={() => onOpenDetails(a)}>{a.name}</button>
+                                            <button
+                                                className={styles.calDetailNameBtn}
+                                                onClick={() => onOpenDetails(a)}
+                                            >
+                                                {a.name}
+                                            </button>
                                             <div className={styles.calDetailMeta}>
                                                 <span className={styles.calDetailCourse}>{a.courseName}</span>
-                                                <span className={styles.calDetailTime}>🕐 {formatShortDate(a.dueAt)}</span>
-                                                {a.pointsPossible != null && (<span className={styles.calDetailPts}>⭐ {a.pointsPossible} pts</span>)}
+                                                <span className={styles.calDetailTime}>
+                                                    🕐 {formatShortDate(a.dueAt)}
+                                                </span>
+                                                {a.pointsPossible != null && (
+                                                    <span className={styles.calDetailPts}>
+                                                        ⭐ {a.pointsPossible} pts
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <div className={dashStyles.cardActions}>
                                             <UrgencyBadge dueTimestamp={a.dueTimestamp} nowTick={nowTick} />
-                                            <button className={dashStyles.hideBtn} onClick={() => onHide(a.id)} title="Hide">✕</button>
+                                            <button
+                                                className={dashStyles.hideBtn}
+                                                onClick={() => onHide(a.id)}
+                                                title="Hide"
+                                            >
+                                                ✕
+                                            </button>
                                         </div>
                                     </li>
                                 );
@@ -892,8 +1059,8 @@ CalendarView.propTypes = {
 
 // ─── TIMETABLE GRID HELPERS ────────────────────────────────────────────────
 
-const TT_START_HOUR = 7;   // 7 AM
-const TT_END_HOUR = 22;    // 10 PM
+const TT_START_HOUR = 7; // 7 AM
+const TT_END_HOUR = 22; // 10 PM
 const TT_SPAN = TT_END_HOUR - TT_START_HOUR;
 
 function positionBlock(startStr, endStr) {
@@ -1033,30 +1200,47 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
         return `${s} – ${e}${weekOffset === 0 ? ' (current week)' : ''}`;
     })();
 
-    const formatLocalTime = (value) => new Date(value).toLocaleTimeString('en-AU', {
-        hour: '2-digit', minute: '2-digit', hour12: !use24Hour,
-    });
+    const formatLocalTime = (value) =>
+        new Date(value).toLocaleTimeString('en-AU', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: !use24Hour,
+        });
 
     const localNowLabel = localNow.toLocaleTimeString('en-AU', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: !use24Hour,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: !use24Hour,
     });
 
-    const nowDecimalHour = localNow.getHours() + (localNow.getMinutes() / 60) + (localNow.getSeconds() / 3600);
+    const nowDecimalHour = localNow.getHours() + localNow.getMinutes() / 60 + localNow.getSeconds() / 3600;
     const isNowInTimetableRange = nowDecimalHour >= TT_START_HOUR && nowDecimalHour <= TT_END_HOUR;
-    const nowMarkerPercent = ((Math.max(TT_START_HOUR, Math.min(TT_END_HOUR, nowDecimalHour)) - TT_START_HOUR) / TT_SPAN) * 100;
+    const nowMarkerPercent =
+        ((Math.max(TT_START_HOUR, Math.min(TT_END_HOUR, nowDecimalHour)) - TT_START_HOUR) / TT_SPAN) * 100;
 
     const selectedDay = weekDays[Math.max(0, Math.min(6, dayOffset))] || weekDays[0];
     const selectedDayKey = toDateKey(selectedDay);
     const isSelectedDayToday = selectedDayKey === todayKey;
-    const selectedDayEvents = [...(eventsByDate[selectedDayKey] || [])].sort((a, b) => new Date(a.start) - new Date(b.start));
+    const selectedDayEvents = [...(eventsByDate[selectedDayKey] || [])].sort(
+        (a, b) => new Date(a.start) - new Date(b.start)
+    );
     const selectedDayLabel = selectedDay.toLocaleDateString('en-AU', {
-        weekday: 'long', day: '2-digit', month: 'short', year: 'numeric',
+        weekday: 'long',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
     });
 
-    const formatLocalDateTime = (value) => new Date(value).toLocaleString('en-AU', {
-        weekday: 'short', day: '2-digit', month: 'short',
-        hour: '2-digit', minute: '2-digit', hour12: !use24Hour,
-    });
+    const formatLocalDateTime = (value) =>
+        new Date(value).toLocaleString('en-AU', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: !use24Hour,
+        });
 
     return (
         <div className={styles.timetableWrap}>
@@ -1067,7 +1251,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                 <button
                     type="button"
                     className={styles.ttTimeFormatBtn}
-                    onClick={() => setUse24Hour(v => !v)}
+                    onClick={() => setUse24Hour((v) => !v)}
                     aria-label={`Switch to ${use24Hour ? '12-hour' : '24-hour'} time`}
                 >
                     {use24Hour ? '24h' : '12h'}
@@ -1075,7 +1259,9 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
             </div>
 
             {timetableError && (
-                <div className={styles.errorBanner}><span>⚠️ {timetableError}</span></div>
+                <div className={styles.errorBanner}>
+                    <span>⚠️ {timetableError}</span>
+                </div>
             )}
 
             {timetableLoading && (
@@ -1097,11 +1283,25 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                 <div className={styles.ttOuter}>
                     {/* Week navigator */}
                     <div className={styles.ttWeekNav}>
-                        <button className={styles.ttNavBtn} onClick={() => setWeekOffset(o => o - 1)} aria-label="Previous week">‹</button>
+                        <button
+                            className={styles.ttNavBtn}
+                            onClick={() => setWeekOffset((o) => o - 1)}
+                            aria-label="Previous week"
+                        >
+                            ‹
+                        </button>
                         <span className={styles.ttWeekLabel}>{weekLabel}</span>
-                        <button className={styles.ttNavBtn} onClick={() => setWeekOffset(o => o + 1)} aria-label="Next week">›</button>
+                        <button
+                            className={styles.ttNavBtn}
+                            onClick={() => setWeekOffset((o) => o + 1)}
+                            aria-label="Next week"
+                        >
+                            ›
+                        </button>
                         {weekOffset !== 0 && (
-                            <button className={styles.ttTodayBtn} onClick={() => setWeekOffset(0)}>Today</button>
+                            <button className={styles.ttTodayBtn} onClick={() => setWeekOffset(0)}>
+                                Today
+                            </button>
                         )}
                     </div>
 
@@ -1125,7 +1325,6 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                             {/* Horizontally scrollable grid */}
                             <div className={styles.ttScrollArea}>
                                 <div className={styles.ttGrid}>
-
                                     {/* ── Top-left corner ── */}
                                     <div className={styles.ttCorner} />
 
@@ -1147,17 +1346,24 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                         return (
                                             <React.Fragment key={key}>
                                                 {/* Day label cell */}
-                                                <div className={`${styles.ttDayLabel} ${isToday ? styles.ttDayLabelToday : ''}`}>
+                                                <div
+                                                    className={`${styles.ttDayLabel} ${isToday ? styles.ttDayLabelToday : ''}`}
+                                                >
                                                     <span className={styles.ttDayName}>
                                                         {day.toLocaleDateString('en-AU', { weekday: 'short' })}
                                                     </span>
                                                     <span className={styles.ttDayDate}>
-                                                        {day.toLocaleDateString('en-AU', { day: 'numeric', month: 'numeric' })}
+                                                        {day.toLocaleDateString('en-AU', {
+                                                            day: 'numeric',
+                                                            month: 'numeric',
+                                                        })}
                                                     </span>
                                                 </div>
 
                                                 {/* Timeline cell */}
-                                                <div className={`${styles.ttTimeline} ${isToday ? styles.ttTimelineToday : ''}`}>
+                                                <div
+                                                    className={`${styles.ttTimeline} ${isToday ? styles.ttTimelineToday : ''}`}
+                                                >
                                                     {/* Hour divider lines */}
                                                     {hours.map((h) => (
                                                         <div
@@ -1171,20 +1377,40 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                     ))}
 
                                                     {isToday && isNowInTimetableRange && (
-                                                        <div className={styles.ttNowMarker} style={{ left: `${nowMarkerPercent}%` }} aria-hidden="true" />
+                                                        <div
+                                                            className={styles.ttNowMarker}
+                                                            style={{ left: `${nowMarkerPercent}%` }}
+                                                            aria-hidden="true"
+                                                        />
                                                     )}
 
                                                     {/* Event blocks */}
                                                     {dayEvents.map((ev, idx) => {
                                                         const pos = positionBlock(ev.start, ev.end);
-                                                        const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                                        const classKey =
+                                                            ev.className ||
+                                                            (ev.summary || '').split(',')[0] ||
+                                                            ev.summary;
                                                         const toneIndex = toneIndexForSummary(classKey);
                                                         const startFmt = formatLocalTime(ev.start);
                                                         const endFmt = formatLocalTime(ev.end);
-                                                        const eventKey = key + '-' + (ev.uid || (ev.start + '-' + ev.end + '-' + idx));
-                                                        const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
-                                                        const blockClassName = styles.ttBlock + ' ' + styles[`ttBlockTone${toneIndex}`] + (isSelected ? ' ' + styles.ttBlockActive : '');
-                                                        const blockTitle = ev.summary + '\n' + startFmt + '–' + endFmt + (ev.location ? '\n' + ev.location : '');
+                                                        const eventKey =
+                                                            key + '-' + (ev.uid || ev.start + '-' + ev.end + '-' + idx);
+                                                        const isSelected = selectedClass?.uid
+                                                            ? selectedClass.uid === ev.uid
+                                                            : selectedClass?.eventKey === eventKey;
+                                                        const blockClassName =
+                                                            styles.ttBlock +
+                                                            ' ' +
+                                                            styles[`ttBlockTone${toneIndex}`] +
+                                                            (isSelected ? ' ' + styles.ttBlockActive : '');
+                                                        const blockTitle =
+                                                            ev.summary +
+                                                            '\n' +
+                                                            startFmt +
+                                                            '–' +
+                                                            endFmt +
+                                                            (ev.location ? '\n' + ev.location : '');
                                                         return (
                                                             <button
                                                                 key={eventKey}
@@ -1192,19 +1418,19 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                                 className={blockClassName}
                                                                 style={{ left: pos.left, width: pos.width }}
                                                                 title={blockTitle}
-                                                                onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter' || e.key === ' ') {
-                                                                        e.preventDefault();
-                                                                        setSelectedClass({ ...ev, toneIndex, eventKey });
-                                                                    }
-                                                                }}
+                                                                onClick={() =>
+                                                                    setSelectedClass({ ...ev, toneIndex, eventKey })
+                                                                }
                                                             >
                                                                 <span className={styles.ttBlockName}>{ev.summary}</span>
                                                                 {ev.location && (
-                                                                    <span className={styles.ttBlockLoc}>{ev.location}</span>
+                                                                    <span className={styles.ttBlockLoc}>
+                                                                        {ev.location}
+                                                                    </span>
                                                                 )}
-                                                                <span className={styles.ttBlockTime}>{startFmt} – {endFmt}</span>
+                                                                <span className={styles.ttBlockTime}>
+                                                                    {startFmt} – {endFmt}
+                                                                </span>
                                                             </button>
                                                         );
                                                     })}
@@ -1259,17 +1485,24 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                         ))}
 
                                         {isSelectedDayToday && isNowInTimetableRange && (
-                                            <div className={styles.ttNowMarker} style={{ left: `${nowMarkerPercent}%` }} aria-hidden="true" />
+                                            <div
+                                                className={styles.ttNowMarker}
+                                                style={{ left: `${nowMarkerPercent}%` }}
+                                                aria-hidden="true"
+                                            />
                                         )}
 
                                         {selectedDayEvents.map((ev, idx) => {
                                             const pos = positionBlock(ev.start, ev.end);
-                                            const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                            const classKey =
+                                                ev.className || (ev.summary || '').split(',')[0] || ev.summary;
                                             const toneIndex = toneIndexForSummary(classKey);
                                             const startFmt = formatLocalTime(ev.start);
                                             const endFmt = formatLocalTime(ev.end);
                                             const eventKey = `${selectedDayKey}-${idx}`;
-                                            const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
+                                            const isSelected = selectedClass?.uid
+                                                ? selectedClass.uid === ev.uid
+                                                : selectedClass?.eventKey === eventKey;
 
                                             const titleText = `${ev.summary}\n${startFmt}–${endFmt}${ev.location ? '\n' + ev.location : ''}`;
                                             const toneClass = styles['ttBlockTone' + toneIndex];
@@ -1280,15 +1513,11 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                     style={{ left: pos.left, width: pos.width }}
                                                     title={titleText}
                                                     onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter' || e.key === ' ') {
-                                                            e.preventDefault();
-                                                            setSelectedClass({ ...ev, toneIndex, eventKey });
-                                                        }
-                                                    }}
                                                 >
                                                     <span className={styles.ttBlockName}>{ev.summary}</span>
-                                                    <span className={styles.ttBlockTime}>{startFmt} – {endFmt}</span>
+                                                    <span className={styles.ttBlockTime}>
+                                                        {startFmt} – {endFmt}
+                                                    </span>
                                                 </button>
                                             );
                                         })}
@@ -1303,21 +1532,30 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                 className={styles.ttDayVerticalDivider}
                                                 style={{ top: `${((h - TT_START_HOUR) / TT_SPAN) * 100}%` }}
                                             >
-                                                <span className={styles.ttDayVerticalHour}>{formatHourLabel(h, use24Hour)}</span>
+                                                <span className={styles.ttDayVerticalHour}>
+                                                    {formatHourLabel(h, use24Hour)}
+                                                </span>
                                             </div>
                                         ))}
 
                                         {isSelectedDayToday && isNowInTimetableRange && (
-                                            <div className={`${styles.ttNowMarker} ${styles.ttNowMarkerVertical}`} style={{ top: `${nowMarkerPercent}%` }} aria-hidden="true" />
+                                            <div
+                                                className={`${styles.ttNowMarker} ${styles.ttNowMarkerVertical}`}
+                                                style={{ top: `${nowMarkerPercent}%` }}
+                                                aria-hidden="true"
+                                            />
                                         )}
 
                                         {selectedDayEvents.map((ev, idx) => {
                                             const pos = positionBlockVertical(ev.start, ev.end);
-                                            const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                            const classKey =
+                                                ev.className || (ev.summary || '').split(',')[0] || ev.summary;
                                             const toneIndex = toneIndexForSummary(classKey);
                                             const toneClass = styles[`ttBlockTone${toneIndex}`];
                                             const eventKey = `${selectedDayKey}-${idx}`;
-                                            const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
+                                            const isSelected = selectedClass?.uid
+                                                ? selectedClass.uid === ev.uid
+                                                : selectedClass?.eventKey === eventKey;
 
                                             return (
                                                 <button
@@ -1328,7 +1566,9 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                     onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
                                                 >
                                                     <span className={styles.ttBlockName}>{ev.summary}</span>
-                                                    <span className={styles.ttBlockTime}>{formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}</span>
+                                                    <span className={styles.ttBlockTime}>
+                                                        {formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}
+                                                    </span>
                                                 </button>
                                             );
                                         })}
@@ -1344,16 +1584,22 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                         const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
                                         const toneIndex = toneIndexForSummary(classKey);
                                         const eventKey = `${selectedDayKey}-${idx}`;
-                                        const isSelected = selectedClass?.uid ? selectedClass.uid === ev.uid : selectedClass?.eventKey === eventKey;
+                                        const isSelected = selectedClass?.uid
+                                            ? selectedClass.uid === ev.uid
+                                            : selectedClass?.eventKey === eventKey;
                                         return (
                                             <li key={`activity-${eventKey}`} className={styles.ttActivityItem}>
                                                 <button
                                                     className={`${styles.ttActivityBtn} ${isSelected ? styles.ttActivityBtnActive : ''}`}
                                                     onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
                                                 >
-                                                    <span className={styles.ttActivityTime}>{formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}</span>
+                                                    <span className={styles.ttActivityTime}>
+                                                        {formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}
+                                                    </span>
                                                     <span className={styles.ttActivityName}>{ev.summary}</span>
-                                                    {ev.location && <span className={styles.ttActivityLocation}>{ev.location}</span>}
+                                                    {ev.location && (
+                                                        <span className={styles.ttActivityLocation}>{ev.location}</span>
+                                                    )}
                                                 </button>
                                             </li>
                                         );
@@ -1366,25 +1612,49 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                     <div className={styles.eventsListWrapper}>
                         {selectedClass ? (
                             <div className={styles.eventCard}>
-                                <div className={`${styles.ttDetailStripe} ${styles['ttBlockTone' + selectedClass.toneIndex]}`} />
+                                <div
+                                    className={`${styles.ttDetailStripe} ${styles['ttBlockTone' + selectedClass.toneIndex]}`}
+                                />
                                 <div className={styles.eventDetailsSection} style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                                        <span className={styles.eventName}>{selectedClass.className || selectedClass.summary}</span>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            justifyContent: 'space-between',
+                                            gap: '0.75rem',
+                                            marginBottom: '0.75rem',
+                                        }}
+                                    >
+                                        <span className={styles.eventName}>
+                                            {selectedClass.className || selectedClass.summary}
+                                        </span>
                                         <button
                                             className={styles.calDetailClose}
                                             onClick={() => setSelectedClass(null)}
                                             aria-label="Close"
-                                        >✕</button>
+                                        >
+                                            ✕
+                                        </button>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.625rem 1.5rem' }}>
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                                            gap: '0.625rem 1.5rem',
+                                        }}
+                                    >
                                         <div>
                                             <div className={styles.ttDetailLabel}>Start</div>
-                                            <div className={styles.ttDetailValue}>{formatLocalDateTime(selectedClass.start)}</div>
+                                            <div className={styles.ttDetailValue}>
+                                                {formatLocalDateTime(selectedClass.start)}
+                                            </div>
                                         </div>
                                         <div>
                                             <div className={styles.ttDetailLabel}>End</div>
-                                            <div className={styles.ttDetailValue}>{formatLocalDateTime(selectedClass.end)}</div>
+                                            <div className={styles.ttDetailValue}>
+                                                {formatLocalDateTime(selectedClass.end)}
+                                            </div>
                                         </div>
 
                                         {selectedClass.location && (
@@ -1404,7 +1674,14 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                         {selectedClass.description && (
                                             <div style={{ gridColumn: '1 / -1' }}>
                                                 <div className={styles.ttDetailLabel}>Description</div>
-                                                <div className={styles.ttDetailValue} style={{ whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto' }}>
+                                                <div
+                                                    className={styles.ttDetailValue}
+                                                    style={{
+                                                        whiteSpace: 'pre-wrap',
+                                                        maxHeight: '120px',
+                                                        overflowY: 'auto',
+                                                    }}
+                                                >
                                                     {selectedClass.description}
                                                 </div>
                                             </div>
@@ -1413,7 +1690,15 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                         {selectedClass.uid && (
                                             <div style={{ gridColumn: '1 / -1' }}>
                                                 <div className={styles.ttDetailLabel}>UID</div>
-                                                <div className={styles.ttDetailValue} style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '0.68rem', wordBreak: 'break-all', color: 'var(--text-muted)' }}>
+                                                <div
+                                                    className={styles.ttDetailValue}
+                                                    style={{
+                                                        fontFamily: 'IBM Plex Mono, monospace',
+                                                        fontSize: '0.68rem',
+                                                        wordBreak: 'break-all',
+                                                        color: 'var(--text-muted)',
+                                                    }}
+                                                >
                                                     {selectedClass.uid}
                                                 </div>
                                             </div>
@@ -1439,24 +1724,17 @@ TimetableView.propTypes = {
 
 // ─── SETTINGS MODAL ────────────────────────────────────────────────────────
 
-const UNIVERSITIES = [
-    ...UNIVERSITY_CONFIG,
-    { label: 'Custom / Other university', url: '' },
-];
+const UNIVERSITIES = [...UNIVERSITY_CONFIG, { label: 'Custom / Other university', url: '' }];
 
 function SettingsModal({
     user,
     onClose,
     onSaved,
-    reminderHours,
-    onReminderHoursChange,
-    notificationPermission,
-    onEnableNotifications,
     inline = false,
 }) {
     const defaultEnvUrl = 'https://rmit.instructure.com/api/v1/';
     const savedUrl = user?.canvasBaseUrl || defaultEnvUrl;
-    const matchedPreset = UNIVERSITIES.find(u => u.url && u.url.toLowerCase() === savedUrl.toLowerCase());
+    const matchedPreset = UNIVERSITIES.find((u) => u.url && u.url.toLowerCase() === savedUrl.toLowerCase());
     const initialPreset = matchedPreset ? matchedPreset.url : '';
 
     const [form, setForm] = useState({ canvasApiToken: '', timetableLink: '', canvasBaseUrl: '' });
@@ -1466,17 +1744,30 @@ function SettingsModal({
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
 
-    const handleChange = (e) => { setForm(f => ({ ...f, [e.target.name]: e.target.value })); setError(''); setSuccess(''); };
+    const handleChange = (e) => {
+        setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+        setError('');
+        setSuccess('');
+    };
     const handleUniSelect = (e) => {
         const val = e.target.value;
         setUniPreset(val);
-        if (val === '') { setShowCustomUrl(true); setForm(f => ({ ...f, canvasBaseUrl: '' })); }
-        else { setShowCustomUrl(false); setForm(f => ({ ...f, canvasBaseUrl: val })); }
-        setError(''); setSuccess('');
+        if (val === '') {
+            setShowCustomUrl(true);
+            setForm((f) => ({ ...f, canvasBaseUrl: '' }));
+        } else {
+            setShowCustomUrl(false);
+            setForm((f) => ({ ...f, canvasBaseUrl: val }));
+        }
+        setError('');
+        setSuccess('');
     };
 
     const handleSave = async (e) => {
-        e.preventDefault(); setSaving(true); setError(''); setSuccess('');
+        e.preventDefault();
+        setSaving(true);
+        setError('');
+        setSuccess('');
         try {
             const payload = {};
             if (form.canvasApiToken) payload.canvasApiToken = form.canvasApiToken;
@@ -1490,13 +1781,23 @@ function SettingsModal({
                 resolvedUrl = uniPreset;
             }
             if (resolvedUrl !== undefined) payload.canvasBaseUrl = resolvedUrl;
-            const res = await fetch('/api/auth/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const res = await fetch('/api/auth/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
             const data = await res.json();
-            if (!res.ok) { setError(data.message || 'Failed to save.'); return; }
+            if (!res.ok) {
+                setError(data.message || 'Failed to save.');
+                return;
+            }
             setSuccess('Settings saved! All sensitive data is encrypted with AES-256-GCM.');
             onSaved?.(data.user);
-        } catch { setError('Network error. Please try again.'); }
-        finally { setSaving(false); }
+        } catch {
+            setError('Network error. Please try again.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const currentDisplayUrl = user?.canvasBaseUrl || defaultEnvUrl;
@@ -1507,8 +1808,13 @@ function SettingsModal({
     const content = (
         <div className={inline ? dashStyles.settingsPanel : dashStyles.modal}>
             <div className={dashStyles.modalHeader}>
-                <h2 className={dashStyles.modalTitle}>⚙️ Settings</h2>
-                <button className={dashStyles.modalClose} onClick={onClose}>✕</button>
+                <div>
+                    <p className={dashStyles.modalEyebrow}>Workspace preferences</p>
+                    <h2 className={dashStyles.modalTitle}>Settings</h2>
+                </div>
+                <button className={dashStyles.modalClose} onClick={onClose} aria-label="Close settings">
+                    ✕
+                </button>
             </div>
             <div className={inline ? `${dashStyles.modalBody} ${dashStyles.settingsPanelBody}` : dashStyles.modalBody}>
                 <div className={dashStyles.userInfo}>
@@ -1518,104 +1824,163 @@ function SettingsModal({
                         <div className={dashStyles.userEmail}>{user?.email}</div>
                     </div>
                 </div>
-                {error && <div className={dashStyles.settingsError}><span>⚠️</span> {error}</div>}
-                {success && <div className={dashStyles.settingsSuccess}><span>✅</span> {success}</div>}
-                <form onSubmit={handleSave} className={dashStyles.settingsForm}>
-                    <div className={dashStyles.settingsField}>
-                        <label htmlFor="uniPreset" className={dashStyles.settingsLabel}>
-                            University / Canvas Instance{' '}
-                            <span className={dashStyles.settingsLabelHint}>Current: <code className={dashStyles.urlCode}>{currentDisplayUrl}</code></span>
-                        </label>
-                        <select id="uniPreset" value={uniPreset} onChange={handleUniSelect} className={dashStyles.settingsSelect}>
-                            <option value="" disabled>Select your university…</option>
-                            {UNIVERSITIES.map((u) => (<option key={u.label} value={u.url}>{u.label}</option>))}
-                        </select>
+                <div className={dashStyles.settingsIntro}>
+                    <div>
+                        <strong>Make Final Reckoning yours</strong>
+                        <p>Connect your Canvas account and tune how your dashboard keeps you on track.</p>
                     </div>
-                    {showCustomUrl && (
+                </div>
+                {error && (
+                    <div className={dashStyles.settingsError}>
+                        <span>⚠️</span> {error}
+                    </div>
+                )}
+                {success && (
+                    <div className={dashStyles.settingsSuccess}>
+                        <span>✅</span> {success}
+                    </div>
+                )}
+                <div className={dashStyles.settingsWorkspace}>
+                    <aside className={dashStyles.settingsNav} aria-label="Settings sections">
+                        <p className={dashStyles.settingsNavTitle}>Settings</p>
+                        <a href="#canvas-connection" className={dashStyles.settingsNavItem}>
+                            <span></span>
+                            <span>
+                                <strong>Canvas connection</strong>
+                                <small>Institution &amp; credentials</small>
+                            </span>
+                        </a>
+                        <a href="#save-changes" className={dashStyles.settingsNavItem}>
+                            <span></span>
+                            <span>
+                                <strong>Save changes</strong>
+                                <small>Apply your preferences</small>
+                            </span>
+                        </a>
+                        <div className={dashStyles.settingsNavNote}>
+                            <span></span>
+                            <p>Your sensitive Canvas details are encrypted before storage.</p>
+                        </div>
+                    </aside>
+                    <form onSubmit={handleSave} className={dashStyles.settingsForm}>
+                        <div id="canvas-connection" className={dashStyles.settingsSectionHeading}>
+                            <div>
+                                <h3>Canvas connection</h3>
+                                <p>Choose your institution and keep your credentials up to date.</p>
+                            </div>
+                        </div>
                         <div className={dashStyles.settingsField}>
-                            <label htmlFor="canvasBaseUrl" className={dashStyles.settingsLabel}>Canvas API Base URL</label>
-                            <input id="canvasBaseUrl" name="canvasBaseUrl" type="url" value={form.canvasBaseUrl} onChange={handleChange}
-                                className={dashStyles.settingsInput} placeholder="https://your-university.instructure.com/api/v1/" autoComplete="off" />
+                            <label htmlFor="uniPreset" className={dashStyles.settingsLabel}>
+                                University / Canvas Instance{' '}
+                                <span className={dashStyles.settingsLabelHint}>
+                                    Current: <code className={dashStyles.urlCode}>{currentDisplayUrl}</code>
+                                </span>
+                            </label>
+                            <select
+                                id="uniPreset"
+                                value={uniPreset}
+                                onChange={handleUniSelect}
+                                className={dashStyles.settingsSelect}
+                            >
+                                <option value="" disabled>
+                                    Select your university…
+                                </option>
+                                {UNIVERSITIES.map((u) => (
+                                    <option key={u.label} value={u.url}>
+                                        {u.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                    )}
-                    <div className={dashStyles.settingsDivider} />
-                    <div className={dashStyles.settingsField}>
-                        <label htmlFor="canvasApiToken" className={dashStyles.settingsLabel}>
-                            Canvas API Token{' '}
-                            <span className={dashStyles.settingsLabelHint}>Canvas → Account → Settings → New Access Token</span>
-                        </label>
-                        <div className={dashStyles.inputWithBadge}>
-                            <input id="canvasApiToken" name="canvasApiToken" type="password" value={form.canvasApiToken} onChange={handleChange}
-                                className={dashStyles.settingsInput}
-                                placeholder={user?.hasCanvasToken ? '••••••••••••••• (saved — paste new to update)' : 'Paste your Canvas API token here'}
-                                autoComplete="off" />
-                            {user?.hasCanvasToken && <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>}
+                        {showCustomUrl && (
+                            <div className={dashStyles.settingsField}>
+                                <label htmlFor="canvasBaseUrl" className={dashStyles.settingsLabel}>
+                                    Canvas API Base URL
+                                </label>
+                                <input
+                                    id="canvasBaseUrl"
+                                    name="canvasBaseUrl"
+                                    type="url"
+                                    value={form.canvasBaseUrl}
+                                    onChange={handleChange}
+                                    className={dashStyles.settingsInput}
+                                    placeholder="https://your-university.instructure.com/api/v1/"
+                                    autoComplete="off"
+                                />
+                            </div>
+                        )}
+                        <div className={dashStyles.settingsDivider} />
+                        <div className={dashStyles.settingsField}>
+                            <label htmlFor="canvasApiToken" className={dashStyles.settingsLabel}>
+                                Canvas API Token{' '}
+                                <span className={dashStyles.settingsLabelHint}>
+                                    Canvas → Account → Settings → New Access Token
+                                </span>
+                            </label>
+                            <div className={dashStyles.inputWithBadge}>
+                                <input
+                                    id="canvasApiToken"
+                                    name="canvasApiToken"
+                                    type="password"
+                                    value={form.canvasApiToken}
+                                    onChange={handleChange}
+                                    className={dashStyles.settingsInput}
+                                    placeholder={
+                                        user?.hasCanvasToken
+                                            ? '••••••••••••••• (saved — paste new to update)'
+                                            : 'Paste your Canvas API token here'
+                                    }
+                                    autoComplete="off"
+                                />
+                            </div>
                         </div>
-                    </div>
-                    <div className={dashStyles.settingsField}>
-                        <label htmlFor="timetableLink" className={dashStyles.settingsLabel}>
-                            Timetable iCal Link{' '}
-                            <span className={dashStyles.settingsLabelHint}>Optional</span>
-                        </label>
-                        <div className={dashStyles.inputWithBadge}>
-                            <input id="timetableLink" name="timetableLink" type="url" value={form.timetableLink} onChange={handleChange}
-                                className={dashStyles.settingsInput}
-                                placeholder={user?.hasTimetableLink ? 'https://... (saved — paste to update)' : 'https://your-timetable.ics'} />
-                            {user?.hasTimetableLink && <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>}
+                        <div className={dashStyles.settingsField}>
+                            <label htmlFor="timetableLink" className={dashStyles.settingsLabel}>
+                                Timetable iCal Link <span className={dashStyles.settingsLabelHint}>Optional</span>
+                            </label>
+                            <div className={dashStyles.inputWithBadge}>
+                                <input
+                                    id="timetableLink"
+                                    name="timetableLink"
+                                    type="url"
+                                    value={form.timetableLink}
+                                    onChange={handleChange}
+                                    className={dashStyles.settingsInput}
+                                    placeholder={
+                                        user?.hasTimetableLink
+                                            ? 'https://... (saved — paste to update)'
+                                            : 'https://your-timetable.ics'
+                                    }
+                                />
+                                {user?.hasTimetableLink && (
+                                    <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>
+                                )}
+                            </div>
                         </div>
-                    </div>
 
-                    <div className={dashStyles.settingsDivider} />
+                        <div className={dashStyles.settingsField}>
+                            <label className={dashStyles.settingsLabel}>
+                                Calendar export{' '}
+                                <span className={dashStyles.settingsLabelHint}>
+                                    Download upcoming assessments as .ics
+                                </span>
+                            </label>
+                            <button
+                                type="button"
+                                className={`${dashStyles.settingsSave} ${dashStyles.settingsSecondary}`}
+                                onClick={handleExportCalendar}
+                            >
+                                Export assessments (.ics)
+                            </button>
+                        </div>
 
-                    <div className={dashStyles.settingsField}>
-                        <label htmlFor="reminderHours" className={dashStyles.settingsLabel}>
-                            Browser reminder threshold (hours){' '}
-                            <span className={dashStyles.settingsLabelHint}>Local setting on this device</span>
-                        </label>
-                        <input
-                            id="reminderHours"
-                            type="number"
-                            min="1"
-                            max="168"
-                            value={reminderHours}
-                            onChange={(e) => onReminderHoursChange(Math.min(168, Math.max(1, Number(e.target.value) || 1)))}
-                            className={dashStyles.settingsInput}
-                        />
-                    </div>
+                        <div className={dashStyles.settingsDivider} />
 
-                    <div className={dashStyles.settingsField}>
-                        <label className={dashStyles.settingsLabel}>
-                            Browser notifications{' '}
-                            <span className={dashStyles.settingsLabelHint}>Current: {notificationPermission}</span>
-                        </label>
-                        <button
-                            type="button"
-                            className={dashStyles.settingsSave}
-                            onClick={onEnableNotifications}
-                            disabled={notificationPermission === 'granted'}
-                        >
-                            {notificationPermission === 'granted' ? 'Notifications enabled' : 'Enable browser notifications'}
+                        <button type="submit" className={dashStyles.settingsSave} disabled={saving}>
+                            {saving ? '🔐 Encrypting & saving…' : 'Save settings'}
                         </button>
-                    </div>
-
-                    <div className={dashStyles.settingsField}>
-                        <label className={dashStyles.settingsLabel}>
-                            Calendar export{' '}
-                            <span className={dashStyles.settingsLabelHint}>Download upcoming assessments as .ics</span>
-                        </label>
-                        <button
-                            type="button"
-                            className={dashStyles.settingsSave}
-                            onClick={handleExportCalendar}
-                        >
-                            Export assessments (.ics)
-                        </button>
-                    </div>
-
-                    <button type="submit" className={dashStyles.settingsSave} disabled={saving}>
-                        {saving ? '🔐 Encrypting & saving…' : 'Save settings'}
-                    </button>
-                </form>
+                    </form>
+                </div>
             </div>
         </div>
     );
@@ -1624,12 +1989,7 @@ function SettingsModal({
 
     return (
         <div className={dashStyles.modalOverlay}>
-            <button
-                type="button"
-                className={dashStyles.modalBackdrop}
-                onClick={onClose}
-                aria-label="Close settings"
-            />
+            <button type="button" className={dashStyles.modalBackdrop} onClick={onClose} aria-label="Close settings" />
             {content}
         </div>
     );
@@ -1645,49 +2005,8 @@ SettingsModal.propTypes = {
     }),
     onClose: PropTypes.func.isRequired,
     onSaved: PropTypes.func,
-    reminderHours: PropTypes.number.isRequired,
-    onReminderHoursChange: PropTypes.func.isRequired,
-    notificationPermission: PropTypes.string.isRequired,
-    onEnableNotifications: PropTypes.func.isRequired,
 };
 SettingsModal.propTypes.inline = PropTypes.bool;
-
-function HelpModal({ onClose }) {
-    const shortcuts = [
-        { key: 'S', action: 'Focus search' },
-        { key: 'C', action: 'Open calendar tab' },
-        { key: 'T', action: 'Open timetable tab' },
-        { key: '?', action: 'Open this help modal' },
-    ];
-
-    return (
-        <dialog
-            className={dashStyles.modalOverlay}
-            aria-modal="true"
-        >
-            <div className={dashStyles.modal}>
-                <div className={dashStyles.modalHeader}>
-                    <h2 className={dashStyles.modalTitle}>⌨️ Keyboard shortcuts</h2>
-                    <button className={dashStyles.modalClose} onClick={onClose}>✕</button>
-                </div>
-                <div className={dashStyles.modalBody}>
-                    <div className={dashStyles.shortcutList}>
-                        {shortcuts.map((shortcut) => (
-                            <div key={shortcut.key} className={dashStyles.shortcutRow}>
-                                <kbd className={dashStyles.shortcutKey}>{shortcut.key}</kbd>
-                                <span className={dashStyles.shortcutAction}>{shortcut.action}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </dialog>
-    );
-}
-
-HelpModal.propTypes = {
-    onClose: PropTypes.func.isRequired,
-};
 
 function AssessmentDetailModal({ assessment, onClose }) {
     if (!assessment) return null;
@@ -1708,18 +2027,33 @@ function AssessmentDetailModal({ assessment, onClose }) {
             <div className={dashStyles.modal}>
                 <div className={dashStyles.modalHeader}>
                     <h2 className={dashStyles.modalTitle}>📘 {assessment.name}</h2>
-                    <button className={dashStyles.modalClose} onClick={onClose}>✕</button>
+                    <button className={dashStyles.modalClose} onClick={onClose}>
+                        ✕
+                    </button>
                 </div>
                 <div className={dashStyles.modalBody}>
                     <div className={dashStyles.detailMetaGrid}>
                         <span className={dashStyles.detailMetaItem}>📚 {assessment.courseName}</span>
                         <span className={dashStyles.detailMetaItem}>📅 {formatShortDate(assessment.dueAt)}</span>
-                        {assessment.pointsPossible !== null && assessment.pointsPossible !== undefined && <span className={dashStyles.detailMetaItem}>⭐ {assessment.pointsPossible} pts</span>}
-                        {assessment.score !== null && assessment.score !== undefined && <span className={dashStyles.detailMetaItem}>🏁 Score: {assessment.score}{(assessment.pointsPossible !== null && assessment.pointsPossible !== undefined) ? `/${assessment.pointsPossible}` : ''}</span>}
-                        {assessment.grade && <span className={dashStyles.detailMetaItem}>🧾 Grade: {assessment.grade}</span>}
+                        {assessment.pointsPossible !== null && assessment.pointsPossible !== undefined && (
+                            <span className={dashStyles.detailMetaItem}>⭐ {assessment.pointsPossible} pts</span>
+                        )}
+                        {assessment.score !== null && assessment.score !== undefined && (
+                            <span className={dashStyles.detailMetaItem}>
+                                🏁 Score: {assessment.score}
+                                {assessment.pointsPossible !== null && assessment.pointsPossible !== undefined
+                                    ? `/${assessment.pointsPossible}`
+                                    : ''}
+                            </span>
+                        )}
+                        {assessment.grade && (
+                            <span className={dashStyles.detailMetaItem}>🧾 Grade: {assessment.grade}</span>
+                        )}
                         {/* Submitted tag intentionally removed for V1 */}
                         {Array.isArray(assessment.submissionTypes) && assessment.submissionTypes.length > 0 && (
-                            <span className={dashStyles.detailMetaItem}>📤 {assessment.submissionTypes.join(', ')}</span>
+                            <span className={dashStyles.detailMetaItem}>
+                                📤 {assessment.submissionTypes.join(', ')}
+                            </span>
                         )}
                     </div>
 
@@ -1728,7 +2062,14 @@ function AssessmentDetailModal({ assessment, onClose }) {
                     </div>
 
                     <div className={dashStyles.detailActions}>
-                        <a className={dashStyles.settingsSave} href={assessment.htmlUrl} target="_blank" rel="noopener noreferrer">Open in Canvas</a>
+                        <a
+                            className={dashStyles.settingsSave}
+                            href={assessment.htmlUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Open in Canvas
+                        </a>
                     </div>
                 </div>
             </div>
@@ -1760,23 +2101,17 @@ export default function Dashboard() {
 
     const [setupBanner, setSetupBanner] = useState('');
     const [nowTick, setNowTick] = useState(() => Date.now());
-    const [reminderHours, setReminderHours] = useState(() => loadReminderHours());
-    const [notificationPermission, setNotificationPermission] = useState(() => {
-        if (globalThis.window !== undefined && 'Notification' in globalThis) {
-            return Notification.permission;
-        }
-        return 'default';
-    });
-    const [remindedMap, setRemindedMap] = useState(() => loadRemindedMap());
-    const [showHelp, setShowHelp] = useState(false);
     const [selectedAssessment, setSelectedAssessment] = useState(null);
     const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
-    const searchInputRef = useRef(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [filters, setFilters] = useState({
-        years: [], terms: [], courseIds: [], courseCodes: [],
-        sortBy: 'dueDate', sortDir: 'asc'
+        years: [],
+        terms: [],
+        courseIds: [],
+        courseCodes: [],
+        sortBy: 'dueDate',
+        sortDir: 'asc',
     });
 
     const [hiddenIds, setHiddenIds] = useState(() => loadHidden());
@@ -1788,16 +2123,8 @@ export default function Dashboard() {
         return () => clearInterval(timer);
     }, []);
 
-    useEffect(() => {
-        saveReminderHours(reminderHours);
-    }, [reminderHours]);
-
-    useEffect(() => {
-        saveRemindedMap(remindedMap);
-    }, [remindedMap]);
-
     const hideAssessment = useCallback((id) => {
-        setHiddenIds(prev => {
+        setHiddenIds((prev) => {
             const next = new Set(prev);
             next.add(String(id));
             saveHidden(next);
@@ -1806,7 +2133,7 @@ export default function Dashboard() {
     }, []);
 
     const unhideAssessment = useCallback((id) => {
-        setHiddenIds(prev => {
+        setHiddenIds((prev) => {
             const next = new Set(prev);
             next.delete(String(id));
             saveHidden(next);
@@ -1826,22 +2153,25 @@ export default function Dashboard() {
         }
     }, []);
 
-    const hideCourseAssessments = useCallback((courseId) => {
-        setHiddenIds((prev) => {
-            const next = new Set(prev);
-            if (!dueData || !Array.isArray(dueData.terms)) return next;
+    const hideCourseAssessments = useCallback(
+        (courseId) => {
+            setHiddenIds((prev) => {
+                const next = new Set(prev);
+                if (!dueData || !Array.isArray(dueData.terms)) return next;
 
-            for (const term of dueData.terms) {
-                if (!term || !Array.isArray(term.courses)) continue;
-                for (const course of term.courses) {
-                    if (!course || String(course.courseId) !== String(courseId)) continue;
-                    addCourseAssessmentIds(course, next);
+                for (const term of dueData.terms) {
+                    if (!term || !Array.isArray(term.courses)) continue;
+                    for (const course of term.courses) {
+                        if (!course || String(course.courseId) !== String(courseId)) continue;
+                        addCourseAssessmentIds(course, next);
+                    }
                 }
-            }
-            saveHidden(next);
-            return next;
-        });
-    }, [dueData, addCourseAssessmentIds]);
+                saveHidden(next);
+                return next;
+            });
+        },
+        [dueData, addCourseAssessmentIds]
+    );
 
     useEffect(() => {
         fetch('/api/auth/session')
@@ -1853,18 +2183,20 @@ export default function Dashboard() {
                     if (router.query.welcome === '1') {
                         setSetupBanner('Welcome! Add your Canvas API token in Settings to get started.');
                     }
+                } else {
+                    router.replace('/login');
                 }
-                else { router.replace('/login'); }
             })
             .catch(() => router.replace('/login'));
     }, [router]);
 
     useEffect(() => {
-        router.prefetch('/dashboard').catch(() => { });
+        router.prefetch('/dashboard').catch(() => {});
     }, [router]);
 
     const fetchDueAssessments = useCallback(async (queryText = '') => {
-        setLoading(true); setError(null);
+        setLoading(true);
+        setError(null);
         try {
             const params = new URLSearchParams();
             if (queryText.trim()) params.set('search', queryText.trim());
@@ -1883,8 +2215,11 @@ export default function Dashboard() {
             setSetupBanner('');
             setDueData(data);
             setLastUpdated(new Date());
-        } catch (err) { setError(err.message); }
-        finally { setLoading(false); }
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
     useEffect(() => {
@@ -1895,123 +2230,35 @@ export default function Dashboard() {
         return () => clearTimeout(debounce);
     }, [authChecked, searchText, fetchDueAssessments]);
 
-    const handleClearFilter = () => { setSearchText(''); };
+    const handleClearFilter = () => {
+        setSearchText('');
+    };
 
     const fetchTimetableData = useCallback(async () => {
-        setTimetableLoading(true); setTimetableError('');
+        setTimetableLoading(true);
+        setTimetableError('');
         try {
             const response = await fetch('/api/timetable');
             if (!response.ok) throw new Error(`Error ${response.status}: Failed to fetch timetable`);
             const data = await response.json();
-            const sortedEvents = data.events
-                .sort((a, b) => new Date(a.start) - new Date(b.start));
+            const sortedEvents = data.events.sort((a, b) => new Date(a.start) - new Date(b.start));
             setTimetableEvents(sortedEvents);
-        } catch (err) { setTimetableError(err.message || 'Failed to sync timetable'); setTimetableEvents([]); }
-        finally { setTimetableLoading(false); }
+        } catch (err) {
+            setTimetableError(err.message || 'Failed to sync timetable');
+            setTimetableEvents([]);
+        } finally {
+            setTimetableLoading(false);
+        }
     }, []);
 
     useEffect(() => {
         if (!(activeTab === 'timetable' && authChecked)) return;
         // defer the fetch to avoid setting state synchronously within the effect
-        const id = setTimeout(() => { fetchTimetableData(); }, 0);
+        const id = setTimeout(() => {
+            fetchTimetableData();
+        }, 0);
         return () => clearTimeout(id);
     }, [activeTab, authChecked, fetchTimetableData]);
-
-    useEffect(() => {
-        if (globalThis.window === undefined || !('Notification' in globalThis) || notificationPermission !== 'granted') {
-            return;
-        }
-
-        const allAssessments = dueData.terms.flatMap((term) =>
-            term.courses.flatMap((course) => course.assessments)
-        );
-
-        if (allAssessments.length === 0) return;
-
-        const now = Date.now();
-        const thresholdMs = reminderHours * 60 * 60 * 1000;
-        const nextMap = { ...remindedMap };
-        let changed = false;
-
-        allAssessments.forEach((assessment) => {
-            const key = `${assessment.courseId}:${assessment.id}:${assessment.dueAt}`;
-            const diff = assessment.dueTimestamp - now;
-
-            if (diff > 0 && diff <= thresholdMs && !nextMap[key]) {
-                const dueLabel = new Date(assessment.dueAt).toLocaleString('en-AU', {
-                    weekday: 'short',
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                });
-
-                new Notification('Assessment due soon', {
-                    body: `${assessment.name} (${assessment.courseName}) due ${dueLabel}`,
-                    tag: key,
-                });
-
-                nextMap[key] = true;
-                changed = true;
-            }
-        });
-
-        if (changed) {
-            const id = setTimeout(() => {
-                setRemindedMap(nextMap);
-            }, 0);
-            return () => clearTimeout(id);
-        }
-    }, [dueData, reminderHours, notificationPermission, remindedMap, nowTick]);
-
-    const handleEnableNotifications = useCallback(async () => {
-        if (globalThis.window === undefined || !('Notification' in globalThis)) return;
-        const permission = await Notification.requestPermission();
-        setNotificationPermission(permission);
-    }, []);
-
-    useEffect(() => {
-        const onKeyDown = (event) => {
-            const targetTag = event.target?.tagName || '';
-            const isTyping = targetTag === 'INPUT' || targetTag === 'TEXTAREA' || event.target?.isContentEditable;
-            if (isTyping && event.key !== '?') return;
-
-            if (event.key === 's' || event.key === 'S') {
-                event.preventDefault();
-                searchInputRef.current?.focus();
-                return;
-            }
-
-            if (event.key === 'c' || event.key === 'C') {
-                event.preventDefault();
-                setActiveTab('calendar');
-                return;
-            }
-
-            if (event.key === 't' || event.key === 'T') {
-                event.preventDefault();
-                setActiveTab('timetable');
-                return;
-            }
-
-            if (event.key === '?') {
-                event.preventDefault();
-                setShowHelp(true);
-            }
-        };
-
-        globalThis.addEventListener('keydown', onKeyDown);
-        return () => globalThis.removeEventListener('keydown', onKeyDown);
-    }, []);
-
-    useEffect(() => {
-        if (!showHeaderMenu) return;
-        const onEscape = (event) => {
-            if (event.key === 'Escape') setShowHeaderMenu(false);
-        };
-        globalThis.addEventListener('keydown', onEscape);
-        return () => globalThis.removeEventListener('keydown', onEscape);
-    }, [showHeaderMenu]);
 
     const handleRefresh = () => {
         fetchDueAssessments(searchText.trim());
@@ -2022,14 +2269,25 @@ export default function Dashboard() {
         router.push('/');
     };
 
-    const activeFilterCount = (filters.years?.length || 0) + (filters.terms?.length || 0) +
-        (filters.courseIds?.length || 0) + (filters.courseCodes?.length || 0);
+    const activeFilterCount =
+        (filters.years?.length || 0) +
+        (filters.terms?.length || 0) +
+        (filters.courseIds?.length || 0) +
+        (filters.courseCodes?.length || 0);
 
     const quickLinks = useMemo(() => getQuickLinks(user?.canvasBaseUrl), [user?.canvasBaseUrl]);
 
     if (!authChecked) {
         return (
-            <div style={{ minHeight: '100vh', background: '#0b0f1e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div
+                style={{
+                    minHeight: '100vh',
+                    background: '#0b0f1e',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
                 <span className={styles.spinnerLarge} />
             </div>
         );
@@ -2040,13 +2298,14 @@ export default function Dashboard() {
 
     return (
         <div className={styles.root}>
-            {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-            {selectedAssessment && <AssessmentDetailModal assessment={selectedAssessment} onClose={() => setSelectedAssessment(null)} />}
-
-
+            {selectedAssessment && (
+                <AssessmentDetailModal assessment={selectedAssessment} onClose={() => setSelectedAssessment(null)} />
+            )}
 
             <div className={styles.bgDecor} aria-hidden="true">
-                <div className={styles.blob1} /><div className={styles.blob2} /><div className={styles.blob3} />
+                <div className={styles.blob1} />
+                <div className={styles.blob2} />
+                <div className={styles.blob3} />
             </div>
 
             <header className={styles.header}>
@@ -2061,7 +2320,8 @@ export default function Dashboard() {
                     <div className={styles.headerRight}>
                         {lastUpdated && (
                             <span className={styles.lastUpdated}>
-                                Updated {lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
+                                Updated{' '}
+                                {lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                         )}
 
@@ -2082,8 +2342,32 @@ export default function Dashboard() {
                                     aria-label="Close menu"
                                 />
                                 <div className={styles.menuPanel} role="menu" aria-label="Dashboard menu">
+                                    <div className={styles.menuProfile}>
+                                        <div className={styles.menuAvatar}>
+                                            {user?.username?.[0]?.toUpperCase() || '?'}
+                                        </div>
+                                        <div className={styles.menuProfileCopy}>
+                                            <strong>{user?.username || 'Canvas student'}</strong>
+                                            <span>{user?.email || 'Account settings'}</span>
+                                        </div>
+                                    </div>
+                                    <div className={styles.menuDivider} />
+                                    <div className={styles.menuSection}>Workspace</div>
+                                    <button
+                                        className={`${styles.menuAction} ${styles.menuActionFeatured}`}
+                                        onClick={() => {
+                                            setShowHeaderMenu(false);
+                                            setActiveTab('settings');
+                                        }}
+                                    >
+                                        <span>
+                                            <strong>Settings</strong>
+                                            <br />
+                                            <small>Manage Canvas and timetable</small>
+                                        </span>
+                                    </button>
                                     <div className={styles.menuSection}>Quick links</div>
-                                    {quickLinks.map((link) => (
+                                    {quickLinks.map((link, index) => (
                                         <a
                                             key={`menu-${link.label}`}
                                             href={link.href}
@@ -2092,12 +2376,20 @@ export default function Dashboard() {
                                             className={styles.menuLink}
                                             onClick={() => setShowHeaderMenu(false)}
                                         >
-                                            {link.label}
+                                            <span>{link.label}</span>
+                                            <span className={styles.menuExternal}>↗</span>
                                         </a>
                                     ))}
-                                    <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); setActiveTab('settings'); }}>⚙️ Settings</button>
-                                    <button className={styles.menuAction} onClick={() => { setShowHeaderMenu(false); setShowHelp(true); }}>⌨️ Shortcuts</button>
-                                    <button className={styles.menuActionDanger} onClick={() => { setShowHeaderMenu(false); handleLogout(); }}>Sign out</button>
+                                    <div className={styles.menuDivider} />
+                                    <button
+                                        className={styles.menuActionDanger}
+                                        onClick={() => {
+                                            setShowHeaderMenu(false);
+                                            handleLogout();
+                                        }}
+                                    >
+                                        <span>Sign out</span>
+                                    </button>
                                 </div>
                             </>
                         )}
@@ -2109,24 +2401,53 @@ export default function Dashboard() {
                 <div className={dashStyles.setupBanner}>
                     <span>{setupBanner}</span>
                     <div className={dashStyles.setupBannerActions}>
-                        <button className={dashStyles.setupBannerBtn} onClick={() => setActiveTab('settings')}>Open Settings</button>
-                        <button className={dashStyles.setupBannerClose} onClick={() => setSetupBanner('')}>✕</button>
+                        <button className={dashStyles.setupBannerBtn} onClick={() => setActiveTab('settings')}>
+                            Open Settings
+                        </button>
+                        <button className={dashStyles.setupBannerClose} onClick={() => setSetupBanner('')}>
+                            ✕
+                        </button>
                     </div>
                 </div>
             )}
 
             <main className={styles.main}>
+                {activeTab !== 'settings' && (
+                    <>
                 <section className={styles.controlPanel}>
                     <div className={styles.searchForm}>
                         <div className={styles.inputWrapper}>
                             <span className={styles.inputIcon}>🔍</span>
-                            <input ref={searchInputRef} type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
-                                placeholder="Type to search classes, quizzes, or semester" className={styles.searchInput} />
+                            <input
+                                type="text"
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                                placeholder="Type to search classes, quizzes, or semester"
+                                className={styles.searchInput}
+                            />
                         </div>
                         <div className={styles.btnGroup}>
-                            <button type="button" onClick={handleClearFilter} disabled={loading} className={styles.btnSecondary}>Show All</button>
-                            <button type="button" onClick={handleRefresh} disabled={loading} className={styles.btnPrimary}>
-                                {loading ? <><span className={styles.spinner} /> Refreshing…</> : 'Refresh'}
+                            <button
+                                type="button"
+                                onClick={handleClearFilter}
+                                disabled={loading}
+                                className={styles.btnSecondary}
+                            >
+                                Show All
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleRefresh}
+                                disabled={loading}
+                                className={styles.btnPrimary}
+                            >
+                                {loading ? (
+                                    <>
+                                        <span className={styles.spinner} /> Refreshing…
+                                    </>
+                                ) : (
+                                    'Refresh'
+                                )}
                             </button>
                         </div>
                     </div>
@@ -2134,19 +2455,51 @@ export default function Dashboard() {
 
                 <div className={dashStyles.tabsAndFilter}>
                     <div className={styles.tabRow}>
-                        <button className={`${styles.tabBtn} ${activeTab === 'active' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('active'); }}>📋 Active</button>
-                        <button className={`${styles.tabBtn} ${activeTab === 'passedYear' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('passedYear'); }}>✅ Passed This Year</button>
-                        <button className={`${styles.tabBtn} ${activeTab === 'pastClasses' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('pastClasses'); }}>🗂️ Past Classes</button>
-                        <button className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('calendar'); }}>📅 Calendar</button>
-                        <button className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`}
-                            onClick={() => { setActiveTab('timetable'); }}>🕐 Timetable</button>
+                        <button
+                            className={`${styles.tabBtn} ${activeTab === 'active' ? styles.tabBtnActive : ''}`}
+                            onClick={() => {
+                                setActiveTab('active');
+                            }}
+                        >
+                            📋 Active
+                        </button>
+                        <button
+                            className={`${styles.tabBtn} ${activeTab === 'passedYear' ? styles.tabBtnActive : ''}`}
+                            onClick={() => {
+                                setActiveTab('passedYear');
+                            }}
+                        >
+                            ✅ Passed This Year
+                        </button>
+                        <button
+                            className={`${styles.tabBtn} ${activeTab === 'pastClasses' ? styles.tabBtnActive : ''}`}
+                            onClick={() => {
+                                setActiveTab('pastClasses');
+                            }}
+                        >
+                            🗂️ Past Classes
+                        </button>
+                        <button
+                            className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`}
+                            onClick={() => {
+                                setActiveTab('calendar');
+                            }}
+                        >
+                            📅 Calendar
+                        </button>
+                        <button
+                            className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`}
+                            onClick={() => {
+                                setActiveTab('timetable');
+                            }}
+                        >
+                            🕐 Timetable
+                        </button>
                         <button
                             className={`${styles.tabBtn} ${activeTab === 'hidden' ? styles.tabBtnActive : ''} ${dashStyles.hiddenTab}`}
-                            onClick={() => { setActiveTab('hidden'); }}
+                            onClick={() => {
+                                setActiveTab('hidden');
+                            }}
                         >
                             👁 Hidden
                             {hiddenIds.size > 0 && <span className={dashStyles.hiddenBadge}>{hiddenIds.size}</span>}
@@ -2156,24 +2509,33 @@ export default function Dashboard() {
                     {isListOrCalendar && (
                         <button
                             className={`${dashStyles.filterToggleBtn} ${activeFilterCount > 0 ? dashStyles.filterToggleBtnActive : ''}`}
-                            onClick={() => setSidebarOpen(o => !o)}
+                            onClick={() => setSidebarOpen((o) => !o)}
                             aria-label="Toggle filters"
                         >
                             ⚡ Filters
-                            {activeFilterCount > 0 && <span className={dashStyles.filterBadge}>{activeFilterCount}</span>}
+                            {activeFilterCount > 0 && (
+                                <span className={dashStyles.filterBadge}>{activeFilterCount}</span>
+                            )}
                         </button>
                     )}
                 </div>
 
+                    </>
+                )}
+
                 {error && (
                     <div className={styles.errorBanner}>
                         <span>⚠️ {error}</span>
-                        <button onClick={() => fetchDueAssessments(searchText)} className={styles.retryBtn}>Retry</button>
+                        <button onClick={() => fetchDueAssessments(searchText)} className={styles.retryBtn}>
+                            Retry
+                        </button>
                     </div>
                 )}
 
-                <div className={`${dashStyles.contentWithSidebar} ${sidebarOpen && isListOrCalendar ? dashStyles.contentWithSidebarOpen : ''}`}>
-                    {isListOrCalendar && (
+                <div
+                    className={`${dashStyles.contentWithSidebar} ${sidebarOpen && isListOrCalendar ? dashStyles.contentWithSidebarOpen : ''}`}
+                >
+                    {isListOrCalendar && sidebarOpen && (
                         <FilterSidebar
                             dueData={dueData}
                             filters={filters}
@@ -2241,14 +2603,13 @@ export default function Dashboard() {
                                     inline
                                     user={user}
                                     onClose={() => setActiveTab('active')}
-                                    reminderHours={reminderHours}
-                                    onReminderHoursChange={setReminderHours}
-                                    notificationPermission={notificationPermission}
-                                    onEnableNotifications={handleEnableNotifications}
                                     onSaved={(updatedUser) => {
                                         setUser(updatedUser);
                                         setSetupBanner('');
-                                        setTimeout(() => { setActiveTab('active'); fetchDueAssessments(''); }, 800);
+                                        setTimeout(() => {
+                                            setActiveTab('active');
+                                            fetchDueAssessments('');
+                                        }, 800);
                                     }}
                                 />
                             </div>
@@ -2260,7 +2621,15 @@ export default function Dashboard() {
             <footer className={styles.footer}>
                 <div className={styles.footerLinks}>
                     {quickLinks.map((link) => (
-                        <a key={`footer-${link.label}`} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.footerLink}>{link.label}</a>
+                        <a
+                            key={`footer-${link.label}`}
+                            href={link.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.footerLink}
+                        >
+                            {link.label}
+                        </a>
                     ))}
                 </div>
                 <p>Final Reckoning · RajLogic</p>

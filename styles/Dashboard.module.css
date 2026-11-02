@@ -232,14 +232,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1.375rem 1.75rem;
+    padding: 1.5rem 1.75rem;
     border-bottom: 1px solid var(--border);
-    background: var(--bg-subtle);
+    background: linear-gradient(135deg, var(--bg-subtle), var(--bg-card));
+}
+
+.modalEyebrow {
+    margin: 0 0 0.25rem;
+    color: var(--accent-warm);
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
 
 .modalTitle {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: 1.35rem;
     font-weight: 800;
     color: var(--text-primary);
     letter-spacing: -0.02em;
@@ -266,20 +275,50 @@
 }
 
 .modalBody {
-    padding: 1.75rem;
+    padding: 1.5rem 1.75rem 2rem;
     display: flex;
     flex-direction: column;
-    gap: 1.375rem;
+    gap: 1.25rem;
 }
 
 .userInfo {
     display: flex;
     align-items: center;
     gap: 0.875rem;
-    padding: 0.875rem 1rem;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    background: linear-gradient(135deg, var(--bg-subtle), var(--bg-card));
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+}
+
+.settingsIntro {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--accent-border);
+    border-radius: 14px;
+    background: var(--accent-light);
+}
+
+.settingsIntroIcon,
+.settingsSectionIcon {
+    color: var(--accent-warm);
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.settingsIntro strong {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.settingsIntro p,
+.settingsSectionHeading p {
+    margin: 0.2rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.45;
 }
 
 .userAvatar {
@@ -350,6 +389,100 @@
     display: flex;
     flex-direction: column;
     gap: 1.125rem;
+}
+
+.settingsWorkspace {
+    display: grid;
+    grid-template-columns: minmax(170px, 0.32fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 1.5rem;
+}
+
+.settingsNav {
+    position: sticky;
+    top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.65rem;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+.settingsNavTitle {
+    margin: 0.15rem 0.5rem 0.45rem;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.settingsNavItem {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.65rem 0.55rem;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.settingsNavItem:hover,
+.settingsNavItem:focus-visible {
+    background: var(--bg-card);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+    outline: none;
+}
+
+
+.settingsNavItem span{
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.settingsNavItem strong {
+    font-size: 0.75rem;
+}
+
+.settingsNavItem small {
+    color: var(--text-muted);
+    font-size: 0.65rem;
+}
+
+.settingsNavNote {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    margin: 0.65rem 0.2rem 0.1rem;
+    padding: 0.65rem 0.45rem 0.15rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    line-height: 1.45;
+}
+
+.settingsNavNote p {
+    margin: 0;
+}
+
+.settingsSectionHeading {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    margin-top: 0.25rem;
+}
+
+.settingsSectionHeading h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    letter-spacing: -0.01em;
 }
 
 .settingsField {
@@ -424,6 +557,19 @@
     margin-top: 0.25rem;
 }
 
+.settingsSecondary {
+    background: var(--bg-subtle);
+    color: var(--text-primary);
+    border: 1px solid var(--border-strong);
+    box-shadow: none;
+}
+
+.settingsSecondary:hover:not(:disabled) {
+    background: var(--bg-hover);
+    border-color: var(--accent-border);
+    box-shadow: none;
+}
+
 .settingsSave:hover:not(:disabled) {
     background: var(--accent-hover);
     transform: translateY(-1px);
@@ -463,6 +609,19 @@
     .modalBody {
         padding: 0.95rem;
         gap: 1rem;
+    }
+
+    .settingsWorkspace {
+        display: block;
+    }
+
+    .settingsNav {
+        position: static;
+        margin-bottom: 1.15rem;
+    }
+
+    .settingsNavItem {
+        padding: 0.55rem;
     }
 
     .userBtnName {
@@ -792,39 +951,6 @@
     color: var(--text-secondary);
     font-weight: 500;
     margin-bottom: 0.5rem;
-}
-
-.shortcutList {
-    display: grid;
-    gap: 0.6rem;
-}
-
-.shortcutRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    background: var(--bg-subtle);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.6rem 0.75rem;
-}
-
-.shortcutKey {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem;
-    font-weight: 700;
-    background: var(--bg-card);
-    border: 1px solid var(--border-strong);
-    border-radius: 7px;
-    padding: 0.2rem 0.45rem;
-    color: var(--text-primary);
-}
-
-.shortcutAction {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    font-weight: 600;
 }
 
 .detailMetaGrid {
