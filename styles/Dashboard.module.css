@@ -174,6 +174,17 @@
     animation: overlayIn 0.2s ease both;
 }
 
+.modalBackdrop {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: default;
+}
+
 @keyframes overlayIn {
     from {
         opacity: 0;
@@ -186,6 +197,8 @@
 
 /* ─── Modal ─── */
 .modal {
+    position: relative;
+    z-index: 1;
     width: 100%;
     max-width: 520px;
     background: var(--bg-card);
@@ -754,6 +767,51 @@
     flex-wrap: wrap;
 }
 
+.tabNavigation {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.primaryTabRow {
+    width: fit-content;
+}
+
+.secondaryTabRow {
+    background: var(--bg-subtle);
+    border-color: var(--border-strong);
+    box-shadow: none;
+    padding: 0.2rem;
+}
+
+.secondaryTabBtn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.78rem;
+}
+
+.secondaryNavigation {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    
+    
+}
+
+.secondaryNavigation .secondaryTabRow {
+    flex: 1 3 auto;
+    width: auto;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.secondaryNavigation .filterToggleBtn {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
 /* ─── Filter toggle button ─── */
 .filterToggleBtn {
     display: flex;
@@ -802,8 +860,9 @@
 /* ─── Content with sidebar layout ─── */
 .contentWithSidebar {
     display: flex;
-    gap: 1.25rem;
-    align-items: flex-start;
+    flex-direction: row-reverse;
+    gap: 0.75rem;
+    align-items: center;
 }
 
 .contentWithSidebarOpen .mainContent {
@@ -813,6 +872,7 @@
 
 .mainContent {
     flex: 1;
+    width: 100%;  
     min-width: 0;
 }
 
@@ -840,6 +900,7 @@
 /* ─── Assessment card actions ─── */
 .cardActions {
     display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 0.375rem;
     flex-shrink: 0;
@@ -959,6 +1020,183 @@
     gap: 0.45rem;
 }
 
+.assessmentModal {
+    max-width: 640px;
+    border-color: var(--accent-border);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--accent-light);
+}
+
+.assessmentModalHeader {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    padding: 1.5rem 1.5rem 1.35rem;
+    background:
+        radial-gradient(circle at 8% 0%, var(--accent-border), transparent 38%),
+        linear-gradient(135deg, var(--bg-subtle), var(--bg-card));
+    border-bottom: 1px solid var(--border);
+}
+
+.assessmentHeaderIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 13px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 1.2rem;
+    font-weight: 800;
+    box-shadow: 0 8px 20px var(--accent-border);
+}
+
+.assessmentHeaderCopy {
+    min-width: 0;
+    padding-right: 2rem;
+}
+
+.assessmentHeaderCopy .modalEyebrow {
+    margin-bottom: 0.35rem;
+}
+
+.assessmentHeaderCopy .modalTitle {
+    overflow-wrap: anywhere;
+}
+
+.assessmentCourse {
+    margin: 0.35rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.assessmentModalHeader .modalClose {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+}
+
+.assessmentModalBody {
+    gap: 1.35rem;
+    padding: 1.35rem 1.5rem 1.5rem;
+}
+
+.detailMetaCard {
+    display: flex;
+    flex: 1 1 145px;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-subtle);
+}
+
+.detailMetaCard strong {
+    overflow-wrap: anywhere;
+    color: var(--text-primary);
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+.detailMetaLabel {
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.detailMetaCard_urgent {
+    border-color: var(--urgent-border);
+    background: var(--urgent-bg);
+}
+
+.detailMetaCard_urgent strong {
+    color: var(--urgent-text);
+}
+
+.detailMetaCard_warning {
+    border-color: var(--warning-border);
+    background: var(--warning-bg);
+}
+
+.detailMetaCard_warning strong {
+    color: var(--warning-text);
+}
+
+.detailMetaCard_safe {
+    border-color: var(--safe-border);
+    background: var(--safe-bg);
+}
+
+.detailMetaCard_safe strong {
+    color: var(--safe-text);
+}
+
+.detailMetaCard_marked {
+    border-color: var(--success-border);
+    background: var(--success-bg);
+}
+
+.detailMetaCard_marked strong {
+    color: var(--success-text);
+}
+
+.detailMetaCard_awaitingMark {
+    border-color: var(--warning-border);
+    background: var(--warning-bg);
+}
+
+.detailMetaCard_awaitingMark strong {
+    color: var(--warning-text);
+}
+
+.detailMetaCard_submitted {
+    border-color: var(--success-border);
+    background: var(--success-bg);
+}
+
+.detailMetaCard_submitted strong {
+    color: var(--success-text);
+}
+
+.detailMetaCard_submittedLate {
+    border-color: var(--warning-border);
+    background: var(--warning-bg);
+}
+
+.detailMetaCard_submittedLate strong {
+    color: var(--warning-text);
+}
+
+.detailDescriptionSection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.detailSectionHeading {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--text-primary);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.detailSectionLine {
+    height: 1px;
+    flex: 1;
+    background: var(--border);
+}
+
 .detailMetaItem {
     font-size: 0.7rem;
     font-weight: 600;
@@ -973,10 +1211,10 @@
     font-size: 0.84rem;
     color: var(--text-primary);
     line-height: 1.5;
-    background: var(--bg-subtle);
+    background: linear-gradient(135deg, var(--bg-subtle), var(--bg-card));
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.85rem 0.95rem;
+    border-radius: 13px;
+    padding: 1rem;
     max-height: 220px;
     overflow-y: auto;
     white-space: pre-wrap;
@@ -986,6 +1224,46 @@
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+}
+
+.assessmentPrimaryAction,
+.assessmentSecondaryAction {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 42px;
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.assessmentPrimaryAction {
+    flex: 1;
+    color: var(--text-on-accent);
+    background: var(--accent);
+    box-shadow: 0 5px 16px var(--accent-border);
+}
+
+.assessmentPrimaryAction:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+.assessmentSecondaryAction {
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+    background: var(--bg-subtle);
+}
+
+.assessmentSecondaryAction:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--bg-hover);
 }
 
 @media (max-width: 900px) {
@@ -1031,8 +1309,35 @@
         align-items: flex-start;
     }
 
+    .tabNavigation,
+    .secondaryNavigation {
+        width: 100%;
+    }
+
+    .secondaryNavigation {
+        gap: 0.4rem;
+    }
+
+    .tabsAndFilter > .filterToggleBtn {
+        align-self: flex-end;
+    }
+
+    .cardActions {
+        width: auto;
+        justify-content: flex-end;
+        gap: 0.25rem;
+    }
+
+    .hideBtn,
+    .unhideBtn {
+        padding: 0.2rem 0.3rem;
+        font-size: 0.5rem;
+    }
+}
+@container (max-width: 520px) {
     .cardActions {
         width: 100%;
         justify-content: space-between;
+        padding-left: calc(3px + 0.625rem); /* line up with the title, past the stripe */
     }
 }

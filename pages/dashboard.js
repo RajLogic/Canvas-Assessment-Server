@@ -33,6 +33,13 @@ function getUrgency(dueTimestamp) {
     return 'safe';
 }
 
+function getTimeAwareGreeting(date = new Date()) {
+    const hour = date.getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+}
+
 function formatCountdown(msLeft) {
     const totalMinutes = Math.max(0, Math.floor(msLeft / (1000 * 60)));
     const days = Math.floor(totalMinutes / (60 * 24));
@@ -68,16 +75,50 @@ function getDaysLeftLabel(dueTimestamp) {
     return `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
 }
 
+function formatScorePercentage(score, pointsPossible) {
+    const numericScore = Number(score);
+    const numericPointsPossible = Number(pointsPossible);
+    if (
+        !Number.isFinite(numericScore) ||
+        !Number.isFinite(numericPointsPossible) ||
+        numericPointsPossible <= 0
+    ) {
+        return null;
+    }
+
+    const percentage = Math.round((numericScore / numericPointsPossible) * 1000) / 10;
+    return `${percentage}%`;
+}
+
 function formatShortDate(dateString) {
-    return new Date(dateString).toLocaleString('en-AU', {
+    return new Date(dateString).toLocaleDateString('en-AU', {
         weekday: 'short',
         day: '2-digit',
         month: 'short',
         year: 'numeric',
+    });
+}
+
+function formatShortTime(dateString) {
+    return new Date(dateString).toLocaleTimeString('en-AU', {
         hour: '2-digit',
         minute: '2-digit',
     });
 }
+
+function FormattedDueDate({ dateString }) {
+    return (
+        <>
+            {formatShortDate(dateString)} 
+            &nbsp;
+            {formatShortTime(dateString)}
+        </>
+    );
+}
+
+FormattedDueDate.propTypes = {
+    dateString: PropTypes.string.isRequired,
+};
 
 function formatTime(dateString) {
     return new Date(dateString).toLocaleTimeString('en-AU', {
@@ -85,6 +126,37 @@ function formatTime(dateString) {
         minute: '2-digit',
     });
 }
+
+const submissionTypeLabels = {
+    external_tool: 'External Tool',
+    media_recording: 'Media Recording',
+    none: 'None',
+    online_quiz: 'Online Quiz',
+    online_text_entry: 'Online Text Entry',
+    online_upload: 'Online Upload',
+    online_url: 'Online URL',
+};
+
+function formatSubmissionType(submissionType) {
+    return submissionTypeLabels[submissionType] || submissionType;
+}
+
+function FormattedTitle({ title }) {
+    const separatorIndex = title.indexOf(':');
+    if (separatorIndex === -1) return title;
+
+    return (
+        <>
+            {title.slice(0, separatorIndex + 1)}
+            <br />
+            {title.slice(separatorIndex + 1).trim()}
+        </>
+    );
+}
+
+FormattedTitle.propTypes = {
+    title: PropTypes.string.isRequired,
+};
 
 function startOfLocalDay(value = new Date()) {
     const date = new Date(value);
@@ -227,6 +299,8 @@ const AssessmentCard = memo(function AssessmentCard({
     const { dueTimestamp } = assessment;
     const urgency = getUrgency(dueTimestamp);
     const isOverdue = dueTimestamp < nowTick;
+    const isPast = isOverdue;
+    const scorePercentage = formatScorePercentage(assessment.score, assessment.pointsPossible);
     return (
         <li
             className={`${styles.assessmentItem} ${styles[isHidden ? 'item_safe' : 'item_' + urgency]} ${isHidden ? dashStyles.hiddenItem : ''}`}
@@ -247,31 +321,46 @@ const AssessmentCard = memo(function AssessmentCard({
                         {assessment.name}
                     </button>
                     <div className={styles.assessmentMeta}>
-                        <span className={styles.dueDate}>📅 {formatShortDate(assessment.dueAt)}</span>
-                        {assessment.pointsPossible != null && (
+                        <span className={styles.dueDate}>
+                            📅 <FormattedDueDate dateString={assessment.dueAt} />
+                        </span>
+                        {!isPast && assessment.pointsPossible != null && (
                             <span className={styles.points}>⭐ {assessment.pointsPossible} pts</span>
                         )}
-                        {assessment.score != null && (
+                        {!isPast && assessment.score != null && (
                             <span className={styles.gradeBadge}>
-                                🏁 {assessment.score}
+                                {assessment.score}
                                 {assessment.pointsPossible == null ? '' : `/${assessment.pointsPossible}`}
+                                {scorePercentage && ` (${scorePercentage})`}
                             </span>
                         )}
-                        {/* Submitted tag intentionally removed for V1 */}
                         {isHidden && <span className={dashStyles.hiddenTag}>Hidden</span>}
                     </div>
                 </div>
             </div>
             <div className={dashStyles.cardActions}>
-                {!isHidden && <UrgencyBadge dueTimestamp={assessment.dueTimestamp} nowTick={nowTick} />}
-                <button
-                    className={isHidden ? dashStyles.unhideBtn : dashStyles.hideBtn}
-                    onClick={() => (isHidden ? onUnhide(assessment.id) : onHide(assessment.id))}
-                    title={isHidden ? 'Restore assessment' : 'Hide assessment'}
-                    aria-label={isHidden ? `Restore ${assessment.name}` : `Hide ${assessment.name}`}
-                >
-                    {isHidden ? '↩ Restore' : '✕ Hide'}
-                </button>
+                {!isHidden &&
+                    (isPast ? (
+                        assessment.score != null && (
+                            <span className={styles.gradeBadge}>
+                                🏁 {assessment.score}
+                                {assessment.pointsPossible == null ? '' : `/${assessment.pointsPossible}`}
+                                {scorePercentage && ` (${scorePercentage})`}
+                            </span>
+                        )
+                    ) : (
+                        <UrgencyBadge dueTimestamp={assessment.dueTimestamp} nowTick={nowTick} />
+                    ))}
+                {(isHidden || !isPast) && (
+                    <button
+                        className={isHidden ? dashStyles.unhideBtn : dashStyles.hideBtn}
+                        onClick={() => (isHidden ? onUnhide(assessment.id) : onHide(assessment.id))}
+                        title={isHidden ? 'Restore assessment' : 'Hide assessment'}
+                        aria-label={isHidden ? `Restore ${assessment.name}` : `Hide ${assessment.name}`}
+                    >
+                        {isHidden ? '↩ Restore' : '✕ Hide'}
+                    </button>
+                )}
             </div>
         </li>
     );
@@ -967,7 +1056,7 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                                 key={a.id}
                                                 className={styles.calPill + ' ' + styles['calPill_' + pillUrgency]}
                                             >
-                                                {formatTime(a.dueAt)} {a.name}
+                                                {formatTime(a.dueAt)} <FormattedTitle title={a.name} />
                                             </div>
                                         );
                                     })}
@@ -1011,12 +1100,12 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                                 className={styles.calDetailNameBtn}
                                                 onClick={() => onOpenDetails(a)}
                                             >
-                                                {a.name}
+                                                <FormattedTitle title={a.name} />
                                             </button>
                                             <div className={styles.calDetailMeta}>
                                                 <span className={styles.calDetailCourse}>{a.courseName}</span>
                                                 <span className={styles.calDetailTime}>
-                                                    🕐 {formatShortDate(a.dueAt)}
+                                                    🕐 <FormattedDueDate dateString={a.dueAt} />
                                                 </span>
                                                 {a.pointsPossible != null && (
                                                     <span className={styles.calDetailPts}>
@@ -1422,7 +1511,9 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                                     setSelectedClass({ ...ev, toneIndex, eventKey })
                                                                 }
                                                             >
-                                                                <span className={styles.ttBlockName}>{ev.summary}</span>
+                                                                <span className={styles.ttBlockName}>
+                                                                    <FormattedTitle title={ev.summary} />
+                                                                </span>
                                                                 {ev.location && (
                                                                     <span className={styles.ttBlockLoc}>
                                                                         {ev.location}
@@ -1514,7 +1605,9 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                     title={titleText}
                                                     onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
                                                 >
-                                                    <span className={styles.ttBlockName}>{ev.summary}</span>
+                                                    <span className={styles.ttBlockName}>
+                                                        <FormattedTitle title={ev.summary} />
+                                                    </span>
                                                     <span className={styles.ttBlockTime}>
                                                         {startFmt} – {endFmt}
                                                     </span>
@@ -1565,7 +1658,9 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                     style={{ top: pos.top, height: pos.height }}
                                                     onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
                                                 >
-                                                    <span className={styles.ttBlockName}>{ev.summary}</span>
+                                                    <span className={styles.ttBlockName}>
+                                                        <FormattedTitle title={ev.summary} />
+                                                    </span>
                                                     <span className={styles.ttBlockTime}>
                                                         {formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}
                                                     </span>
@@ -1596,7 +1691,9 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                     <span className={styles.ttActivityTime}>
                                                         {formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}
                                                     </span>
-                                                    <span className={styles.ttActivityName}>{ev.summary}</span>
+                                                    <span className={styles.ttActivityName}>
+                                                        <FormattedTitle title={ev.summary} />
+                                                    </span>
                                                     {ev.location && (
                                                         <span className={styles.ttActivityLocation}>{ev.location}</span>
                                                     )}
@@ -1626,7 +1723,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                         }}
                                     >
                                         <span className={styles.eventName}>
-                                            {selectedClass.className || selectedClass.summary}
+                                            <FormattedTitle title={selectedClass.className || selectedClass.summary} />
                                         </span>
                                         <button
                                             className={styles.calDetailClose}
@@ -1667,7 +1764,9 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                         {selectedClass.summary && selectedClass.summary !== selectedClass.className && (
                                             <div style={{ gridColumn: '1 / -1' }}>
                                                 <div className={styles.ttDetailLabel}>Full title</div>
-                                                <div className={styles.ttDetailValue}>{selectedClass.summary}</div>
+                                                <div className={styles.ttDetailValue}>
+                                                    <FormattedTitle title={selectedClass.summary} />
+                                                </div>
                                             </div>
                                         )}
 
@@ -1850,13 +1949,6 @@ function SettingsModal({
                                 <small>Institution &amp; credentials</small>
                             </span>
                         </a>
-                        <a href="#save-changes" className={dashStyles.settingsNavItem}>
-                            <span></span>
-                            <span>
-                                <strong>Save changes</strong>
-                                <small>Apply your preferences</small>
-                            </span>
-                        </a>
                         <div className={dashStyles.settingsNavNote}>
                             <span></span>
                             <p>Your sensitive Canvas details are encrypted before storage.</p>
@@ -1977,7 +2069,7 @@ function SettingsModal({
                         <div className={dashStyles.settingsDivider} />
 
                         <button type="submit" className={dashStyles.settingsSave} disabled={saving}>
-                            {saving ? '🔐 Encrypting & saving…' : 'Save settings'}
+                            {saving ? 'Saving…' : 'Save settings'}
                         </button>
                     </form>
                 </div>
@@ -2015,6 +2107,23 @@ function AssessmentDetailModal({ assessment, onClose }) {
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+    const urgency = getUrgency(assessment.dueTimestamp);
+    const isPast = assessment.dueTimestamp < Date.now();
+    const scorePercentage = formatScorePercentage(assessment.score, assessment.pointsPossible);
+    const submittedAtTimestamp = assessment.submittedAt ? Date.parse(assessment.submittedAt) : NaN;
+    const dueAtTimestamp = assessment.dueAt ? Date.parse(assessment.dueAt) : NaN;
+    const isMarked = assessment.score !== null && assessment.score !== undefined;
+    const isSubmitted = Number.isFinite(submittedAtTimestamp);
+    const statusCardClass = isMarked
+        ? 'marked'
+        : isSubmitted
+          ? 'awaitingMark'
+          : urgency;
+    const submissionStatus = Number.isFinite(submittedAtTimestamp)
+        ? Number.isFinite(dueAtTimestamp) && submittedAtTimestamp > dueAtTimestamp
+            ? 'submittedLate'
+            : 'submitted'
+        : 'overdue';
 
     return (
         <div className={dashStyles.modalOverlay}>
@@ -2024,52 +2133,113 @@ function AssessmentDetailModal({ assessment, onClose }) {
                 onClick={onClose}
                 aria-label="Close assessment details"
             />
-            <div className={dashStyles.modal}>
-                <div className={dashStyles.modalHeader}>
-                    <h2 className={dashStyles.modalTitle}>📘 {assessment.name}</h2>
-                    <button className={dashStyles.modalClose} onClick={onClose}>
+            <div
+                className={`${dashStyles.modal} ${dashStyles.assessmentModal}`}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="assessment-detail-title"
+            >
+                <div className={dashStyles.assessmentModalHeader}>
+                    <div className={dashStyles.assessmentHeaderIcon} aria-hidden="true">
+                        ✓
+                    </div>
+                    <div className={dashStyles.assessmentHeaderCopy}>
+                        <p className={dashStyles.modalEyebrow}>Assessment details</p>
+                        <h2 id="assessment-detail-title" className={dashStyles.modalTitle}>
+                            <FormattedTitle title={assessment.name} />
+                        </h2>
+                        <p className={dashStyles.assessmentCourse}>{assessment.courseName}</p>
+                    </div>
+                    <button className={dashStyles.modalClose} onClick={onClose} type="button" aria-label="Close details">
                         ✕
                     </button>
                 </div>
-                <div className={dashStyles.modalBody}>
+                <div className={`${dashStyles.modalBody} ${dashStyles.assessmentModalBody}`}>
                     <div className={dashStyles.detailMetaGrid}>
-                        <span className={dashStyles.detailMetaItem}>📚 {assessment.courseName}</span>
-                        <span className={dashStyles.detailMetaItem}>📅 {formatShortDate(assessment.dueAt)}</span>
-                        {assessment.pointsPossible !== null && assessment.pointsPossible !== undefined && (
-                            <span className={dashStyles.detailMetaItem}>⭐ {assessment.pointsPossible} pts</span>
-                        )}
-                        {assessment.score !== null && assessment.score !== undefined && (
-                            <span className={dashStyles.detailMetaItem}>
-                                🏁 Score: {assessment.score}
-                                {assessment.pointsPossible !== null && assessment.pointsPossible !== undefined
-                                    ? `/${assessment.pointsPossible}`
-                                    : ''}
+                        <span className={dashStyles.detailMetaCard}>
+                            <span className={dashStyles.detailMetaLabel}>Due</span>
+                            <strong>
+                                <FormattedDueDate dateString={assessment.dueAt} />
+                            </strong>
+                        </span>
+                        <span
+                            className={`${dashStyles.detailMetaCard} ${dashStyles[`detailMetaCard_${statusCardClass}`]}`}
+                        >
+                            <span className={dashStyles.detailMetaLabel}>Status</span>
+                            <strong>
+                                {isMarked
+                                    ? 'Marked'
+                                    : isSubmitted
+                                      ? 'Awaiting mark'
+                                      : assessment.dueTimestamp < Date.now()
+                                        ? 'Overdue'
+                                        : getDaysLeftLabel(assessment.dueTimestamp)}
+                            </strong>
+                        </span>
+                        {!isPast &&
+                            assessment.pointsPossible !== null &&
+                            assessment.pointsPossible !== undefined && (
+                            <span className={dashStyles.detailMetaCard}>
+                                <span className={dashStyles.detailMetaLabel}>Points</span>
+                                <strong>{assessment.pointsPossible}</strong>
                             </span>
                         )}
-                        {assessment.grade && (
-                            <span className={dashStyles.detailMetaItem}>🧾 Grade: {assessment.grade}</span>
+                        {assessment.score !== null && assessment.score !== undefined && (
+                            <span className={dashStyles.detailMetaCard}>
+                                <span className={dashStyles.detailMetaLabel}>Score</span>
+                                <strong>
+                                    {assessment.score}
+                                    {assessment.pointsPossible !== null && assessment.pointsPossible !== undefined
+                                        ? `/${assessment.pointsPossible}`
+                                        : ''}
+                                    {scorePercentage && ` (${scorePercentage})`}
+                                </strong>
+                            </span>
                         )}
+                        <span
+                            className={`${dashStyles.detailMetaCard} ${dashStyles[`detailMetaCard_${submissionStatus}`]}`}
+                        >
+                            <span className={dashStyles.detailMetaLabel}>Submission status</span>
+                            <strong>
+                                {submissionStatus === 'submittedLate'
+                                    ? 'Late'
+                                    : submissionStatus === 'submitted'
+                                      ? 'Ontime'
+                                      : 'None'}
+                            </strong>
+                        </span>
                         {/* Submitted tag intentionally removed for V1 */}
                         {Array.isArray(assessment.submissionTypes) && assessment.submissionTypes.length > 0 && (
-                            <span className={dashStyles.detailMetaItem}>
-                                📤 {assessment.submissionTypes.join(', ')}
+                            <span className={dashStyles.detailMetaCard}>
+                                <span className={dashStyles.detailMetaLabel}>Submission Type</span>
+                                <strong>{assessment.submissionTypes.map(formatSubmissionType).join(', ')}</strong>
                             </span>
                         )}
                     </div>
 
-                    <div className={dashStyles.detailDescription}>
-                        {plainDescription || 'No description available for this assessment.'}
-                    </div>
+                    <section className={dashStyles.detailDescriptionSection} aria-labelledby="assessment-description-title">
+                        <div className={dashStyles.detailSectionHeading}>
+                            <span id="assessment-description-title">Brief</span>
+                            <span className={dashStyles.detailSectionLine} />
+                        </div>
+                        <div className={dashStyles.detailDescription}>
+                            {plainDescription || 'No description available for this assessment.'}
+                        </div>
+                    </section>
 
                     <div className={dashStyles.detailActions}>
                         <a
-                            className={dashStyles.settingsSave}
+                            className={dashStyles.assessmentPrimaryAction}
                             href={assessment.htmlUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                         >
                             Open in Canvas
+                            <span aria-hidden="true">↗</span>
                         </a>
+                        <button className={dashStyles.assessmentSecondaryAction} onClick={onClose} type="button">
+                            Done
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2313,8 +2483,22 @@ export default function Dashboard() {
                     <div className={styles.logoRow}>
                         <SiteLogo size={32} />
                         <div>
-                            <h1 className={styles.siteTitle}>Final Reckoning</h1>
-                            <p className={styles.siteSub}>Upcoming assessments at a glance</p>
+                            <h1 className={styles.siteTitle}>
+                                <span className={styles.desktopBrand}>Final Reckoning</span>
+                                <span className={styles.mobileGreeting}>
+                                    {getTimeAwareGreeting()}, {user?.username?.split(' ')[0] || 'there'}
+                                </span>
+                            </h1>
+                            <p className={styles.siteSub}>
+                                <span className={styles.desktopBrand}>Upcoming assessments at a glance</span>
+                                <span className={styles.mobileGreeting}>
+                                    {new Date().toLocaleDateString('en-AU', {
+                                        weekday: 'long',
+                                        day: 'numeric',
+                                        month: 'long',
+                                    })}
+                                </span>
+                            </p>
                         </div>
                     </div>
                     <div className={styles.headerRight}>
@@ -2331,7 +2515,8 @@ export default function Dashboard() {
                             aria-expanded={showHeaderMenu}
                             aria-haspopup="menu"
                         >
-                            ☰ Menu
+                            <span className={styles.desktopMenuLabel}>☰ Menu</span>
+                            <span className={styles.mobileMenuLabel}>•••</span>
                         </button>
 
                         {showHeaderMenu && (
@@ -2454,59 +2639,88 @@ export default function Dashboard() {
                 </section>
 
                 <div className={dashStyles.tabsAndFilter}>
-                    <div className={styles.tabRow}>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'active' ? styles.tabBtnActive : ''}`}
-                            onClick={() => {
-                                setActiveTab('active');
-                            }}
-                        >
-                            📋 Active
-                        </button>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'passedYear' ? styles.tabBtnActive : ''}`}
-                            onClick={() => {
-                                setActiveTab('passedYear');
-                            }}
-                        >
-                            ✅ Passed This Year
-                        </button>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'pastClasses' ? styles.tabBtnActive : ''}`}
-                            onClick={() => {
-                                setActiveTab('pastClasses');
-                            }}
-                        >
-                            🗂️ Past Classes
-                        </button>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`}
-                            onClick={() => {
-                                setActiveTab('calendar');
-                            }}
-                        >
-                            📅 Calendar
-                        </button>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`}
-                            onClick={() => {
-                                setActiveTab('timetable');
-                            }}
-                        >
-                            🕐 Timetable
-                        </button>
-                        <button
-                            className={`${styles.tabBtn} ${activeTab === 'hidden' ? styles.tabBtnActive : ''} ${dashStyles.hiddenTab}`}
-                            onClick={() => {
-                                setActiveTab('hidden');
-                            }}
-                        >
-                            👁 Hidden
-                            {hiddenIds.size > 0 && <span className={dashStyles.hiddenBadge}>{hiddenIds.size}</span>}
-                        </button>
+                    <div className={dashStyles.tabNavigation}>
+                        <div className={`${styles.tabRow} ${dashStyles.primaryTabRow}`} aria-label="Main dashboard views">
+                            <button
+                                className={`${styles.tabBtn} ${isAssessmentView || activeTab === 'hidden' ? styles.tabBtnActive : ''}`}
+                                onClick={() => {
+                                    setActiveTab('active');
+                                }}
+                            >
+                                📋 Assessments
+                            </button>
+                            <button
+                                className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`}
+                                onClick={() => {
+                                    setActiveTab('calendar');
+                                }}
+                            >
+                                📅 Calendar
+                            </button>
+                            <button
+                                className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`}
+                                onClick={() => {
+                                    setActiveTab('timetable');
+                                }}
+                            >
+                                🕐 Timetable
+                            </button>
+                        </div>
+
+                        {(isAssessmentView || activeTab === 'hidden') && (
+                            <div className={dashStyles.secondaryNavigation}>
+                                <div className={`${styles.tabRow} ${dashStyles.secondaryTabRow}`} aria-label="Assessment views">
+                                    <button
+                                        className={`${styles.tabBtn} ${dashStyles.secondaryTabBtn} ${activeTab === 'active' ? styles.tabBtnActive : ''}`}
+                                        onClick={() => {
+                                            setActiveTab('active');
+                                        }}
+                                    >
+                                        📋 Upcoming
+                                    </button>
+                                    <button
+                                        className={`${styles.tabBtn} ${dashStyles.secondaryTabBtn} ${activeTab === 'passedYear' ? styles.tabBtnActive : ''}`}
+                                        onClick={() => {
+                                            setActiveTab('passedYear');
+                                        }}
+                                    >
+                                        ✅ Passed This Year
+                                    </button>
+                                    <button
+                                        className={`${styles.tabBtn} ${dashStyles.secondaryTabBtn} ${activeTab === 'pastClasses' ? styles.tabBtnActive : ''}`}
+                                        onClick={() => {
+                                            setActiveTab('pastClasses');
+                                        }}
+                                    >
+                                        🗂️ Past Classes
+                                    </button>
+                                    <button
+                                        className={`${styles.tabBtn} ${dashStyles.secondaryTabBtn} ${activeTab === 'hidden' ? styles.tabBtnActive : ''} ${dashStyles.hiddenTab}`}
+                                        onClick={() => {
+                                            setActiveTab('hidden');
+                                        }}
+                                    >
+                                        👁 Hidden
+                                        {hiddenIds.size > 0 && <span className={dashStyles.hiddenBadge}>{hiddenIds.size}</span>}
+                                    </button>
+                                </div>
+                                {isListOrCalendar && (
+                                    <button
+                                        className={`${dashStyles.filterToggleBtn} ${activeFilterCount > 0 ? dashStyles.filterToggleBtnActive : ''}`}
+                                        onClick={() => setSidebarOpen((o) => !o)}
+                                        aria-label="Toggle filters"
+                                    >
+                                        ⚡ Filters
+                                        {activeFilterCount > 0 && (
+                                            <span className={dashStyles.filterBadge}>{activeFilterCount}</span>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
 
-                    {isListOrCalendar && (
+                    {!isAssessmentView && activeTab !== 'hidden' && isListOrCalendar && (
                         <button
                             className={`${dashStyles.filterToggleBtn} ${activeFilterCount > 0 ? dashStyles.filterToggleBtnActive : ''}`}
                             onClick={() => setSidebarOpen((o) => !o)}

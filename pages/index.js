@@ -54,15 +54,11 @@ export default function Landing() {
                 <div className={styles.navInner}>
                     <div className={styles.navBrand}>
                         <SiteLogo size={28} />
-                        <span className={styles.navTitle}>final reckoning<span>.</span></span>
-                    </div>
-                    <div className={styles.navCenter}>
-                        <a href="#how-it-works" className={styles.navLink}>How it works</a>
-                        <a href="#features" className={styles.navLink}>Features</a>
+                        <span className={styles.navTitle}>Final Reckoning<span>.</span></span>
                     </div>
                     <div className={styles.navLinks}>
                         <Link href="/login" className={styles.navLink}>Log in</Link>
-                        <Link href="/register" className={styles.navCta}>Start for free <span aria-hidden="true">↗</span></Link>
+                        <Link href="/register" className={styles.navCta}>Start for free</Link>
                     </div>
                 </div>
             </nav>
@@ -83,9 +79,8 @@ export default function Landing() {
                         </p>
                         <div className={styles.heroCtas}>
                             <Link href="/register" className={styles.ctaPrimary}>
-                                Create free account <span className={styles.ctaArrow} aria-hidden="true">↗</span>
+                                Create free account
                             </Link>
-                            <a href="#how-it-works" className={styles.ctaSecondary}>See how it works <span aria-hidden="true">↓</span></a>
                         </div>
                         <div className={styles.heroNote}>
                             <span className={styles.avatarStack} aria-hidden="true"><i /><i /><i /></span>
