@@ -282,13 +282,13 @@
 }
 
 .inputError {
-    border-color: var(--error-border) !important;
-    background: var(--error-bg) !important;
+    border-color: var(--error-border) ;
+    background: var(--error-bg) ;
 }
 
 .inputSuccess {
-    border-color: var(--success-border) !important;
-    background: var(--success-bg) !important;
+    border-color: var(--success-border) ;
+    background: var(--success-bg) ;
 }
 
 .strengthWrap {
@@ -414,6 +414,27 @@
 @keyframes spin {
     to {
         transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .root *,
+    .root *::before,
+    .root *::after {
+        animation-duration: 0.01ms ;
+        animation-iteration-count: 1 ;
+        transition-duration: 0.01ms ;
+        scroll-behavior: auto ;
+    }
+
+    .card,
+    .errorBox,
+    .spinner {
+        animation: none;
+    }
+
+    .submitBtn:hover:not(:disabled) {
+        transform: none;
     }
 }
 

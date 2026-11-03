@@ -41,7 +41,8 @@ async function fetchPaginated(initialUrl, apiToken) {
         items = items.concat(pageItems);
 
         const link = response.headers.get('link');
-        const nextMatch = new RegExp(/<([^>]+)>;\s*rel="next"/).exec(link);
+        const nextLink = link?.split(',').find((entry) => /;\s*rel="next"/.test(entry));
+        const nextMatch = nextLink ? /^<([^>]*)>/.exec(nextLink.trim()) : null;
         url = nextMatch ? nextMatch[1] : null;
     }
 

@@ -209,6 +209,12 @@
     animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .modal {
+        animation: none;
+    }
+}
+
 .settingsPageShell {
     display: flex;
     width: 100%;
@@ -308,7 +314,6 @@
     display: flex;
     align-items: flex-start;
     gap: 0.75rem;
-    padding: 0.85rem 1rem;
     border: 1px solid var(--accent-border);
     border-radius: 14px;
     background: var(--accent-light);
@@ -385,6 +390,12 @@
     padding: 0.75rem 1rem;
     border-radius: 10px;
     animation: fadeIn 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .settingsSuccess {
+        animation: none;
+    }
 }
 
 @keyframes fadeIn {
@@ -1034,6 +1045,7 @@
         radial-gradient(circle at 8% 0%, var(--accent-border), transparent 38%),
         linear-gradient(135deg, var(--bg-subtle), var(--bg-card));
     border-bottom: 1px solid var(--border);
+    border-radius: 10px
 }
 
 .assessmentHeaderIcon {
@@ -1215,6 +1227,27 @@
     padding: 1rem;
     max-height: 220px;
     overflow-y: auto;
+    scrollbar-color: var(--accent) var(--bg-subtle);
+    scrollbar-width: thin;
+}
+
+.detailDescription::-webkit-scrollbar {
+    width: 8px;
+}
+
+.detailDescription::-webkit-scrollbar-track {
+    background: var(--bg-subtle);
+    border-radius: 999px;
+}
+
+.detailDescription::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border: 2px solid var(--bg-subtle);
+    border-radius: 999px;
+}
+
+.detailDescription::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-hover);
 }
 
 .detailDescription h2,
@@ -1608,11 +1641,11 @@
 }
 
 .predictorWeightColumn {
-    width: 6rem;
+    width: 3rem;
 }
 
 .predictorActionColumn {
-    width: 0rem;
+    width: 2rem;
 }
 
 .predictorTable th {

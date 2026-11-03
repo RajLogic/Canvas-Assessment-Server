@@ -33,7 +33,7 @@ export default function Login() {
     useEffect(() => {
         fetch('/api/auth/session')
             .then((r) => r.json())
-            .then((d) => { if (d.authenticated) router.replace(getDashboardRoute(d.user?.dashboardVersion)); })
+            .then((d) => { if (d.authenticated) void router.replace(getDashboardRoute(d.user?.dashboardVersion)); })
             .catch(() => { })
             .finally(() => setChecking(false));
     }, [router]);
@@ -62,7 +62,7 @@ export default function Login() {
                 setError(data.message || 'Login failed.');
                 return;
             }
-            router.push(getDashboardRoute(data.user?.dashboardVersion));
+            void router.push(getDashboardRoute(data.user?.dashboardVersion));
         } catch {
             setError('Network error. Please try again.');
         } finally {
@@ -143,7 +143,6 @@ export default function Login() {
                                 className={styles.input}
                                 placeholder="you@example.com or username"
                                 autoComplete="username"
-                                autoFocus
                             />
                         </div>
 

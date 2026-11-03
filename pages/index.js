@@ -31,7 +31,7 @@ export default function Landing() {
         fetch('/api/auth/session')
             .then((r) => r.json())
             .then((data) => {
-                if (data.authenticated) router.replace(getDashboardRoute(data.user?.dashboardVersion));
+                if (data.authenticated) void router.replace(getDashboardRoute(data.user?.dashboardVersion));
             })
             .catch(() => { });
     }, [router]);
@@ -67,12 +67,12 @@ export default function Landing() {
                 <section className={styles.hero}>
                     <div className={styles.heroCopy}>
                         <div className={styles.heroBadge}>
-                            <span className={styles.heroBadgeDot} />
+                            <span className={styles.heroBadgeDot} />{' '}
                             Built by students, for students
                         </div>
                         <h1 className={styles.heroTitle}>
-                            Your semester,
-                            <span className={styles.heroAccent}> under control.</span>
+                            Your semester,{' '}
+                            <span className={styles.heroAccent}>under control.</span>
                         </h1>
                         <p className={styles.heroSub}>
                             One calm, clear place for every assessment, class, and deadline. Sync Canvas and spend less time searching, more time getting things done.
