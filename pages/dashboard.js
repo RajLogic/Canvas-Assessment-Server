@@ -1325,6 +1325,7 @@ function positionBlockVertical(startStr, endStr) {
 }
 
 const TT_BLOCK_TONES = 8;
+const TT_CLASS_COLORS_KEY = 'fr_tt_class_colors';
 
 function toneIndexForSummary(summary) {
     const codeMatch = (summary || '').match(/[A-Z]{2,6}\d{3,5}[A-Z]?/);
@@ -1332,6 +1333,23 @@ function toneIndexForSummary(summary) {
     let hash = 0;
     for (let i = 0; i < key.length; i++) hash = key.codePointAt(i) + ((hash << 5) - hash);
     return Math.abs(hash) % TT_BLOCK_TONES;
+}
+
+function timetableClassKey(event) {
+    return event.className || (event.summary || '').split(',')[0] || event.summary || 'Untitled Event';
+}
+
+function getTimetableColorStyle(color) {
+    if (!/^#[\da-f]{6}$/i.test(color || '')) return undefined;
+    const red = Number.parseInt(color.slice(1, 3), 16);
+    const green = Number.parseInt(color.slice(3, 5), 16);
+    const blue = Number.parseInt(color.slice(5, 7), 16);
+    const luminance = (red * 299 + green * 587 + blue * 114) / 1000;
+    return {
+        backgroundColor: color,
+        borderColor: color,
+        color: luminance > 155 ? '#17202a' : '#FFFFFF',
+    };
 }
 
 function formatHourLabel(h, use24Hour) {
@@ -1354,6 +1372,14 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
     const [isVerticalTimetable, setIsVerticalTimetable] = useState(false);
     const [localNow, setLocalNow] = useState(() => new Date());
     const [selectedClass, setSelectedClass] = useState(null);
+    const [classColors, setClassColors] = useState(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem(TT_CLASS_COLORS_KEY) || '{}');
+            return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+        } catch {
+            return {};
+        }
+    });
     const [use24Hour, setUse24Hour] = useState(() => {
         try {
             const saved = localStorage.getItem('fr_tt_time_format');
@@ -1372,6 +1398,14 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
             // Ignore storage issues
         }
     }, [use24Hour]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(TT_CLASS_COLORS_KEY, JSON.stringify(classColors));
+        } catch {
+            // Ignore storage issues
+        }
+    }, [classColors]);
 
     useEffect(() => {
         const timer = setInterval(() => setLocalNow(new Date()), 1000);
@@ -1474,6 +1508,23 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
             minute: '2-digit',
             hour12: !use24Hour,
         });
+
+    const getEventStyle = (event) => getTimetableColorStyle(classColors[timetableClassKey(event)]);
+    const savedSelectedClassColor = selectedClass && classColors[selectedClass.classKey];
+    const selectedClassColor = getTimetableColorStyle(savedSelectedClassColor) ? savedSelectedClassColor : undefined;
+    const selectedClassStyle = getTimetableColorStyle(selectedClassColor);
+    const updateClassColor = (color) => {
+        if (!selectedClass?.classKey) return;
+        setClassColors((current) => ({ ...current, [selectedClass.classKey]: color }));
+    };
+    const resetClassColor = () => {
+        if (!selectedClass?.classKey) return;
+        setClassColors((current) => {
+            const next = { ...current };
+            delete next[selectedClass.classKey];
+            return next;
+        });
+    };
 
     return (
         <div className={styles.timetableWrap}>
@@ -1620,10 +1671,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                     {/* Event blocks */}
                                                     {dayEvents.map((ev, idx) => {
                                                         const pos = positionBlock(ev.start, ev.end);
-                                                        const classKey =
-                                                            ev.className ||
-                                                            (ev.summary || '').split(',')[0] ||
-                                                            ev.summary;
+                                                        const classKey = timetableClassKey(ev);
                                                         const toneIndex = toneIndexForSummary(classKey);
                                                         const startFmt = formatLocalTime(ev.start);
                                                         const endFmt = formatLocalTime(ev.end);
@@ -1649,10 +1697,10 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                                 key={eventKey}
                                                                 type="button"
                                                                 className={blockClassName}
-                                                                style={{ left: pos.left, width: pos.width }}
+                                                                style={{ left: pos.left, width: pos.width, ...getEventStyle(ev) }}
                                                                 title={blockTitle}
                                                                 onClick={() =>
-                                                                    setSelectedClass({ ...ev, toneIndex, eventKey })
+                                                                    setSelectedClass({ ...ev, classKey, toneIndex, eventKey })
                                                                 }
                                                             >
                                                                 <span className={styles.ttBlockName}>
@@ -1729,8 +1777,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
 
                                         {selectedDayEvents.map((ev, idx) => {
                                             const pos = positionBlock(ev.start, ev.end);
-                                            const classKey =
-                                                ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                            const classKey = timetableClassKey(ev);
                                             const toneIndex = toneIndexForSummary(classKey);
                                             const startFmt = formatLocalTime(ev.start);
                                             const endFmt = formatLocalTime(ev.end);
@@ -1745,9 +1792,9 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                 <button
                                                     key={eventKey}
                                                     className={`${styles.ttBlock} ${styles.ttDayBlock} ${toneClass} ${isSelected ? styles.ttBlockActive : ''}`}
-                                                    style={{ left: pos.left, width: pos.width }}
+                                                    style={{ left: pos.left, width: pos.width, ...getEventStyle(ev) }}
                                                     title={titleText}
-                                                    onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
+                                                    onClick={() => setSelectedClass({ ...ev, classKey, toneIndex, eventKey })}
                                                 >
                                                     <span className={styles.ttBlockName}>
                                                         <FormattedTitle title={ev.summary} />
@@ -1785,8 +1832,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
 
                                         {selectedDayEvents.map((ev, idx) => {
                                             const pos = positionBlockVertical(ev.start, ev.end);
-                                            const classKey =
-                                                ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                            const classKey = timetableClassKey(ev);
                                             const toneIndex = toneIndexForSummary(classKey);
                                             const toneClass = styles[`ttBlockTone${toneIndex}`];
                                             const eventKey = `${selectedDayKey}-${idx}`;
@@ -1799,8 +1845,8 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                                     key={`vertical-${eventKey}`}
                                                     type="button"
                                                     className={`${styles.ttBlock} ${styles.ttDayVerticalBlock} ${toneClass} ${isSelected ? styles.ttBlockActive : ''}`}
-                                                    style={{ top: pos.top, height: pos.height }}
-                                                    onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
+                                                    style={{ top: pos.top, height: pos.height, ...getEventStyle(ev) }}
+                                                    onClick={() => setSelectedClass({ ...ev, classKey, toneIndex, eventKey })}
                                                 >
                                                     <span className={styles.ttBlockName}>
                                                         <FormattedTitle title={ev.summary} />
@@ -1820,7 +1866,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                             ) : (
                                 <ul className={styles.ttDayActivitiesList}>
                                     {selectedDayEvents.map((ev, idx) => {
-                                        const classKey = ev.className || (ev.summary || '').split(',')[0] || ev.summary;
+                                        const classKey = timetableClassKey(ev);
                                         const toneIndex = toneIndexForSummary(classKey);
                                         const eventKey = `${selectedDayKey}-${idx}`;
                                         const isSelected = selectedClass?.uid
@@ -1830,7 +1876,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                             <li key={`activity-${eventKey}`} className={styles.ttActivityItem}>
                                                 <button
                                                     className={`${styles.ttActivityBtn} ${isSelected ? styles.ttActivityBtnActive : ''}`}
-                                                    onClick={() => setSelectedClass({ ...ev, toneIndex, eventKey })}
+                                                    onClick={() => setSelectedClass({ ...ev, classKey, toneIndex, eventKey })}
                                                 >
                                                     <span className={styles.ttActivityTime}>
                                                         {formatLocalTime(ev.start)} - {formatLocalTime(ev.end)}
@@ -1854,7 +1900,8 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                         {selectedClass ? (
                             <div className={styles.eventCard}>
                                 <div
-                                    className={`${styles.ttDetailStripe} ${styles['ttBlockTone' + selectedClass.toneIndex]}`}
+                                    className={`${styles.ttDetailStripe} ${selectedClassStyle ? '' : styles['ttBlockTone' + selectedClass.toneIndex]}`}
+                                    style={selectedClassStyle}
                                 />
                                 <div className={styles.eventDetailsSection} style={{ flex: 1 }}>
                                     <div
@@ -1875,6 +1922,25 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                             aria-label="Close"
                                         >
                                             <Icon name="close" size={16} />
+                                        </button>
+                                    </div>
+
+                                    <div className={styles.ttColorPicker}>
+                                        <label htmlFor="timetable-class-color">Class colour</label>
+                                        <input
+                                            id="timetable-class-color"
+                                            type="color"
+                                            value={selectedClassColor || '#3C3489'}
+                                            onChange={(event) => updateClassColor(event.target.value)}
+                                            aria-label={`Choose colour for ${selectedClass.classKey}`}
+                                        />
+                                        <button
+                                            type="button"
+                                            className={styles.ttResetColorBtn}
+                                            onClick={resetClassColor}
+                                            disabled={!selectedClassColor}
+                                        >
+                                            Reset
                                         </button>
                                     </div>
 

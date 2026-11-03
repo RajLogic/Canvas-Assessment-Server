@@ -3055,6 +3055,48 @@
     line-height: 1.5;
 }
 
+.ttColorPicker {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.9rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.ttColorPicker input {
+    width: 2rem;
+    height: 2rem;
+    padding: 0.15rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: var(--bg-card);
+    cursor: pointer;
+}
+
+.ttResetColorBtn {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ttResetColorBtn:hover:not(:disabled) {
+    background: var(--accent-light);
+    border-color: var(--accent-border);
+    color: var(--accent);
+}
+
+.ttResetColorBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* ─── Dashboard refinement ─── */
 
 
