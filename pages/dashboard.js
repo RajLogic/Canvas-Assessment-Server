@@ -1984,7 +1984,7 @@ function SettingsModal({
                 setError(data.message || 'Failed to save.');
                 return;
             }
-            setSuccess('Settings saved! All sensitive data is encrypted with AES-256-GCM.');
+            setSuccess('Settings saved!');
             onSaved?.(data.user);
         } catch {
             setError('Network error. Please try again.');
@@ -2139,7 +2139,7 @@ function SettingsModal({
                                     }
                                 />
                                 {user?.hasTimetableLink && (
-                                    <span className={dashStyles.savedBadge}>🔐 Encrypted &amp; saved</span>
+                                    <span className={dashStyles.savedBadge}>Saved</span>
                                 )}
                             </div>
                         </div>
