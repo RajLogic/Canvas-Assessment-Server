@@ -74,7 +74,7 @@ export default function Register() {
     useEffect(() => {
         fetch('/api/auth/session')
             .then((r) => r.json())
-            .then((d) => { if (d.authenticated) router.replace(getDashboardRoute(d.user?.dashboardVersion)); })
+            .then((d) => { if (d.authenticated) void router.replace(getDashboardRoute(d.user?.dashboardVersion)); })
             .catch(() => { })
             .finally(() => setChecking(false));
     }, [router]);
@@ -115,7 +115,7 @@ export default function Register() {
                 setError(data.message || 'Registration failed.');
                 return;
             }
-            router.push(`${getDashboardRoute(data.user?.dashboardVersion)}?welcome=1`);
+            void router.push(`${getDashboardRoute(data.user?.dashboardVersion)}?welcome=1`);
         } catch {
             setError('Network error. Please try again.');
         } finally {
@@ -194,7 +194,6 @@ export default function Register() {
                                 className={styles.input}
                                 placeholder="you@example.com"
                                 autoComplete="email"
-                                autoFocus
                             />
                         </div>
 

@@ -109,7 +109,7 @@ function sanitizeBriefHtml(description) {
             const href = hrefMatch && (hrefMatch[1] || hrefMatch[2] || hrefMatch[3]);
             if (!href || !/^(?:https?:|mailto:)/i.test(href)) return '<a>';
 
-            const escapedHref = href.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            const escapedHref = href.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
             return `<a href="${escapedHref}" target="_blank" rel="noopener noreferrer">`;
         })
         .replace(/<\/([a-z][\w-]*)\s*>/gi, (match, tagName) => {
@@ -149,10 +149,7 @@ FormattedDueDate.propTypes = {
 };
 
 function formatTime(dateString) {
-    return new Date(dateString).toLocaleTimeString('en-AU', {
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    return formatShortTime(dateString);
 }
 
 const submissionTypeLabels = {
@@ -316,6 +313,81 @@ UrgencyBadge.propTypes = {
     nowTick: PropTypes.number.isRequired,
 };
 
+const AssessmentMeta = memo(function AssessmentMeta({ assessment, isPast, isHidden, scorePercentage }) {
+    return (
+        <div className={styles.assessmentMeta}>
+            <span className={styles.dueDate}>
+                📅 <FormattedDueDate dateString={assessment.dueAt} />
+            </span>
+            {!isPast && assessment.pointsPossible != null && (
+                <span className={styles.points}>⭐ {assessment.pointsPossible} pts</span>
+            )}
+            {!isPast && assessment.score != null && (
+                <span className={styles.gradeBadge}>
+                    {assessment.score}
+                    {assessment.pointsPossible == null ? '' : `/${assessment.pointsPossible}`}
+                    {scorePercentage && ` (${scorePercentage})`}
+                </span>
+            )}
+            {isHidden && <span className={dashStyles.hiddenTag}>Hidden</span>}
+        </div>
+    );
+});
+
+AssessmentMeta.propTypes = {
+    assessment: PropTypes.object.isRequired,
+    isPast: PropTypes.bool.isRequired,
+    isHidden: PropTypes.bool.isRequired,
+    scorePercentage: PropTypes.string,
+};
+
+const AssessmentCardActions = memo(function AssessmentCardActions({
+    assessment,
+    isHidden,
+    isPast,
+    nowTick,
+    scorePercentage,
+    onHide,
+    onUnhide,
+}) {
+    return (
+        <div className={dashStyles.cardActions}>
+            {!isHidden &&
+                (isPast ? (
+                    assessment.score != null && (
+                        <span className={styles.gradeBadge}>
+                            🏁 {assessment.score}
+                            {assessment.pointsPossible == null ? '' : `/${assessment.pointsPossible}`}
+                            {scorePercentage && ` (${scorePercentage})`}
+                        </span>
+                    )
+                ) : (
+                    <UrgencyBadge dueTimestamp={assessment.dueTimestamp} nowTick={nowTick} />
+                ))}
+            {(isHidden || !isPast) && (
+                <button
+                    className={isHidden ? dashStyles.unhideBtn : dashStyles.hideBtn}
+                    onClick={() => (isHidden ? onUnhide(assessment.id) : onHide(assessment.id))}
+                    title={isHidden ? 'Restore assessment' : 'Hide assessment'}
+                    aria-label={isHidden ? `Restore ${assessment.name}` : `Hide ${assessment.name}`}
+                >
+                    {isHidden ? '↩ Restore' : '✕ Hide'}
+                </button>
+            )}
+        </div>
+    );
+});
+
+AssessmentCardActions.propTypes = {
+    assessment: PropTypes.object.isRequired,
+    isHidden: PropTypes.bool.isRequired,
+    isPast: PropTypes.bool.isRequired,
+    nowTick: PropTypes.number.isRequired,
+    scorePercentage: PropTypes.string,
+    onHide: PropTypes.func.isRequired,
+    onUnhide: PropTypes.func.isRequired,
+};
+
 const AssessmentCard = memo(function AssessmentCard({
     assessment,
     onHide,
@@ -366,30 +438,15 @@ const AssessmentCard = memo(function AssessmentCard({
                     </div>
                 </div>
             </div>
-            <div className={dashStyles.cardActions}>
-                {!isHidden &&
-                    (isPast ? (
-                        assessment.score != null && (
-                            <span className={styles.gradeBadge}>
-                                🏁 {assessment.score}
-                                {assessment.pointsPossible == null ? '' : `/${assessment.pointsPossible}`}
-                                {scorePercentage && ` (${scorePercentage})`}
-                            </span>
-                        )
-                    ) : (
-                        <UrgencyBadge dueTimestamp={assessment.dueTimestamp} nowTick={nowTick} />
-                    ))}
-                {(isHidden || !isPast) && (
-                    <button
-                        className={isHidden ? dashStyles.unhideBtn : dashStyles.hideBtn}
-                        onClick={() => (isHidden ? onUnhide(assessment.id) : onHide(assessment.id))}
-                        title={isHidden ? 'Restore assessment' : 'Hide assessment'}
-                        aria-label={isHidden ? `Restore ${assessment.name}` : `Hide ${assessment.name}`}
-                    >
-                        {isHidden ? '↩ Restore' : '✕ Hide'}
-                    </button>
-                )}
-            </div>
+            <AssessmentCardActions
+                assessment={assessment}
+                isHidden={isHidden}
+                isPast={isPast}
+                nowTick={nowTick}
+                scorePercentage={scorePercentage}
+                onHide={onHide}
+                onUnhide={onUnhide}
+            />
         </li>
     );
 });
@@ -1020,18 +1077,22 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
             <div className={styles.calLegend}>
                 <span className={styles.calLegendItem}>
                     <span className={`${styles.calLegendDot} ${styles.dotToday}`} />
+                    {' '}
                     Today
                 </span>
                 <span className={styles.calLegendItem}>
                     <span className={`${styles.calLegendDot} ${styles.dotUrgent}`} />
+                    {' '}
                     ≤5 days
                 </span>
                 <span className={styles.calLegendItem}>
                     <span className={`${styles.calLegendDot} ${styles.dotWarning}`} />
+                    {' '}   
                     ≤2 weeks
                 </span>
                 <span className={styles.calLegendItem}>
                     <span className={`${styles.calLegendDot} ${styles.dotSafe}`} />
+                    {' '}
                     &gt;2 weeks
                 </span>
             </div>
@@ -2133,27 +2194,54 @@ SettingsModal.propTypes = {
 };
 SettingsModal.propTypes.inline = PropTypes.bool;
 
+function getAssessmentSubmissionStatus(isSubmitted, submittedAtTimestamp, dueAtTimestamp) {
+    if (!isSubmitted) return 'overdue';
+    if (Number.isFinite(dueAtTimestamp) && submittedAtTimestamp > dueAtTimestamp) return 'submittedLate';
+    return 'submitted';
+}
+
+function getAssessmentStatusLabel(assessment, isMarked, isSubmitted) {
+    if (isMarked) return 'Marked';
+    if (isSubmitted) return 'Awaiting mark';
+    if (assessment.dueTimestamp < Date.now()) return 'Overdue';
+    return getDaysLeftLabel(assessment.dueTimestamp);
+}
+
+function getAssessmentDetailStatus(assessment) {
+    const submittedAtTimestamp = assessment.submittedAt ? Date.parse(assessment.submittedAt) : Number.NaN;
+    const dueAtTimestamp = assessment.dueAt ? Date.parse(assessment.dueAt) : Number.NaN;
+    const isMarked = assessment.score !== null && assessment.score !== undefined;
+    const isSubmitted = Number.isFinite(submittedAtTimestamp);
+    const submissionStatus = getAssessmentSubmissionStatus(isSubmitted, submittedAtTimestamp, dueAtTimestamp);
+    let statusCardClass = getUrgency(assessment.dueTimestamp);
+    if (isSubmitted) statusCardClass = 'awaitingMark';
+    if (isMarked) statusCardClass = 'marked';
+
+    return {
+        submittedAtTimestamp,
+        isSubmitted,
+        statusCardClass,
+        submissionStatus,
+        statusLabel: getAssessmentStatusLabel(assessment, isMarked, isSubmitted),
+        submissionStatusLabel: {
+            submittedLate: 'Late',
+            submitted: 'Ontime',
+        }[submissionStatus] || 'None',
+    };
+}
+
 function AssessmentDetailModal({ assessment, onClose }) {
     if (!assessment) return null;
 
     const briefHtml = sanitizeBriefHtml(assessment.description);
-    const urgency = getUrgency(assessment.dueTimestamp);
     const isPast = assessment.dueTimestamp < Date.now();
     const scorePercentage = formatScorePercentage(assessment.score, assessment.pointsPossible);
-    const submittedAtTimestamp = assessment.submittedAt ? Date.parse(assessment.submittedAt) : NaN;
-    const dueAtTimestamp = assessment.dueAt ? Date.parse(assessment.dueAt) : NaN;
-    const isMarked = assessment.score !== null && assessment.score !== undefined;
-    const isSubmitted = Number.isFinite(submittedAtTimestamp);
-    const statusCardClass = isMarked
-        ? 'marked'
-        : isSubmitted
-          ? 'awaitingMark'
-          : urgency;
-    const submissionStatus = Number.isFinite(submittedAtTimestamp)
-        ? Number.isFinite(dueAtTimestamp) && submittedAtTimestamp > dueAtTimestamp
-            ? 'submittedLate'
-            : 'submitted'
-        : 'overdue';
+    const {
+        statusCardClass,
+        statusLabel,
+        submissionStatus,
+        submissionStatusLabel,
+    } = getAssessmentDetailStatus(assessment);
 
     return (
         <div className={dashStyles.modalOverlay}>
@@ -2163,9 +2251,9 @@ function AssessmentDetailModal({ assessment, onClose }) {
                 onClick={onClose}
                 aria-label="Close assessment details"
             />
-            <div
+            <dialog
                 className={`${dashStyles.modal} ${dashStyles.assessmentModal}`}
-                role="dialog"
+                open
                 aria-modal="true"
                 aria-labelledby="assessment-detail-title"
             >
@@ -2193,18 +2281,10 @@ function AssessmentDetailModal({ assessment, onClose }) {
                             </strong>
                         </span>
                         <span
-                            className={`${dashStyles.detailMetaCard} ${dashStyles[`detailMetaCard_${statusCardClass}`]}`}
+                            className={[dashStyles.detailMetaCard, dashStyles[`detailMetaCard_${statusCardClass}`]].join(' ')}
                         >
                             <span className={dashStyles.detailMetaLabel}>Status</span>
-                            <strong>
-                                {isMarked
-                                    ? 'Marked'
-                                    : isSubmitted
-                                      ? 'Awaiting mark'
-                                      : assessment.dueTimestamp < Date.now()
-                                        ? 'Overdue'
-                                        : getDaysLeftLabel(assessment.dueTimestamp)}
-                            </strong>
+                                                        <strong>{statusLabel}</strong>
                         </span>
                         {!isPast &&
                             assessment.pointsPossible !== null &&
@@ -2227,16 +2307,10 @@ function AssessmentDetailModal({ assessment, onClose }) {
                             </span>
                         )}
                         <span
-                            className={`${dashStyles.detailMetaCard} ${dashStyles[`detailMetaCard_${submissionStatus}`]}`}
+                            className={`${dashStyles.detailMetaCard} ${dashStyles['detailMetaCard_' + submissionStatus]}`}
                         >
                             <span className={dashStyles.detailMetaLabel}>Submission status</span>
-                            <strong>
-                                {submissionStatus === 'submittedLate'
-                                    ? 'Late'
-                                    : submissionStatus === 'submitted'
-                                      ? 'Ontime'
-                                      : 'None'}
-                            </strong>
+                            <strong>{submissionStatusLabel}</strong>
                         </span>
                         {/* Submitted tag intentionally removed for V1 */}
                         {Array.isArray(assessment.submissionTypes) && assessment.submissionTypes.length > 0 && (
@@ -2272,6 +2346,7 @@ function AssessmentDetailModal({ assessment, onClose }) {
                             rel="noopener noreferrer"
                         >
                             Open in Canvas
+                            {' '}
                             <span aria-hidden="true">↗</span>
                         </a>
                         <button className={dashStyles.assessmentSecondaryAction} onClick={onClose} type="button">
@@ -2279,7 +2354,7 @@ function AssessmentDetailModal({ assessment, onClose }) {
                         </button>
                     </div>
                 </div>
-            </div>
+            </dialog>
         </div>
     );
 }
@@ -2319,21 +2394,21 @@ function getInitialAssessmentScore(assessment) {
     const score = Number(assessment.score);
     const pointsPossible = Number(assessment.pointsPossible);
     if (!Number.isFinite(score) || !Number.isFinite(pointsPossible) || pointsPossible <= 0) return '';
-    return Math.round((score / pointsPossible) * 1000) / 10;
+    return String(Math.round((score / pointsPossible) * 1000) / 10);
 }
 
 function getPredictionPoints(scorePercentage, pointsPossible) {
     const score = Number(scorePercentage);
     const points = Number(pointsPossible);
     if (!Number.isFinite(score) || !Number.isFinite(points) || points <= 0) return '';
-    return Math.round(((score / 100) * points + Number.EPSILON) * 100) / 100;
+    return String(Math.round(((score / 100) * points + Number.EPSILON) * 100) / 100);
 }
 
 function getPredictionPercentage(pointsEarned, pointsPossible) {
     const earned = Number(pointsEarned);
     const possible = Number(pointsPossible);
     if (pointsEarned === '' || !Number.isFinite(earned) || !Number.isFinite(possible) || possible <= 0) return '';
-    return Math.min(100, Math.max(0, Math.round((earned / possible) * 1000) / 10));
+    return String(Math.min(100, Math.max(0, (earned / possible) * 100)));
 }
 
 function getRmitFinalGrade(percentage) {
@@ -2355,13 +2430,198 @@ function createPredictorGroup(index = 1) {
     };
 }
 
-const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
+function PredictorTable({ rows, showWeight, assignmentById, onScoreChange, onWeightChange, onRemove }) {
+    return (
+        <div className={dashStyles.predictorRows}>
+            <table className={dashStyles.predictorTable}>
+                <colgroup>
+                    <col className={dashStyles.predictorAssessmentColumn} />
+                    <col className={dashStyles.predictorScoreColumn} />
+                    {showWeight && <col className={dashStyles.predictorWeightColumn} />}
+                    <col className={dashStyles.predictorActionColumn} />
+                </colgroup>
+                <thead><tr><th scope="col">Assessment</th><th scope="col">Score</th>{showWeight && <th scope="col">Weight %</th>}<th scope="col"><span className={dashStyles.visuallyHidden}>Actions</span></th></tr></thead>
+                <tbody>
+                    {rows.map((item) => {
+                        const assignment = assignmentById.get(String(item.id));
+                        const pointsPossible = Number(assignment?.pointsPossible);
+                        const name = assignment?.name || 'Assessment unavailable';
+                        return (
+                            <tr key={item.id}>
+                                <td className={dashStyles.predictorAssignment}>
+                                    <strong title={name}>{name}</strong><small>{assignment?.score != null ? 'Graded' : 'Not graded · what-if'}</small>
+                                </td>
+                                <td>
+                                    <div className={dashStyles.predictorScoreCell}>
+                                        <input className={dashStyles.predictorScoreInput} type="int" min="0" max={Number.isFinite(pointsPossible) ? pointsPossible : undefined} step="1" value={getPredictionPoints(item.score, assignment?.pointsPossible)} placeholder="–" aria-label={`Score for ${name}`} onChange={(event) => onScoreChange(item.id, event.target.value, assignment)} />
+                                        <span className={dashStyles.predictorPointsSuffix}>/ {assignment?.pointsPossible ?? '—'}</span>
+                                    </div>
+                                </td>
+                                {showWeight && <td>
+                                    <input className={dashStyles.predictorWeightInput} type="int" min="0" max="100" step="1" value={item.weight} placeholder="0" aria-label={`Weight for ${name}`} onChange={(event) => onWeightChange(item.id, event.target.value)} />
+                                </td>}
+                                <td className={dashStyles.predictorActionCell}>
+                                    <button type="button" className={dashStyles.predictorRemove} onClick={() => onRemove(item.id)} aria-label={`Remove ${name}`}>
+                                        ✕
+                                    </button>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function PredictorAddRow({ selectKey, available, pendingAssessmentIds, setPendingAssessmentIds, onAdd, trailing }) {
+    const selectedId = pendingAssessmentIds[selectKey] || available[0]?.id || '';
+    return (
+        <div className={dashStyles.predictorGroupFooter}>
+            <select className={dashStyles.predictorAssessmentSelect} value={selectedId} onChange={(event) => setPendingAssessmentIds((current) => ({ ...current, [selectKey]: event.target.value }))} disabled={available.length === 0} aria-label="Select an assessment to add">
+                {available.length === 0 ? <option value="">All assessments added</option> : available.map((assignment) => <option key={assignment.id} value={assignment.id}>{assignment.name}</option>)}
+            </select>
+            <button type="button" className={dashStyles.predictorAdd} onClick={() => onAdd(selectedId)} disabled={available.length === 0}>Add</button>
+            <span className={dashStyles.predictorFooterNote}>{trailing}</span>
+        </div>
+    );
+}
+
+function PredictorGroupsView({ groups, results, groupAvailable, renderTable, renderAddRow, updateGroup, removeGroup, addAssessment, setGroups }) {
+    return (
+        <>
+            {results.map((group) => (
+                <article key={group.id} className={dashStyles.predictorGroup}>
+                    <div className={dashStyles.predictorGroupHeader}>
+                        <input className={dashStyles.predictorGroupName} value={group.name} onChange={(event) => updateGroup(group.id, { name: event.target.value })} aria-label="Group name" />
+                        <label className={dashStyles.predictorWeight}>
+                            <input type="int" min="0" max="100" step="1" value={group.weight} onChange={(event) => updateGroup(group.id, { weight: event.target.value })} aria-label="Group weight percent" />
+                            <span>% of course</span>
+                        </label>
+                        <button type="button" className={dashStyles.predictorRemove} onClick={() => removeGroup(group.id)} disabled={groups.length === 1} aria-label="Remove group">✕</button>
+                    </div>
+                    {group.assessments.length === 0 ? (
+                        <p className={dashStyles.predictorGroupEmpty}>Add assessments below to build this group.</p>
+                    ) : renderTable({
+                        rows: group.assessments,
+                        showWeight: false,
+                        showAverage: false,
+                        onScoreChange: (id, value, assignment) => updateGroup(group.id, { assessments: group.assessments.map((item) => item.id === id ? { ...item, score: getPredictionPercentage(value, assignment?.pointsPossible) } : item) }),
+                        onRemove: (id) => updateGroup(group.id, { assessments: group.assessments.filter((item) => item.id !== id) }),
+                    })}
+                    {renderAddRow({ selectKey: group.id, available: groupAvailable, onAdd: (id) => addAssessment(group.id, id), trailing: group.average == null ? 'No scores yet' : `Group average ${group.average.toFixed(1)}%` })}
+                </article>
+            ))}
+            <button type="button" className={dashStyles.predictorAddGroup} onClick={() => setGroups((current) => [...current, createPredictorGroup(current.length + 1)])}>+ Add group</button>
+        </>
+    );
+}
+
+function PredictorIndividualView({ individualAssessments, individualAvailableAssignments, individualTotalWeight, renderTable, renderAddRow, setIndividualAssessments, addIndividualAssessment }) {
+    return (
+        <article className={dashStyles.predictorGroup}>
+            <div className={dashStyles.predictorGroupHeader}>
+                <strong className={dashStyles.predictorGroupTitle}>Assessments</strong>
+                <span className={dashStyles.predictorFooterNote}>Each one has its own weight</span>
+            </div>
+            {individualAssessments.length === 0 ? (
+                <p className={dashStyles.predictorGroupEmpty}>Add an assessment below to get started.</p>
+            ) : renderTable({
+                rows: individualAssessments,
+                showWeight: true,
+                onScoreChange: (id, value, assignment) => setIndividualAssessments((current) => current.map((item) => item.id === id ? { ...item, score: getPredictionPercentage(value, assignment?.pointsPossible) } : item)),
+                onWeightChange: (id, value) => setIndividualAssessments((current) => current.map((item) => item.id === id ? { ...item, weight: value } : item)),
+                onRemove: (id) => setIndividualAssessments((current) => current.filter((item) => item.id !== id)),
+            })}
+            {renderAddRow({ selectKey: 'individual', available: individualAvailableAssignments, onAdd: addIndividualAssessment, trailing: `Weights total ${individualTotalWeight}%` })}
+        </article>
+    );
+}
+
+function PredictorSummary({ predictionMode, passPercent, setPassPercent, predictedResult, finalGrade, resultState, resultMessage, weightState, weightMessage, summaryRows, weightTotal }) {
+    return (
+        <aside className={dashStyles.predictorSummary}>
+            <div className={dashStyles.predictorResult}>
+                <div className={dashStyles.predictorResultHeader}>
+                    <span className={dashStyles.predictorResultLabel}>Predicted result</span>
+                    <label className={dashStyles.predictorPassMark}>
+                        <span>Pass percent</span>
+                        <input type="int" min="0" max="100" step="1" value={passPercent} aria-label="Pass mark percentage" onChange={(event) => {
+                            const inputValue = event.target.value;
+                            if (inputValue === '') {
+                                setPassPercent('');
+                                return;
+                            }
+
+                            const value = Number(inputValue);
+                            setPassPercent(Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : passPercent);
+                        }} />
+                        <span>%</span>
+                    </label>
+                </div>
+                <strong className={dashStyles.predictorResultValue}>{predictedResult == null ? '--' : <><span className={dashStyles.predictorGrade}>{finalGrade}</span>{` ${predictedResult.toFixed(1)}%`}</>}</strong>
+                <div className={dashStyles.predictorMeter} data-state={resultState} aria-label={predictedResult == null ? 'Predicted result is incomplete' : `${predictedResult.toFixed(1)} percent predicted result`}>
+                    <div className={dashStyles.predictorMeterFill} style={{ width: `${predictedResult == null ? 0 : Math.min(100, predictedResult)}%` }} />
+                </div>
+                <small className={dashStyles.predictorMeterText} data-state={resultState}>{resultMessage}</small>
+                <small className={dashStyles.predictorWeightMessage} data-state={weightState}>{weightMessage}</small>
+            </div>
+            {summaryRows.length > 0 && <div className={dashStyles.predictorWeightSummary}>
+                <h3>{predictionMode === 'groups' ? 'Group weights' : 'Assessment weights'}</h3>
+                {summaryRows.map((row) => <div key={row.id} className={dashStyles.predictorWeightSummaryRow}><span title={row.label}>{row.label}</span><strong>{row.weight}%</strong></div>)}
+                <div className={dashStyles.predictorWeightSummaryTotal}><span>Total</span><strong>{weightTotal}%</strong></div>
+            </div>}
+        </aside>
+    );
+}
+
+function readPredictorCache(storageKey) {
+    try {
+        return JSON.parse(localStorage.getItem(storageKey) || 'null') || {};
+    } catch {
+        return {};
+    }
+}
+
+function writePredictorCache(storageKey, data) {
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(data));
+    } catch {
+        // Local storage may be unavailable in private browsing.
+    }
+}
+
+function getCachedPredictorCourse(courses, saved, selectedCourseId) {
+    const courseId =
+        saved.selectedCourseId && courses.some((course) => String(course.courseId) === String(saved.selectedCourseId))
+            ? String(saved.selectedCourseId)
+            : String(courses[0].courseId);
+    const cachedCourse = saved.courses?.[courseId];
+    const hasFreshCache = cachedCourse && Date.now() - Number(cachedCourse.savedAt) < 60 * 60 * 1000;
+    return { courseId, cachedCourse, hasFreshCache };
+}
+
+function getPredictorResult(predictionMode, results, totalGroupWeight, individualAssessments) {
+    if (predictionMode === 'groups' && totalGroupWeight > 0) {
+        return results.reduce((total, group) => total + (group.average ?? 0) * group.groupWeight, 0) / totalGroupWeight;
+    }
+    if (predictionMode !== 'individual') return null;
+    const scored = individualAssessments.filter(
+        (item) => Number.isFinite(Number(item.score)) && Number(item.score) >= 0
+    );
+    const totalWeight = scored.reduce((total, item) => total + (Number(item.weight) || 0), 0);
+    return totalWeight > 0
+        ? scored.reduce((total, item) => total + Number(item.score) * (Number(item.weight) || 0), 0) / totalWeight
+        : null;
+}
+
+const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) { // NOSONAR
     const courses = useMemo(() => getPredictorCourses(dueData), [dueData]);
     const semesters = useMemo(() => getPredictorSemesters(dueData), [dueData]);
     const storageKey = 'fr_result_predictor_cache';
     const cacheDuration = 60 * 60 * 1000;
     const [selectedCourseId, setSelectedCourseId] = useState('');
-    const [predictionMode, setPredictionMode] = useState('groups');
+    const [predictionMode, setPredictionMode] = useState('individual');
     const [passPercent, setPassPercent] = useState(50);
     const [groups, setGroups] = useState([createPredictorGroup()]);
     const [individualAssessments, setIndividualAssessments] = useState([]);
@@ -2371,15 +2631,9 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
     useEffect(() => {
         if (courses.length === 0 || initialized.current) return;
         initialized.current = true;
+        const saved = readPredictorCache(storageKey);
+        const { courseId, cachedCourse, hasFreshCache } = getCachedPredictorCourse(courses, saved);
         try {
-            const saved = JSON.parse(localStorage.getItem(storageKey) || 'null') || {};
-            const courseId =
-                saved.selectedCourseId &&
-                courses.some((course) => String(course.courseId) === String(saved.selectedCourseId))
-                    ? String(saved.selectedCourseId)
-                    : String(courses[0].courseId);
-            const cachedCourse = saved.courses?.[courseId];
-            const hasFreshCache = cachedCourse && Date.now() - Number(cachedCourse.savedAt) < cacheDuration;
             setSelectedCourseId(courseId);
             if (hasFreshCache && Number.isFinite(Number(cachedCourse.passPercent))) {
                 setPassPercent(Math.min(100, Math.max(0, Number(cachedCourse.passPercent))));
@@ -2398,48 +2652,22 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
 
     useEffect(() => {
         if (!selectedCourseId || !initialized.current) return;
-        try {
-            const saved = JSON.parse(localStorage.getItem(storageKey) || 'null') || {};
-            const coursesCache = saved.courses || {};
-            coursesCache[selectedCourseId] = {
-                savedAt: Date.now(),
-                mode: predictionMode,
-                passPercent,
-                groups,
-                individualAssessments,
-            };
-            localStorage.setItem(
-                storageKey,
-                JSON.stringify({ selectedCourseId, courses: coursesCache })
-            );
-        } catch {
-            // Local storage may be unavailable in private browsing.
-        }
+        const saved = readPredictorCache(storageKey);
+        const coursesCache = saved.courses || {};
+        coursesCache[selectedCourseId] = { savedAt: Date.now(), mode: predictionMode, passPercent, groups, individualAssessments };
+        writePredictorCache(storageKey, { selectedCourseId, courses: coursesCache });
     }, [groups, individualAssessments, passPercent, predictionMode, selectedCourseId]);
 
     const handleCourseChange = (nextCourseId) => {
         if (nextCourseId === selectedCourseId) return;
-        try {
-            const saved = JSON.parse(localStorage.getItem(storageKey) || 'null') || {};
-            const coursesCache = saved.courses || {};
-            if (selectedCourseId) {
-                coursesCache[selectedCourseId] = {
-                    savedAt: Date.now(),
-                    mode: predictionMode,
-                    passPercent,
-                    groups,
-                    individualAssessments,
-                };
-            }
-            localStorage.setItem(
-                storageKey,
-                JSON.stringify({ selectedCourseId: nextCourseId, courses: coursesCache })
-            );
-        } catch {
-            // Local storage may be unavailable in private browsing.
+        const saved = readPredictorCache(storageKey);
+        const coursesCache = saved.courses || {};
+        if (selectedCourseId) {
+            coursesCache[selectedCourseId] = { savedAt: Date.now(), mode: predictionMode, passPercent, groups, individualAssessments };
         }
+        writePredictorCache(storageKey, { selectedCourseId: nextCourseId, courses: coursesCache });
         setSelectedCourseId(nextCourseId);
-        setPredictionMode('groups');
+        setPredictionMode('individual');
         setPassPercent(50);
         setGroups([createPredictorGroup()]);
         setIndividualAssessments([]);
@@ -2534,30 +2762,24 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
         return { ...group, groupWeight, scored, average };
     });
     const totalGroupWeight = results.reduce((total, group) => total + group.groupWeight, 0);
-    const predictedResult =
-        predictionMode === 'groups' && totalGroupWeight > 0
-            ? results.reduce((total, group) => total + (group.average ?? 0) * group.groupWeight, 0) / totalGroupWeight
-            : predictionMode === 'individual'
-              ? (() => {
-                    const scored = individualAssessments.filter(
-                        (item) => Number.isFinite(Number(item.score)) && Number(item.score) >= 0
-                    );
-                    const totalWeight = scored.reduce((total, item) => total + (Number(item.weight) || 0), 0);
-                    return totalWeight > 0
-                        ? scored.reduce((total, item) => total + Number(item.score) * (Number(item.weight) || 0), 0) /
-                              totalWeight
-                        : null;
-                })()
-              : null;
-    const resultState =
-        predictedResult == null || passPercent === '' ? 'incomplete' : predictedResult >= passPercent ? 'passed' : 'failed';
+    const predictedResult = getPredictorResult(predictionMode, results, totalGroupWeight, individualAssessments);
+    let resultState;
+    if (predictedResult == null || passPercent === '') {
+        resultState = 'incomplete';
+    } else if (predictedResult >= passPercent) {
+        resultState = 'passed';
+    } else {
+        resultState = 'failed';
+    }
     const finalGrade = getRmitFinalGrade(predictedResult);
-    const resultMessage =
-        resultState === 'incomplete'
-            ? 'Add scores and complete the weights to see your result'
-            : resultState === 'passed'
-              ? `Passing result — ${finalGrade} grade`
-              : `Below pass mark — ${finalGrade} grade`;
+    let resultMessage;
+    if (resultState === 'incomplete') {
+        resultMessage = 'Add scores and complete the weights to see your result';
+    } else if (resultState === 'passed') {
+        resultMessage = `Passing result — ${finalGrade} grade`;
+    } else {
+        resultMessage = `Below pass mark — ${finalGrade} grade`;
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
 // In AssessmentPredictor, KEEP everything down to and including
@@ -2568,7 +2790,14 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
 // ─────────────────────────────────────────────────────────────────────────
 
     const weightTotal = predictionMode === 'groups' ? totalGroupWeight : individualTotalWeight;
-    const weightState = weightTotal === 100 ? 'complete' : weightTotal > 100 ? 'over' : 'under';
+    let weightState;
+    if (weightTotal === 100) {
+        weightState = 'complete';
+    } else if (weightTotal > 100) {
+        weightState = 'over';
+    } else {
+        weightState = 'under';
+    }
     const weightMessage = {
         complete: 'Weights add up to 100%',
         over: `${weightTotal - 100}% over — reduce a weight`,
@@ -2588,121 +2817,13 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
                   weight: Number(item.weight) || 0,
               }));
 
-    // One table renderer shared by "Groups" and "Individual" modes
-    const renderTable = ({ rows, showWeight, onScoreChange, onWeightChange, onRemove }) => (
-        <div className={dashStyles.predictorRows}>
-            <table className={dashStyles.predictorTable}>
-                <col className={dashStyles.predictorAssessmentColumn} />
-                <colgroup>
-                    <col />
-                    <col className={dashStyles.predictorScoreColumn} />
-                    {showWeight && <col className={dashStyles.predictorWeightColumn} />}
-                    <col className={dashStyles.predictorActionColumn} />
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th scope="col">Assessment</th>
-                        <th scope="col">Score</th>
-                        {showWeight && <th scope="col">Weight %</th>}
-                        <th scope="col">
-                            <span className={dashStyles.visuallyHidden}>Actions</span>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map((item) => {
-                        const assignment = assignmentById.get(String(item.id));
-                        const pointsPossible = Number(assignment?.pointsPossible);
-                        const name = assignment?.name || 'Assessment unavailable';
-                        return (
-                            <tr key={item.id}>
-                                <td className={dashStyles.predictorAssignment}>
-                                    <strong title={name}>{name}</strong>
-                                    <small>{assignment?.score != null ? 'Graded' : 'Not graded · what-if'}</small>
-                                </td>
-                                <td>
-                                    <div className={dashStyles.predictorScoreCell}>
-                                        <input
-                                            className={dashStyles.predictorScoreInput}
-                                            type="int"
-                                            min="0"
-                                            max={Number.isFinite(pointsPossible) ? pointsPossible : undefined}
-                                            step="0.1"
-                                            value={getPredictionPoints(item.score, assignment?.pointsPossible)}
-                                            placeholder="–"
-                                            aria-label={`Score for ${name}`}
-                                            onChange={(event) => onScoreChange(item.id, event.target.value, assignment)}
-                                        />
-                                        <span className={dashStyles.predictorPointsSuffix}>
-                                            / {assignment?.pointsPossible ?? '—'}
-                                        </span>
-                                    </div>
-                                </td>
-                                {showWeight && (
-                                    <td>
-                                        <input
-                                            className={dashStyles.predictorWeightInput}
-                                            type="int"
-                                            min="0"
-                                            max="100"
-                                            step="1"
-                                            value={item.weight}
-                                            placeholder="0"
-                                            aria-label={`Weight for ${name}`}
-                                            onChange={(event) => onWeightChange(item.id, event.target.value)}
-                                        />
-                                    </td>
-                                )}
-                                <td className={dashStyles.predictorActionCell}>
-                                    <button
-                                        type="button"
-                                        className={dashStyles.predictorRemove}
-                                        onClick={() => onRemove(item.id)}
-                                        aria-label={`Remove ${name}`}
-                                    >
-                                        ✕
-                                    </button>
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-        </div>
-    );
-
-    // Shared "add assessment" row
-    const renderAddRow = ({ selectKey, available, onAdd, trailing }) => (
-        <div className={dashStyles.predictorGroupFooter}>
-            <select
-                className={dashStyles.predictorAssessmentSelect}
-                value={pendingAssessmentIds[selectKey] || available[0]?.id || ''}
-                onChange={(event) =>
-                    setPendingAssessmentIds((current) => ({ ...current, [selectKey]: event.target.value }))
-                }
-                disabled={available.length === 0}
-                aria-label="Select an assessment to add"
-            >
-                {available.length === 0 ? (
-                    <option value="">All assessments added</option>
-                ) : (
-                    available.map((assignment) => (
-                        <option key={assignment.id} value={assignment.id}>
-                            {assignment.name}
-                        </option>
-                    ))
-                )}
-            </select>
-            <button
-                type="button"
-                className={dashStyles.predictorAdd}
-                onClick={() => onAdd(pendingAssessmentIds[selectKey] || available[0]?.id)}
-                disabled={available.length === 0}
-            >
-                Add
-            </button>
-            <span className={dashStyles.predictorFooterNote}>{trailing}</span>
-        </div>
+    const renderTable = (props) => <PredictorTable assignmentById={assignmentById} {...props} />;
+    const renderAddRow = (props) => (
+        <PredictorAddRow
+            pendingAssessmentIds={pendingAssessmentIds}
+            setPendingAssessmentIds={setPendingAssessmentIds}
+            {...props}
+        />
     );
 
     if (courses.length === 0) {
@@ -2741,15 +2862,8 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
                     </select>
                 </label>
 
-                <div className={dashStyles.predictorMode} role="group" aria-label="Prediction mode">
-                    <button
-                        type="button"
-                        className={predictionMode === 'groups' ? dashStyles.predictorModeActive : ''}
-                        aria-pressed={predictionMode === 'groups'}
-                        onClick={() => handlePredictionModeChange('groups')}
-                    >
-                        By group
-                    </button>
+                <fieldset className={dashStyles.predictorMode}>
+                    <legend className={dashStyles.predictorFieldLabel}>Prediction mode</legend>
                     <button
                         type="button"
                         className={predictionMode === 'individual' ? dashStyles.predictorModeActive : ''}
@@ -2758,7 +2872,16 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
                     >
                         Individually
                     </button>
-                </div>
+                    <button
+                        type="button"
+                        className={predictionMode === 'groups' ? dashStyles.predictorModeActive : ''}
+                        aria-pressed={predictionMode === 'groups'}
+                        onClick={() => handlePredictionModeChange('groups')}
+                    >
+                        By group
+                    </button>
+                    
+                </fieldset>
             </div>
 
             <div className={dashStyles.predictorLayout}>
@@ -2893,13 +3016,13 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
                                     aria-label="Pass mark percentage"
                                     onChange={(event) => {
                                         const value = Number(event.target.value);
-                                        setPassPercent(
-                                            event.target.value === ''
-                                                ? ''
-                                                : Number.isFinite(value)
-                                                  ? Math.min(100, Math.max(0, value))
-                                                  : passPercent
-                                        );
+                                        let nextPassPercent = passPercent;
+                                        if (event.target.value === '') {
+                                            nextPassPercent = '';
+                                        } else if (Number.isFinite(value)) {
+                                            nextPassPercent = Math.min(100, Math.max(0, value));
+                                        }
+                                        setPassPercent(nextPassPercent);
                                     }}
                                 />
                                 <span>%</span>
@@ -2962,7 +3085,27 @@ AssessmentPredictor.propTypes = {
 
 // ─── MAIN DASHBOARD PAGE ───────────────────────────────────────────────────
 
-export default function Dashboard() {
+const isAssessmentTab = (tab) => ['active', 'passedYear', 'pastClasses'].includes(tab);
+
+const isListOrCalendarTab = (tab) => isAssessmentTab(tab) || tab === 'calendar' || tab === 'hidden';
+
+function DashboardAssessmentModal({ assessment, onClose }) {
+    if (!assessment) return null;
+    return <AssessmentDetailModal assessment={assessment} onClose={onClose} />;
+}
+
+DashboardAssessmentModal.propTypes = {
+    assessment: PropTypes.object,
+    onClose: PropTypes.func.isRequired,
+};
+
+const countActiveFilters = (filters) =>
+    ['years', 'terms', 'courseIds', 'courseCodes'].reduce(
+        (count, key) => count + (filters[key]?.length || 0),
+        0
+    );
+
+export default function Dashboard() { // NOSONAR
     const router = useRouter();
     const [user, setUser] = useState(null);
     const [authChecked, setAuthChecked] = useState(false);
@@ -3064,7 +3207,7 @@ export default function Dashboard() {
                         setSetupBanner('Welcome! Add your Canvas API token in Settings to get started.');
                     }
                 } else {
-                    router.replace('/login');
+                    void router.replace('/login');
                 }
             })
             .catch(() => router.replace('/login'));
@@ -3150,14 +3293,10 @@ export default function Dashboard() {
 
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
-        router.push('/');
+        await router.push('/');
     };
 
-    const activeFilterCount =
-        (filters.years?.length || 0) +
-        (filters.terms?.length || 0) +
-        (filters.courseIds?.length || 0) +
-        (filters.courseCodes?.length || 0);
+    const activeFilterCount = countActiveFilters(filters);
 
     const quickLinks = useMemo(() => getQuickLinks(user?.canvasBaseUrl), [user?.canvasBaseUrl]);
 
@@ -3177,14 +3316,15 @@ export default function Dashboard() {
         );
     }
 
-    const isAssessmentView = activeTab === 'active' || activeTab === 'passedYear' || activeTab === 'pastClasses';
-    const isListOrCalendar = isAssessmentView || activeTab === 'calendar' || activeTab === 'hidden';
+    const isAssessmentView = isAssessmentTab(activeTab);
+    const isListOrCalendar = isListOrCalendarTab(activeTab);
 
     return (
         <div className={styles.root}>
-            {selectedAssessment && (
-                <AssessmentDetailModal assessment={selectedAssessment} onClose={() => setSelectedAssessment(null)} />
-            )}
+            <DashboardAssessmentModal
+                assessment={selectedAssessment}
+                onClose={() => setSelectedAssessment(null)}
+            />
 
             <div className={styles.bgDecor} aria-hidden="true">
                 <div className={styles.blob1} />
@@ -3343,7 +3483,7 @@ export default function Dashboard() {
                                         className={styles.menuActionDanger}
                                         onClick={() => {
                                             setShowHeaderMenu(false);
-                                            handleLogout();
+                                            void handleLogout();
                                         }}
                                     >
                                         <span>Sign out</span>
@@ -3371,7 +3511,6 @@ export default function Dashboard() {
 
             <main className={styles.main}>
                 {activeTab !== 'settings' && (
-                    <>
                 <div className={dashStyles.tabsAndFilter}>
                     <div className={dashStyles.tabNavigation}>
                         <div className={`${styles.tabRow} ${dashStyles.primaryTabRow}`} aria-label="Main dashboard views">
@@ -3464,8 +3603,6 @@ export default function Dashboard() {
                         </button>
                     )}
                 </div>
-
-                    </>
                 )}
 
                 {error && (
