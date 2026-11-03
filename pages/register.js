@@ -245,7 +245,7 @@ export default function Register() {
                         </div>
 
                         <p className={styles.privacyNote}>
-                            🔒 Your password is hashed with PBKDF2-SHA512. We never store it in plaintext.
+                            Note: Currently Final Reckoning is in beta. Reseting passwords is not yet supported. Please choose a password you can remember. We will add password reset functionality in the future.
                         </p>
 
                         <button type="submit" className={styles.submitBtn} disabled={loading}>
