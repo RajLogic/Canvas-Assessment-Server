@@ -25,6 +25,54 @@ SiteLogo.propTypes = {
     size: PropTypes.number,
 };
 
+function Icon({ name, size = 16, className }) {
+    const paths = {
+        alert: <path d="M12 3 2.8 19h18.4L12 3Z M12 9v4 M12 16h.01" />,
+        book: <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21V5.5ZM4 5.5V21 M8 7h8 M8 11h8" />,
+        calendar: <path d="M5 4v3M19 4v3M4 6h16v14H4zM4 10h16M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" />,
+        check: <path d="m5 12 4 4L19 6" />,
+        clipboard: <path d="M9 4h6v3H9zM7 5H5v15h14V5h-2M8 12h8M8 16h5" />,
+        clock: <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4v5l3 2" />,
+        close: <path d="m6 6 12 12M18 6 6 18" />,
+        eye: <path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" />,
+        filter: <path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" />,
+        flag: <path d="M5 21V4m0 1c4-3 6 3 14 0v9c-8 3-10-3-14 0" />,
+        folder: <path d="M3 6h7l2 2h9v10H3z" />,
+        inbox: <path d="M4 5h16l2 10H15l-2 2h-2l-2-2H2L4 5Z M4 5h16" />,
+        menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+        restore: <path d="M4 10a8 8 0 1 1 2 6M4 10V5m0 5h5" />,
+        search: <path d="m20 20-4.5-4.5M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />,
+        sparkles: <path d="m12 3 1.4 5.6L19 10l-5.6 1.4L12 17l-1.4-5.6L5 10l5.6-1.4L12 3ZM19 16l.6 2.4L22 19l-2.4.6L19 22l-.6-2.4L16 19l2.4-.6L19 16Z" />,
+        star: <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" />,
+        tag: <path d="M4 5v6l9 9 7-7-9-9H4Zm3 4h.01" />,
+        trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" />,
+    };
+
+    return (
+        <svg
+            className={className}
+            width={size}
+            height={size}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+        >
+            {paths[name] || paths.tag}
+        </svg>
+    );
+}
+
+Icon.propTypes = {
+    name: PropTypes.string.isRequired,
+    size: PropTypes.number,
+    className: PropTypes.string,
+};
+
 function getUrgency(dueTimestamp) {
     const diff = dueTimestamp - Date.now();
     const days = diff / (1000 * 60 * 60 * 24);
@@ -288,11 +336,13 @@ const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp, nowTick }) {
     const urgency = getUrgency(dueTimestamp);
     const label = getDaysLeftLabel(dueTimestamp);
     const isOverdue = dueTimestamp < nowTick;
-    let icon;
-    if (isOverdue) icon = '○';
-    else if (urgency === 'urgent') icon = '🔴';
-    else if (urgency === 'warning') icon = '🟡';
-    else icon = '🟢';
+
+    let iconName = 'clock';
+    if (isOverdue) {
+        iconName = 'tag';
+    } else if (urgency === 'urgent') {
+        iconName = 'alert';
+    }
 
     return (
         <span
@@ -303,7 +353,7 @@ const UrgencyBadge = memo(function UrgencyBadge({ dueTimestamp, nowTick }) {
                     : undefined
             }
         >
-            {icon} {label}
+            <Icon name={iconName} size={14} /> {label}
         </span>
     );
 });
@@ -317,10 +367,10 @@ const AssessmentMeta = memo(function AssessmentMeta({ assessment, isPast, isHidd
     return (
         <div className={styles.assessmentMeta}>
             <span className={styles.dueDate}>
-                📅 <FormattedDueDate dateString={assessment.dueAt} />
+                <Icon name="calendar" size={14} /> <FormattedDueDate dateString={assessment.dueAt} />
             </span>
             {!isPast && assessment.pointsPossible != null && (
-                <span className={styles.points}>⭐ {assessment.pointsPossible} pts</span>
+                <span className={styles.points}><Icon name="star" size={14} /> {assessment.pointsPossible} pts</span>
             )}
             {!isPast && assessment.score != null && (
                 <span className={styles.gradeBadge}>
@@ -356,7 +406,7 @@ const AssessmentCardActions = memo(function AssessmentCardActions({
                 (isPast ? (
                     assessment.score != null && (
                         <span className={styles.gradeBadge}>
-                            🏁 {assessment.score}
+                            <Icon name="flag" size={14} /> {assessment.score}
                             {assessment.pointsPossible == null ? '' : `/${assessment.pointsPossible}`}
                             {scorePercentage && ` (${scorePercentage})`}
                         </span>
@@ -371,7 +421,7 @@ const AssessmentCardActions = memo(function AssessmentCardActions({
                     title={isHidden ? 'Restore assessment' : 'Hide assessment'}
                     aria-label={isHidden ? `Restore ${assessment.name}` : `Hide ${assessment.name}`}
                 >
-                    {isHidden ? '↩ Restore' : '✕ Hide'}
+                    <Icon name={isHidden ? 'restore' : 'close'} size={14} /> {isHidden ? 'Restore' : 'Hide'}
                 </button>
             )}
         </div>
@@ -422,10 +472,10 @@ const AssessmentCard = memo(function AssessmentCard({
                     </button>
                     <div className={styles.assessmentMeta}>
                         <span className={styles.dueDate}>
-                            📅 <FormattedDueDate dateString={assessment.dueAt} />
+                            <Icon name="calendar" size={14} /> <FormattedDueDate dateString={assessment.dueAt} />
                         </span>
                         {!isPast && assessment.pointsPossible != null && (
-                            <span className={styles.points}>⭐ {assessment.pointsPossible} pts</span>
+                            <span className={styles.points}><Icon name="star" size={14} /> {assessment.pointsPossible} pts</span>
                         )}
                         {!isPast && assessment.score != null && (
                             <span className={styles.gradeBadge}>
@@ -462,10 +512,10 @@ AssessmentCard.propTypes = {
 
 const UrgencyLegend = memo(function UrgencyLegend({ urgencyFilter, setUrgencyFilter }) {
     const filters = [
-        { key: 'all', label: 'All', icon: '📋' },
-        { key: 'urgent', label: '≤5 days', icon: '🔴' },
-        { key: 'warning', label: '≤2 weeks', icon: '🟡' },
-        { key: 'safe', label: '>2 weeks', icon: '🟢' },
+        { key: 'all', label: 'All', icon: 'clipboard' },
+        { key: 'urgent', label: '≤5 days', icon: 'alert' },
+        { key: 'warning', label: '≤2 weeks', icon: 'clock' },
+        { key: 'safe', label: '>2 weeks', icon: 'check' },
     ];
     return (
         <div className={styles.legendRow}>
@@ -475,7 +525,7 @@ const UrgencyLegend = memo(function UrgencyLegend({ urgencyFilter, setUrgencyFil
                     className={`${styles.filterChip} ${urgencyFilter === f.key ? styles.filterChipActive : ''}`}
                     onClick={() => setUrgencyFilter(f.key)}
                 >
-                    {f.icon} {f.label}
+                    <Icon name={f.icon} size={14} /> {f.label}
                 </button>
             ))}
             
@@ -554,7 +604,7 @@ const FilterSidebar = memo(function FilterSidebar({
                         </button>
                     )}
                     <button className={sidebarStyles.closeBtn} onClick={onClose} aria-label="Close">
-                        ✕
+                        <Icon name="close" size={16} />
                     </button>
                 </div>
 
@@ -712,8 +762,8 @@ function getListViewText(showHidden, assessmentView) {
         return {
             viewTitle: 'Hidden assessments',
             emptyTitle: 'No hidden assessments',
-            emptySub: 'Assessments you hide will appear here. Click ✕ Hide on any item to hide it.',
-            emptyIcon: '📭',
+            emptySub: 'Assessments you hide will appear here. Click Hide on any item to hide it.',
+            emptyIcon: 'inbox',
         };
     }
 
@@ -722,7 +772,7 @@ function getListViewText(showHidden, assessmentView) {
             viewTitle: 'Active assessments',
             emptyTitle: 'You are all caught up',
             emptySub: 'No upcoming assessments right now. Enjoy the breather.',
-            emptyIcon: '🎉',
+            emptyIcon: 'sparkles',
         };
     }
 
@@ -731,7 +781,7 @@ function getListViewText(showHidden, assessmentView) {
             viewTitle: 'Passed assessments this year',
             emptyTitle: 'No passed assessments found this year',
             emptySub: 'Try adjusting the filters in the sidebar.',
-            emptyIcon: '🗂️',
+            emptyIcon: 'folder',
         };
     }
 
@@ -739,14 +789,14 @@ function getListViewText(showHidden, assessmentView) {
         viewTitle: 'Past classes',
         emptyTitle: 'No past classes found',
         emptySub: 'Try adjusting the filters in the sidebar.',
-        emptyIcon: '🗂️',
+        emptyIcon: 'folder',
     };
 }
 
 function getUrgencyFilterTag(urgencyFilter) {
-    if (urgencyFilter === 'urgent') return '🔴 Due soon';
-    if (urgencyFilter === 'warning') return '🟡 Coming up';
-    return '🟢 Later';
+    if (urgencyFilter === 'urgent') return 'Due soon';
+    if (urgencyFilter === 'warning') return 'Coming up';
+    return 'Later';
 }
 
 function filterCourse(course, showHidden, assessmentView, urgencyFilter, nowDate) {
@@ -808,10 +858,10 @@ const ListView = memo(function ListView({
     if (showHidden && hiddenIds.size === 0) {
         return (
             <div className={styles.emptyState}>
-                <div className={styles.emptyIcon}>👁</div>
+                <div className={styles.emptyIcon}><Icon name="eye" size={32} /></div>
                 <p className={styles.emptyTitle}>No hidden assessments</p>
                 <p className={styles.emptySub}>
-                    Assessments you hide will appear here. Click ✕ Hide on any item to hide it.
+                    Assessments you hide will appear here. Click Hide on any item to hide it.
                 </p>
             </div>
         );
@@ -829,7 +879,7 @@ const ListView = memo(function ListView({
                             aria-pressed={urgencyFilter === 'urgent'}
                         >
                             <span className={styles.statNum}>{urgentCount}</span>
-                            <span className={styles.statLabel}>🔴 Due soon</span>
+                            <span className={styles.statLabel}><Icon name="alert" size={14} /> Due soon</span>
                         </button>
                         <button
                             type="button"
@@ -838,7 +888,7 @@ const ListView = memo(function ListView({
                             aria-pressed={urgencyFilter === 'warning'}
                         >
                             <span className={styles.statNum}>{warningCount}</span>
-                            <span className={styles.statLabel}>🟡 Coming up</span>
+                            <span className={styles.statLabel}><Icon name="clock" size={14} /> Coming up</span>
                         </button>
                         <button
                             type="button"
@@ -847,7 +897,7 @@ const ListView = memo(function ListView({
                             aria-pressed={urgencyFilter === 'safe'}
                         >
                             <span className={styles.statNum}>{safeCount}</span>
-                            <span className={styles.statLabel}>🟢 Later</span>
+                            <span className={styles.statLabel}><Icon name="check" size={14} /> Later</span>
                         </button>
                         <button
                             type="button"
@@ -856,7 +906,7 @@ const ListView = memo(function ListView({
                             aria-pressed={urgencyFilter === 'all'}
                         >
                             <span className={styles.statNum}>{allActive.length}</span>
-                            <span className={styles.statLabel}>📋 Total</span>
+                            <span className={styles.statLabel}><Icon name="clipboard" size={14} /> Total</span>
                         </button>
                     </div>
                     <br></br>
@@ -868,7 +918,7 @@ const ListView = memo(function ListView({
             {showHidden && (
                 <div className={dashStyles.hiddenBanner}>
                     <span>
-                        Showing {hiddenIds.size} hidden assessment{hiddenIds.size === 1 ? '' : 's'}. Click ↩ Restore
+                        Showing {hiddenIds.size} hidden assessment{hiddenIds.size === 1 ? '' : 's'}. Click Restore
                         to bring them back.
                     </span>
                 </div>
@@ -1176,7 +1226,7 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                             {selectedDay.day} {MONTHS[viewMonth]} {viewYear}
                         </h3>
                         <button className={styles.calDetailClose} onClick={() => setSelectedDay(null)}>
-                            ✕
+                            <Icon name="close" size={16} />
                         </button>
                     </div>
                     {selectedDay.assessments.length === 0 ? (
@@ -1199,11 +1249,11 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                             <div className={styles.calDetailMeta}>
                                                 <span className={styles.calDetailCourse}>{a.courseName}</span>
                                                 <span className={styles.calDetailTime}>
-                                                    🕐 <FormattedDueDate dateString={a.dueAt} />
+                                                    <Icon name="clock" size={14} /> <FormattedDueDate dateString={a.dueAt} />
                                                 </span>
                                                 {a.pointsPossible != null && (
                                                     <span className={styles.calDetailPts}>
-                                                        ⭐ {a.pointsPossible} pts
+                                                        <Icon name="star" size={14} /> {a.pointsPossible} pts
                                                     </span>
                                                 )}
                                             </div>
@@ -1215,7 +1265,7 @@ const CalendarView = memo(function CalendarView({ dueData, hiddenIds, onHide, on
                                                 onClick={() => onHide(a.id)}
                                                 title="Hide"
                                             >
-                                                ✕
+                                                <Icon name="close" size={14} />
                                             </button>
                                         </div>
                                     </li>
@@ -1443,7 +1493,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
 
             {timetableError && (
                 <div className={styles.errorBanner}>
-                    <span>⚠️ {timetableError}</span>
+                    <span><Icon name="alert" size={16} /> {timetableError}</span>
                 </div>
             )}
 
@@ -1456,7 +1506,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
 
             {!timetableLoading && timetableEvents.length === 0 && !timetableError && (
                 <div className={styles.emptyState}>
-                    <div className={styles.emptyIcon}>📚</div>
+                    <div className={styles.emptyIcon}><Icon name="book" size={32} /></div>
                     <p className={styles.emptyTitle}>No timetable events found</p>
                     <p className={styles.emptySub}>No timetable events are available for this account.</p>
                 </div>
@@ -1824,7 +1874,7 @@ const TimetableView = memo(function TimetableView({ timetableEvents, timetableLo
                                             onClick={() => setSelectedClass(null)}
                                             aria-label="Close"
                                         >
-                                            ✕
+                                            <Icon name="close" size={16} />
                                         </button>
                                     </div>
 
@@ -2006,7 +2056,7 @@ function SettingsModal({
                     <h2 className={dashStyles.modalTitle}>Settings</h2>
                 </div>
                 <button className={dashStyles.modalClose} onClick={onClose} aria-label="Close settings">
-                    ✕
+                    <Icon name="close" size={16} />
                 </button>
             </div>
             <div className={inline ? `${dashStyles.modalBody} ${dashStyles.settingsPanelBody}` : dashStyles.modalBody}>
@@ -2025,12 +2075,12 @@ function SettingsModal({
                 </div>
                 {error && (
                     <div className={dashStyles.settingsError}>
-                        <span>⚠️</span> {error}
+                        <span><Icon name="alert" size={16} /></span> {error}
                     </div>
                 )}
                 {success && (
                     <div className={dashStyles.settingsSuccess}>
-                        <span>✅</span> {success}
+                        <span><Icon name="check" size={16} /></span> {success}
                     </div>
                 )}
                 <div className={dashStyles.settingsWorkspace}>
@@ -2259,7 +2309,7 @@ function AssessmentDetailModal({ assessment, onClose }) {
             >
                 <div className={dashStyles.assessmentModalHeader}>
                     <div className={dashStyles.assessmentHeaderIcon} aria-hidden="true">
-                        ✓
+                        <Icon name="check" size={20} />
                     </div>
                     <div className={dashStyles.assessmentHeaderCopy}>
                         <p className={dashStyles.modalEyebrow}>Assessment details</p>
@@ -2269,7 +2319,7 @@ function AssessmentDetailModal({ assessment, onClose }) {
                         <p className={dashStyles.assessmentCourse}>{assessment.courseName}</p>
                     </div>
                     <button className={dashStyles.modalClose} onClick={onClose} type="button" aria-label="Close details">
-                        ✕
+                        <Icon name="close" size={16} />
                     </button>
                 </div>
                 <div className={`${dashStyles.modalBody} ${dashStyles.assessmentModalBody}`}>
@@ -2462,7 +2512,7 @@ function PredictorTable({ rows, showWeight, assignmentById, onScoreChange, onWei
                                 </td>}
                                 <td className={dashStyles.predictorActionCell}>
                                     <button type="button" className={dashStyles.predictorRemove} onClick={() => onRemove(item.id)} aria-label={`Remove ${name}`}>
-                                        ✕
+                                        <Icon name="close" size={14} />
                                     </button>
                                 </td>
                             </tr>
@@ -2498,7 +2548,7 @@ function PredictorGroupsView({ groups, results, groupAvailable, renderTable, ren
                             <input type="int" min="0" max="100" step="1" value={group.weight} onChange={(event) => updateGroup(group.id, { weight: event.target.value })} aria-label="Group weight percent" />
                             <span>% of course</span>
                         </label>
-                        <button type="button" className={dashStyles.predictorRemove} onClick={() => removeGroup(group.id)} disabled={groups.length === 1} aria-label="Remove group">✕</button>
+                        <button type="button" className={dashStyles.predictorRemove} onClick={() => removeGroup(group.id)} disabled={groups.length === 1} aria-label="Remove group"><Icon name="close" size={14} /></button>
                     </div>
                     {group.assessments.length === 0 ? (
                         <p className={dashStyles.predictorGroupEmpty}>Add assessments below to build this group.</p>
@@ -2829,7 +2879,7 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) { // 
     if (courses.length === 0) {
         return (
             <div className={dashStyles.predictorEmpty}>
-                <div className={dashStyles.predictorEmptyIcon}>🧮</div>
+                <div className={dashStyles.predictorEmptyIcon}><Icon name="tag" size={32} /></div>
                 <h2>No assessments yet</h2>
                 <p>Connect your Canvas account or refresh your assessments to start predicting your result.</p>
             </div>
@@ -2916,7 +2966,7 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) { // 
                                             disabled={groups.length === 1}
                                             aria-label="Remove group"
                                         >
-                                            ✕
+                                            <Icon name="close" size={14} />
                                         </button>
                                     </div>
 
@@ -3372,7 +3422,7 @@ export default function Dashboard() { // NOSONAR
                             aria-expanded={showSearch}
                             aria-controls="dashboard-search"
                         >
-                            <span aria-hidden="true">🔍</span>
+                            <Icon name="search" size={16} />
                             <span>Search</span>
                         </button>
 
@@ -3385,7 +3435,7 @@ export default function Dashboard() { // NOSONAR
                             aria-expanded={showHeaderMenu}
                             aria-haspopup="menu"
                         >
-                            <span className={styles.desktopMenuLabel}>☰ Menu</span>
+                            <span className={styles.desktopMenuLabel}><Icon name="menu" size={16} /> Menu</span>
                             <span className={styles.mobileMenuLabel}>•••</span>
                         </button>
 
@@ -3393,7 +3443,7 @@ export default function Dashboard() { // NOSONAR
                             <div className={styles.searchPanel} id="dashboard-search">
                                 <div className={styles.searchForm}>
                                     <div className={styles.inputWrapper}>
-                                        <span className={styles.inputIcon}>🔍</span>
+                                        <span className={styles.inputIcon}><Icon name="search" size={16} /></span>
                                         <input
                                             ref={searchInputRef}
                                             type="text"
@@ -3503,7 +3553,7 @@ export default function Dashboard() { // NOSONAR
                             Open Settings
                         </button>
                         <button className={dashStyles.setupBannerClose} onClick={() => setSetupBanner('')}>
-                            ✕
+                            <Icon name="close" size={16} />
                         </button>
                     </div>
                 </div>
@@ -3520,7 +3570,7 @@ export default function Dashboard() { // NOSONAR
                                     setActiveTab('active');
                                 }}
                             >
-                                📋 Assessments
+                                <Icon name="clipboard" size={16} /> Assessments
                             </button>
                             <button
                                 className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`}
@@ -3528,7 +3578,7 @@ export default function Dashboard() { // NOSONAR
                                     setActiveTab('calendar');
                                 }}
                             >
-                                📅 Calendar
+                                <Icon name="calendar" size={16} /> Calendar
                             </button>
                             <button
                                 className={`${styles.tabBtn} ${activeTab === 'timetable' ? styles.tabBtnActive : ''}`}
@@ -3536,7 +3586,7 @@ export default function Dashboard() { // NOSONAR
                                     setActiveTab('timetable');
                                 }}
                             >
-                                🕐 Timetable
+                                <Icon name="clock" size={16} /> Timetable
                             </button>
                             <button
                                 className={`${styles.tabBtn} ${activeTab === 'predictor' ? styles.tabBtnActive : ''}`}
@@ -3544,7 +3594,7 @@ export default function Dashboard() { // NOSONAR
                                     setActiveTab('predictor');
                                 }}
                             >
-                                🧮 Result Predictor
+                                <Icon name="tag" size={16} /> Result Predictor
                             </button>
                         </div>
 
@@ -3557,7 +3607,7 @@ export default function Dashboard() { // NOSONAR
                                             setActiveTab('active');
                                         }}
                                     >
-                                        📋 Upcoming
+                                        <Icon name="clipboard" size={16} /> Upcoming
                                     </button>
                                     <button
                                         className={`${styles.tabBtn} ${dashStyles.secondaryTabBtn} ${activeTab === 'passedYear' ? styles.tabBtnActive : ''}`}
@@ -3565,7 +3615,7 @@ export default function Dashboard() { // NOSONAR
                                             setActiveTab('passedYear');
                                         }}
                                     >
-                                        ✅ Passed This Year
+                                        <Icon name="check" size={16} /> Passed This Year
                                     </button>
                                     <button
                                         className={`${styles.tabBtn} ${dashStyles.secondaryTabBtn} ${activeTab === 'pastClasses' ? styles.tabBtnActive : ''}`}
@@ -3573,7 +3623,7 @@ export default function Dashboard() { // NOSONAR
                                             setActiveTab('pastClasses');
                                         }}
                                     >
-                                        🗂️ Past Classes
+                                        <Icon name="folder" size={16} /> Past Classes
                                     </button>
                                     <button
                                         className={`${styles.tabBtn} ${dashStyles.secondaryTabBtn} ${activeTab === 'hidden' ? styles.tabBtnActive : ''} ${dashStyles.hiddenTab}`}
@@ -3581,7 +3631,7 @@ export default function Dashboard() { // NOSONAR
                                             setActiveTab('hidden');
                                         }}
                                     >
-                                        👁 Hidden
+                                        <Icon name="eye" size={16} /> Hidden
                                         {hiddenIds.size > 0 && <span className={dashStyles.hiddenBadge}>{hiddenIds.size}</span>}
                                     </button>
                                 </div>
@@ -3596,7 +3646,7 @@ export default function Dashboard() { // NOSONAR
                             aria-expanded={sidebarOpen}
                             aria-controls="dashboard-filters"
                         >
-                            ⚡ Filters
+                            <Icon name="filter" size={16} /> Filters
                             {activeFilterCount > 0 && (
                                 <span className={dashStyles.filterBadge}>{activeFilterCount}</span>
                             )}
@@ -3607,7 +3657,7 @@ export default function Dashboard() { // NOSONAR
 
                 {error && (
                     <div className={styles.errorBanner}>
-                        <span>⚠️ {error}</span>
+                        <span><Icon name="alert" size={16} /> {error}</span>
                         <button onClick={() => fetchDueAssessments(searchText)} className={styles.retryBtn}>
                             Retry
                         </button>
@@ -3642,7 +3692,7 @@ export default function Dashboard() { // NOSONAR
                                 {activeTab === 'hidden' && hiddenIds.size > 0 && (
                                     <div className={dashStyles.hiddenControls}>
                                         <button className={dashStyles.clearHiddenBtn} onClick={clearAllHidden}>
-                                            🗑 Clear all hidden ({hiddenIds.size})
+                                            <Icon name="trash" size={16} /> Clear all hidden ({hiddenIds.size})
                                         </button>
                                     </div>
                                 )}
