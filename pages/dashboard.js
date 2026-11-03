@@ -90,6 +90,34 @@ function formatScorePercentage(score, pointsPossible) {
     return `${percentage}%`;
 }
 
+const briefAllowedTags = new Set(['a', 'br', 'em', 'h2', 'h3', 'h4', 'li', 'ol', 'p', 'strong', 'ul']);
+
+function sanitizeBriefHtml(description) {
+    if (!description) return '';
+
+    return String(description)
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<(?:script|style|iframe|object|embed|noscript|template)\b[^>]*>[\s\S]*?<\/(?:script|style|iframe|object|embed|noscript|template)\s*>/gi, '')
+        .replace(/<link\b[^>]*>/gi, '')
+        .replace(/<([a-z][\w-]*)(\s[^>]*)?>/gi, (match, tagName, rawAttributes = '') => {
+            const tag = tagName.toLowerCase();
+            if (!briefAllowedTags.has(tag)) return '';
+            if (tag === 'br') return '<br>';
+            if (tag !== 'a') return `<${tag}>`;
+
+            const hrefMatch = rawAttributes.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i);
+            const href = hrefMatch && (hrefMatch[1] || hrefMatch[2] || hrefMatch[3]);
+            if (!href || !/^(?:https?:|mailto:)/i.test(href)) return '<a>';
+
+            const escapedHref = href.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            return `<a href="${escapedHref}" target="_blank" rel="noopener noreferrer">`;
+        })
+        .replace(/<\/([a-z][\w-]*)\s*>/gi, (match, tagName) => {
+            const tag = tagName.toLowerCase();
+            return briefAllowedTags.has(tag) ? `</${tag}>` : '';
+        });
+}
+
 function formatShortDate(dateString) {
     return new Date(dateString).toLocaleDateString('en-AU', {
         weekday: 'short',
@@ -2108,10 +2136,7 @@ SettingsModal.propTypes.inline = PropTypes.bool;
 function AssessmentDetailModal({ assessment, onClose }) {
     if (!assessment) return null;
 
-    const plainDescription = (assessment.description || '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    const briefHtml = sanitizeBriefHtml(assessment.description);
     const urgency = getUrgency(assessment.dueTimestamp);
     const isPast = assessment.dueTimestamp < Date.now();
     const scorePercentage = formatScorePercentage(assessment.score, assessment.pointsPossible);
@@ -2227,9 +2252,16 @@ function AssessmentDetailModal({ assessment, onClose }) {
                             <span id="assessment-description-title">Brief</span>
                             <span className={dashStyles.detailSectionLine} />
                         </div>
-                        <div className={dashStyles.detailDescription}>
-                            {plainDescription || 'No description available for this assessment.'}
-                        </div>
+                        {briefHtml ? (
+                            <div
+                                className={dashStyles.detailDescription}
+                                dangerouslySetInnerHTML={{ __html: briefHtml }}
+                            />
+                        ) : (
+                            <div className={dashStyles.detailDescription}>
+                                No description available for this assessment.
+                            </div>
+                        )}
                     </section>
 
                     <div className={dashStyles.detailActions}>
