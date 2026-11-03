@@ -110,6 +110,29 @@
     position: relative;
 }
 
+.searchBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.52rem 0.9rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.searchBtn:hover {
+    background: var(--bg-subtle);
+    border-color: var(--accent-border);
+    color: var(--text-primary);
+}
+
 .menuBtn {
     display: inline-flex;
     align-items: center;
@@ -131,6 +154,20 @@
 .menuBtn:hover {
     background: var(--bg-subtle);
     border-color: var(--accent-border);
+}
+
+.searchPanel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.55rem);
+    width: min(460px, 90vw);
+    padding: 0.75rem;
+    background: color-mix(in srgb, var(--bg-card) 96%, var(--accent));
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    z-index: 30;
+    animation: menuIn 0.18s ease both;
 }
 
 .menuBackdrop {
@@ -1149,6 +1186,10 @@
     }
 
     .menuPanel {
+        right: 0;
+    }
+
+    .searchPanel {
         right: 0;
     }
 }
@@ -3126,7 +3167,7 @@ padding: 0.9rem 1.1rem;
 background: linear-gradient(180deg, var(--bg-card), var(--bg));
 }
 
-:is(.menuBtn, .topLink, .filterChip, .tabBtn, .calNavBtn, .calTodayBtn, .ttNavBtn, .ttTodayBtn):focus-visible,
+:is(.searchBtn, .menuBtn, .topLink, .filterChip, .tabBtn, .calNavBtn, .calTodayBtn, .ttNavBtn, .ttTodayBtn):focus-visible,
 :is(.searchInput, .btnPrimary, .btnSecondary):focus-visible {
 outline: 2px solid var(--accent-warm);
 outline-offset: 2px;

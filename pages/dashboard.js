@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
@@ -88,6 +88,34 @@ function formatScorePercentage(score, pointsPossible) {
 
     const percentage = Math.round((numericScore / numericPointsPossible) * 1000) / 10;
     return `${percentage}%`;
+}
+
+const briefAllowedTags = new Set(['a', 'br', 'em', 'h2', 'h3', 'h4', 'li', 'ol', 'p', 'strong', 'ul']);
+
+function sanitizeBriefHtml(description) {
+    if (!description) return '';
+
+    return String(description)
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<(?:script|style|iframe|object|embed|noscript|template)\b[^>]*>[\s\S]*?<\/(?:script|style|iframe|object|embed|noscript|template)\s*>/gi, '')
+        .replace(/<link\b[^>]*>/gi, '')
+        .replace(/<([a-z][\w-]*)(\s[^>]*)?>/gi, (match, tagName, rawAttributes = '') => {
+            const tag = tagName.toLowerCase();
+            if (!briefAllowedTags.has(tag)) return '';
+            if (tag === 'br') return '<br>';
+            if (tag !== 'a') return `<${tag}>`;
+
+            const hrefMatch = rawAttributes.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i);
+            const href = hrefMatch && (hrefMatch[1] || hrefMatch[2] || hrefMatch[3]);
+            if (!href || !/^(?:https?:|mailto:)/i.test(href)) return '<a>';
+
+            const escapedHref = href.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            return `<a href="${escapedHref}" target="_blank" rel="noopener noreferrer">`;
+        })
+        .replace(/<\/([a-z][\w-]*)\s*>/gi, (match, tagName) => {
+            const tag = tagName.toLowerCase();
+            return briefAllowedTags.has(tag) ? `</${tag}>` : '';
+        });
 }
 
 function formatShortDate(dateString) {
@@ -411,6 +439,7 @@ const FilterSidebar = memo(function FilterSidebar({
     isOpen,
     onClose,
     onHideCourse,
+    id,
 }) {
     const allAssessments = dueData.terms.flatMap((t) => t.courses.flatMap((c) => c.assessments));
 
@@ -456,7 +485,10 @@ const FilterSidebar = memo(function FilterSidebar({
                     aria-label="Close filters"
                 />
             )}
-            <aside className={`${sidebarStyles.sidebar} ${isOpen ? sidebarStyles.sidebarOpen : ''}`}>
+            <aside
+                id={id}
+                className={`${sidebarStyles.sidebar} ${isOpen ? sidebarStyles.sidebarOpen : ''}`}
+            >
                 <div className={sidebarStyles.sidebarHeader}>
                     <span className={sidebarStyles.sidebarTitle}>Filters &amp; Sort</span>
                     {activeCount > 0 && (
@@ -604,6 +636,7 @@ FilterSidebar.propTypes = {
     isOpen: PropTypes.bool,
     onClose: PropTypes.func,
     onHideCourse: PropTypes.func,
+    id: PropTypes.string,
 };
 
 // ─── LIST VIEW ─────────────────────────────────────────────────────────────
@@ -698,15 +731,15 @@ const ListView = memo(function ListView({
     }, [assessmentView, dueData, filters, hiddenIds, urgencyFilter, showHidden, nowDate]);
 
     const allVisible = filteredTerms.flatMap((t) => t.courses.flatMap((c) => c.assessments));
-    const allRaw = useMemo(() => {
+    const allActive = useMemo(() => {
         return applyFiltersAndSort(dueData, { ...filters, sortBy: 'dueDate', sortDir: 'asc' }, hiddenIds, showHidden)
             .flatMap((t) => t.courses.flatMap((c) => c.assessments))
-            .filter((a) => shouldIncludeAssessmentInList(a, showHidden, assessmentView, urgencyFilter, nowDate));
-    }, [assessmentView, dueData, filters, hiddenIds, urgencyFilter, showHidden, nowDate]);
+            .filter((a) => shouldIncludeAssessmentInList(a, showHidden, assessmentView, 'all', nowDate));
+    }, [assessmentView, dueData, filters, hiddenIds, showHidden, nowDate]);
 
-    const urgentCount = allRaw.filter((a) => getUrgency(a.dueTimestamp) === 'urgent').length;
-    const warningCount = allRaw.filter((a) => getUrgency(a.dueTimestamp) === 'warning').length;
-    const safeCount = allRaw.filter((a) => getUrgency(a.dueTimestamp) === 'safe').length;
+    const urgentCount = allActive.filter((a) => getUrgency(a.dueTimestamp) === 'urgent').length;
+    const warningCount = allActive.filter((a) => getUrgency(a.dueTimestamp) === 'warning').length;
+    const safeCount = allActive.filter((a) => getUrgency(a.dueTimestamp) === 'safe').length;
     const { viewTitle, emptyTitle, emptySub, emptyIcon } = getListViewText(showHidden, assessmentView);
     const showActiveStats = !showHidden && assessmentView === 'active';
     const showUrgencyTag = !showHidden && assessmentView === 'active' && urgencyFilter !== 'all';
@@ -765,7 +798,7 @@ const ListView = memo(function ListView({
                             onClick={() => setUrgencyFilter('all')}
                             aria-pressed={urgencyFilter === 'all'}
                         >
-                            <span className={styles.statNum}>{allRaw.length}</span>
+                            <span className={styles.statNum}>{allActive.length}</span>
                             <span className={styles.statLabel}>📋 Total</span>
                         </button>
                     </div>
@@ -2103,10 +2136,7 @@ SettingsModal.propTypes.inline = PropTypes.bool;
 function AssessmentDetailModal({ assessment, onClose }) {
     if (!assessment) return null;
 
-    const plainDescription = (assessment.description || '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    const briefHtml = sanitizeBriefHtml(assessment.description);
     const urgency = getUrgency(assessment.dueTimestamp);
     const isPast = assessment.dueTimestamp < Date.now();
     const scorePercentage = formatScorePercentage(assessment.score, assessment.pointsPossible);
@@ -2222,9 +2252,16 @@ function AssessmentDetailModal({ assessment, onClose }) {
                             <span id="assessment-description-title">Brief</span>
                             <span className={dashStyles.detailSectionLine} />
                         </div>
-                        <div className={dashStyles.detailDescription}>
-                            {plainDescription || 'No description available for this assessment.'}
-                        </div>
+                        {briefHtml ? (
+                            <div
+                                className={dashStyles.detailDescription}
+                                dangerouslySetInnerHTML={{ __html: briefHtml }}
+                            />
+                        ) : (
+                            <div className={dashStyles.detailDescription}>
+                                No description available for this assessment.
+                            </div>
+                        )}
                     </section>
 
                     <div className={dashStyles.detailActions}>
@@ -2252,6 +2289,677 @@ AssessmentDetailModal.propTypes = {
     onClose: PropTypes.func.isRequired,
 };
 
+function getPredictorCourses(dueData) {
+    return dueData.terms
+        .flatMap((term) => term.courses)
+        .sort((a, b) => a.courseName.localeCompare(b.courseName));
+}
+
+function getPredictorSemesters(dueData) {
+    return dueData.terms
+        .map((term) => ({
+            termName: term.termName,
+            courses: [...term.courses].sort((a, b) => a.courseName.localeCompare(b.courseName)),
+            latestAssessmentTimestamp: Math.max(
+                ...term.courses.flatMap((course) =>
+                    course.assessments.map((assessment) => Number(assessment.dueTimestamp) || 0)
+                ),
+                0
+            ),
+        }))
+        .filter((term) => term.courses.length > 0)
+        .sort(
+            (a, b) =>
+                b.latestAssessmentTimestamp - a.latestAssessmentTimestamp ||
+                b.termName.localeCompare(a.termName, undefined, { numeric: true })
+        );
+}
+
+function getInitialAssessmentScore(assessment) {
+    const score = Number(assessment.score);
+    const pointsPossible = Number(assessment.pointsPossible);
+    if (!Number.isFinite(score) || !Number.isFinite(pointsPossible) || pointsPossible <= 0) return '';
+    return Math.round((score / pointsPossible) * 1000) / 10;
+}
+
+function getPredictionPoints(scorePercentage, pointsPossible) {
+    const score = Number(scorePercentage);
+    const points = Number(pointsPossible);
+    if (!Number.isFinite(score) || !Number.isFinite(points) || points <= 0) return '';
+    return Math.round(((score / 100) * points + Number.EPSILON) * 100) / 100;
+}
+
+function getPredictionPercentage(pointsEarned, pointsPossible) {
+    const earned = Number(pointsEarned);
+    const possible = Number(pointsPossible);
+    if (pointsEarned === '' || !Number.isFinite(earned) || !Number.isFinite(possible) || possible <= 0) return '';
+    return Math.min(100, Math.max(0, Math.round((earned / possible) * 1000) / 10));
+}
+
+function getRmitFinalGrade(percentage) {
+    const result = Number(percentage);
+    if (!Number.isFinite(result)) return null;
+    if (result >= 80) return 'HD';
+    if (result >= 70) return 'DI';
+    if (result >= 60) return 'CR';
+    if (result >= 50) return 'PA';
+    return 'NN';
+}
+
+function createPredictorGroup(index = 1) {
+    return {
+        id: `group-${Date.now()}-${index}`,
+        name: `Assessment group ${index}`,
+        weight: 0,
+        assessments: [],
+    };
+}
+
+const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) {
+    const courses = useMemo(() => getPredictorCourses(dueData), [dueData]);
+    const semesters = useMemo(() => getPredictorSemesters(dueData), [dueData]);
+    const storageKey = 'fr_result_predictor_cache';
+    const cacheDuration = 60 * 60 * 1000;
+    const [selectedCourseId, setSelectedCourseId] = useState('');
+    const [predictionMode, setPredictionMode] = useState('groups');
+    const [passPercent, setPassPercent] = useState(50);
+    const [groups, setGroups] = useState([createPredictorGroup()]);
+    const [individualAssessments, setIndividualAssessments] = useState([]);
+    const [pendingAssessmentIds, setPendingAssessmentIds] = useState({});
+    const initialized = useRef(false);
+
+    useEffect(() => {
+        if (courses.length === 0 || initialized.current) return;
+        initialized.current = true;
+        try {
+            const saved = JSON.parse(localStorage.getItem(storageKey) || 'null') || {};
+            const courseId =
+                saved.selectedCourseId &&
+                courses.some((course) => String(course.courseId) === String(saved.selectedCourseId))
+                    ? String(saved.selectedCourseId)
+                    : String(courses[0].courseId);
+            const cachedCourse = saved.courses?.[courseId];
+            const hasFreshCache = cachedCourse && Date.now() - Number(cachedCourse.savedAt) < cacheDuration;
+            setSelectedCourseId(courseId);
+            if (hasFreshCache && Number.isFinite(Number(cachedCourse.passPercent))) {
+                setPassPercent(Math.min(100, Math.max(0, Number(cachedCourse.passPercent))));
+            }
+            if (hasFreshCache && cachedCourse?.mode === 'individual') setPredictionMode('individual');
+            if (hasFreshCache && Array.isArray(cachedCourse.groups) && cachedCourse.groups.length > 0) {
+                setGroups(cachedCourse.groups);
+            }
+            if (hasFreshCache && Array.isArray(cachedCourse.individualAssessments)) {
+                setIndividualAssessments(cachedCourse.individualAssessments);
+            }
+        } catch {
+            setSelectedCourseId(String(courses[0].courseId));
+        }
+    }, [courses, cacheDuration]);
+
+    useEffect(() => {
+        if (!selectedCourseId || !initialized.current) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(storageKey) || 'null') || {};
+            const coursesCache = saved.courses || {};
+            coursesCache[selectedCourseId] = {
+                savedAt: Date.now(),
+                mode: predictionMode,
+                passPercent,
+                groups,
+                individualAssessments,
+            };
+            localStorage.setItem(
+                storageKey,
+                JSON.stringify({ selectedCourseId, courses: coursesCache })
+            );
+        } catch {
+            // Local storage may be unavailable in private browsing.
+        }
+    }, [groups, individualAssessments, passPercent, predictionMode, selectedCourseId]);
+
+    const handleCourseChange = (nextCourseId) => {
+        if (nextCourseId === selectedCourseId) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(storageKey) || 'null') || {};
+            const coursesCache = saved.courses || {};
+            if (selectedCourseId) {
+                coursesCache[selectedCourseId] = {
+                    savedAt: Date.now(),
+                    mode: predictionMode,
+                    passPercent,
+                    groups,
+                    individualAssessments,
+                };
+            }
+            localStorage.setItem(
+                storageKey,
+                JSON.stringify({ selectedCourseId: nextCourseId, courses: coursesCache })
+            );
+        } catch {
+            // Local storage may be unavailable in private browsing.
+        }
+        setSelectedCourseId(nextCourseId);
+        setPredictionMode('groups');
+        setPassPercent(50);
+        setGroups([createPredictorGroup()]);
+        setIndividualAssessments([]);
+        setPendingAssessmentIds({});
+    };
+
+    const handlePredictionModeChange = (nextMode) => {
+        setPredictionMode(nextMode);
+        setPendingAssessmentIds({});
+    };
+
+    const selectedCourse = courses.find((course) => String(course.courseId) === String(selectedCourseId));
+    const assignments = selectedCourse?.assessments || [];
+    const assignmentById = useMemo(
+        () => new Map(assignments.map((assessment) => [String(assessment.id), assessment])),
+        [assignments]
+    );
+
+    const updateGroup = (groupId, updates) => {
+        setGroups((current) => current.map((group) => (group.id === groupId ? { ...group, ...updates } : group)));
+    };
+
+    const updateAssessment = (groupId, assessmentId, updates) => {
+        setGroups((current) =>
+            current.map((group) =>
+                group.id !== groupId
+                    ? group
+                    : {
+                          ...group,
+                          assessments: group.assessments.map((item) =>
+                              item.id === assessmentId ? { ...item, ...updates } : item
+                          ),
+                      }
+            )
+        );
+    };
+
+    const addAssessment = (groupId, assessmentId) => {
+        const group = groups.find((item) => item.id === groupId);
+        const usedIds = new Set(groups.flatMap((item) => item.assessments.map((assessment) => String(assessment.id))));
+        const nextAssignment = assignments.find(
+            (assessment) => String(assessment.id) === String(assessmentId) && !usedIds.has(String(assessment.id))
+        );
+        if (!group || !nextAssignment) return;
+        updateGroup(groupId, {
+            assessments: [
+                ...group.assessments,
+                {
+                    id: String(nextAssignment.id),
+                    score: getInitialAssessmentScore(nextAssignment),
+                },
+            ],
+        });
+    };
+
+    const removeGroup = (groupId) => {
+        setGroups((current) => {
+            if (current.length === 1) return current;
+            return current.filter((group) => group.id !== groupId);
+        });
+    };
+
+    const addIndividualAssessment = (assessmentId) => {
+        const nextAssignment = assignments.find(
+            (assessment) =>
+                String(assessment.id) === String(assessmentId) &&
+                !individualAssessments.some((item) => String(item.id) === String(assessment.id))
+        );
+        if (!nextAssignment) return;
+        setIndividualAssessments((current) => [
+            ...current,
+            {
+                id: String(nextAssignment.id),
+                score: getInitialAssessmentScore(nextAssignment),
+                weight: 0,
+            },
+        ]);
+    };
+
+    const individualAvailableAssignments = assignments.filter(
+        (assignment) => !individualAssessments.some((item) => String(item.id) === String(assignment.id))
+    );
+    const individualTotalWeight = individualAssessments.reduce((total, item) => total + (Number(item.weight) || 0), 0);
+
+    const results = groups.map((group) => {
+        const groupWeight = Number(group.weight) || 0;
+        const scored = group.assessments
+            .map((item) => ({ ...item, assignment: assignmentById.get(String(item.id)) }))
+            .filter((item) => item.assignment && Number.isFinite(Number(item.score)) && Number(item.score) >= 0);
+        const average =
+            scored.length > 0 ? scored.reduce((total, item) => total + Number(item.score), 0) / scored.length : null;
+        return { ...group, groupWeight, scored, average };
+    });
+    const totalGroupWeight = results.reduce((total, group) => total + group.groupWeight, 0);
+    const predictedResult =
+        predictionMode === 'groups' && totalGroupWeight > 0
+            ? results.reduce((total, group) => total + (group.average ?? 0) * group.groupWeight, 0) / totalGroupWeight
+            : predictionMode === 'individual'
+              ? (() => {
+                    const scored = individualAssessments.filter(
+                        (item) => Number.isFinite(Number(item.score)) && Number(item.score) >= 0
+                    );
+                    const totalWeight = scored.reduce((total, item) => total + (Number(item.weight) || 0), 0);
+                    return totalWeight > 0
+                        ? scored.reduce((total, item) => total + Number(item.score) * (Number(item.weight) || 0), 0) /
+                              totalWeight
+                        : null;
+                })()
+              : null;
+    const resultState =
+        predictedResult == null || passPercent === '' ? 'incomplete' : predictedResult >= passPercent ? 'passed' : 'failed';
+    const finalGrade = getRmitFinalGrade(predictedResult);
+    const resultMessage =
+        resultState === 'incomplete'
+            ? 'Add scores and complete the weights to see your result'
+            : resultState === 'passed'
+              ? `Passing result — ${finalGrade} grade`
+              : `Below pass mark — ${finalGrade} grade`;
+
+    // ─────────────────────────────────────────────────────────────────────────
+// In AssessmentPredictor, KEEP everything down to and including
+// `const predictedResult = ...;` exactly as it is.
+//
+// REPLACE everything after that (from `if (courses.length === 0) {` to the
+// end of the component) with the code below.
+// ─────────────────────────────────────────────────────────────────────────
+
+    const weightTotal = predictionMode === 'groups' ? totalGroupWeight : individualTotalWeight;
+    const weightState = weightTotal === 100 ? 'complete' : weightTotal > 100 ? 'over' : 'under';
+    const weightMessage = {
+        complete: 'Weights add up to 100%',
+        over: `${weightTotal - 100}% over — reduce a weight`,
+        under: `${100 - weightTotal}% left to assign`,
+    }[weightState];
+
+    const summaryRows =
+        predictionMode === 'groups'
+            ? results.map((group) => ({
+                  id: group.id,
+                  label: group.name || 'Unnamed group',
+                  weight: group.groupWeight,
+              }))
+            : individualAssessments.map((item) => ({
+                  id: item.id,
+                  label: assignmentById.get(String(item.id))?.name || 'Assessment unavailable',
+                  weight: Number(item.weight) || 0,
+              }));
+
+    // One table renderer shared by "Groups" and "Individual" modes
+    const renderTable = ({ rows, showWeight, onScoreChange, onWeightChange, onRemove }) => (
+        <div className={dashStyles.predictorRows}>
+            <table className={dashStyles.predictorTable}>
+                <col className={dashStyles.predictorAssessmentColumn} />
+                <colgroup>
+                    <col />
+                    <col className={dashStyles.predictorScoreColumn} />
+                    {showWeight && <col className={dashStyles.predictorWeightColumn} />}
+                    <col className={dashStyles.predictorActionColumn} />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th scope="col">Assessment</th>
+                        <th scope="col">Score</th>
+                        {showWeight && <th scope="col">Weight %</th>}
+                        <th scope="col">
+                            <span className={dashStyles.visuallyHidden}>Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.map((item) => {
+                        const assignment = assignmentById.get(String(item.id));
+                        const pointsPossible = Number(assignment?.pointsPossible);
+                        const name = assignment?.name || 'Assessment unavailable';
+                        return (
+                            <tr key={item.id}>
+                                <td className={dashStyles.predictorAssignment}>
+                                    <strong title={name}>{name}</strong>
+                                    <small>{assignment?.score != null ? 'Graded' : 'Not graded · what-if'}</small>
+                                </td>
+                                <td>
+                                    <div className={dashStyles.predictorScoreCell}>
+                                        <input
+                                            className={dashStyles.predictorScoreInput}
+                                            type="int"
+                                            min="0"
+                                            max={Number.isFinite(pointsPossible) ? pointsPossible : undefined}
+                                            step="0.1"
+                                            value={getPredictionPoints(item.score, assignment?.pointsPossible)}
+                                            placeholder="–"
+                                            aria-label={`Score for ${name}`}
+                                            onChange={(event) => onScoreChange(item.id, event.target.value, assignment)}
+                                        />
+                                        <span className={dashStyles.predictorPointsSuffix}>
+                                            / {assignment?.pointsPossible ?? '—'}
+                                        </span>
+                                    </div>
+                                </td>
+                                {showWeight && (
+                                    <td>
+                                        <input
+                                            className={dashStyles.predictorWeightInput}
+                                            type="int"
+                                            min="0"
+                                            max="100"
+                                            step="1"
+                                            value={item.weight}
+                                            placeholder="0"
+                                            aria-label={`Weight for ${name}`}
+                                            onChange={(event) => onWeightChange(item.id, event.target.value)}
+                                        />
+                                    </td>
+                                )}
+                                <td className={dashStyles.predictorActionCell}>
+                                    <button
+                                        type="button"
+                                        className={dashStyles.predictorRemove}
+                                        onClick={() => onRemove(item.id)}
+                                        aria-label={`Remove ${name}`}
+                                    >
+                                        ✕
+                                    </button>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+
+    // Shared "add assessment" row
+    const renderAddRow = ({ selectKey, available, onAdd, trailing }) => (
+        <div className={dashStyles.predictorGroupFooter}>
+            <select
+                className={dashStyles.predictorAssessmentSelect}
+                value={pendingAssessmentIds[selectKey] || available[0]?.id || ''}
+                onChange={(event) =>
+                    setPendingAssessmentIds((current) => ({ ...current, [selectKey]: event.target.value }))
+                }
+                disabled={available.length === 0}
+                aria-label="Select an assessment to add"
+            >
+                {available.length === 0 ? (
+                    <option value="">All assessments added</option>
+                ) : (
+                    available.map((assignment) => (
+                        <option key={assignment.id} value={assignment.id}>
+                            {assignment.name}
+                        </option>
+                    ))
+                )}
+            </select>
+            <button
+                type="button"
+                className={dashStyles.predictorAdd}
+                onClick={() => onAdd(pendingAssessmentIds[selectKey] || available[0]?.id)}
+                disabled={available.length === 0}
+            >
+                Add
+            </button>
+            <span className={dashStyles.predictorFooterNote}>{trailing}</span>
+        </div>
+    );
+
+    if (courses.length === 0) {
+        return (
+            <div className={dashStyles.predictorEmpty}>
+                <div className={dashStyles.predictorEmptyIcon}>🧮</div>
+                <h2>No assessments yet</h2>
+                <p>Connect your Canvas account or refresh your assessments to start predicting your result.</p>
+            </div>
+        );
+    }
+
+    const usedInGroups = new Set(groups.flatMap((g) => g.assessments.map((a) => String(a.id))));
+    const groupAvailable = assignments.filter((a) => !usedInGroups.has(String(a.id)));
+
+    return (
+        <section className={dashStyles.predictor}>
+            <header className={dashStyles.predictorHeader}>
+                <h2>Result predictor</h2>
+                <p>Canvas scores are filled in for you. Enter a score on any ungraded assessment to see what-if results.</p>
+            </header>
+
+            <div className={dashStyles.predictorToolbar}>
+                <label className={dashStyles.predictorCourse}>
+                    <span className={dashStyles.predictorFieldLabel}>Course</span>
+                    <select value={selectedCourseId} onChange={(event) => handleCourseChange(event.target.value)}>
+                        {semesters.map((semester) => (
+                            <optgroup key={semester.termName} label={semester.termName}>
+                                {semester.courses.map((course) => (
+                                    <option key={course.courseId} value={course.courseId}>
+                                        {course.courseName}
+                                    </option>
+                                ))}
+                            </optgroup>
+                        ))}
+                    </select>
+                </label>
+
+                <div className={dashStyles.predictorMode} role="group" aria-label="Prediction mode">
+                    <button
+                        type="button"
+                        className={predictionMode === 'groups' ? dashStyles.predictorModeActive : ''}
+                        aria-pressed={predictionMode === 'groups'}
+                        onClick={() => handlePredictionModeChange('groups')}
+                    >
+                        By group
+                    </button>
+                    <button
+                        type="button"
+                        className={predictionMode === 'individual' ? dashStyles.predictorModeActive : ''}
+                        aria-pressed={predictionMode === 'individual'}
+                        onClick={() => handlePredictionModeChange('individual')}
+                    >
+                        Individually
+                    </button>
+                </div>
+            </div>
+
+            <div className={dashStyles.predictorLayout}>
+                <div className={dashStyles.predictorMain}>
+                    {predictionMode === 'groups' ? (
+                        <>
+                            {results.map((group) => (
+                                <article key={group.id} className={dashStyles.predictorGroup}>
+                                    <div className={dashStyles.predictorGroupHeader}>
+                                        <input
+                                            className={dashStyles.predictorGroupName}
+                                            value={group.name}
+                                            onChange={(event) => updateGroup(group.id, { name: event.target.value })}
+                                            aria-label="Group name"
+                                        />
+                                        <label className={dashStyles.predictorWeight}>
+                                            <input
+                                                type="int"
+                                                min="0"
+                                                max="100"
+                                                step="1"
+                                                value={group.weight}
+                                                onChange={(event) => updateGroup(group.id, { weight: event.target.value })}
+                                                aria-label="Group weight percent"
+                                            />
+                                            <span>% of course</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            className={dashStyles.predictorRemove}
+                                            onClick={() => removeGroup(group.id)}
+                                            disabled={groups.length === 1}
+                                            aria-label="Remove group"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+
+                                    {group.assessments.length === 0 ? (
+                                        <p className={dashStyles.predictorGroupEmpty}>
+                                            Add assessments below to build this group.
+                                        </p>
+                                    ) : (
+                                        renderTable({
+                                            rows: group.assessments,
+                                            showWeight: false,
+                                            onScoreChange: (id, value, assignment) =>
+                                                updateAssessment(group.id, id, {
+                                                    score: getPredictionPercentage(value, assignment?.pointsPossible),
+                                                }),
+                                            onRemove: (id) =>
+                                                updateGroup(group.id, {
+                                                    assessments: group.assessments.filter((a) => a.id !== id),
+                                                }),
+                                        })
+                                    )}
+
+                                    {renderAddRow({
+                                        selectKey: group.id,
+                                        available: groupAvailable,
+                                        onAdd: (id) => addAssessment(group.id, id),
+                                        trailing:
+                                            group.average == null
+                                                ? 'No scores yet'
+                                                : `Group average ${group.average.toFixed(1)}%`,
+                                    })}
+                                </article>
+                            ))}
+                            <button
+                                type="button"
+                                className={dashStyles.predictorAddGroup}
+                                onClick={() => setGroups((current) => [...current, createPredictorGroup(current.length + 1)])}
+                            >
+                                + Add group
+                            </button>
+                        </>
+                    ) : (
+                        <article className={dashStyles.predictorGroup}>
+                            <div className={dashStyles.predictorGroupHeader}>
+                                <strong className={dashStyles.predictorGroupTitle}>Assessments</strong>
+                                <span className={dashStyles.predictorFooterNote}>Each one has its own weight</span>
+                            </div>
+
+                            {individualAssessments.length === 0 ? (
+                                <p className={dashStyles.predictorGroupEmpty}>Add an assessment below to get started.</p>
+                            ) : (
+                                renderTable({
+                                    rows: individualAssessments,
+                                    showWeight: true,
+                                    onScoreChange: (id, value, assignment) =>
+                                        setIndividualAssessments((current) =>
+                                            current.map((a) =>
+                                                a.id === id
+                                                    ? {
+                                                          ...a,
+                                                          score: getPredictionPercentage(value, assignment?.pointsPossible),
+                                                      }
+                                                    : a
+                                            )
+                                        ),
+                                    onWeightChange: (id, value) =>
+                                        setIndividualAssessments((current) =>
+                                            current.map((a) => (a.id === id ? { ...a, weight: value } : a))
+                                        ),
+                                    onRemove: (id) =>
+                                        setIndividualAssessments((current) => current.filter((a) => a.id !== id)),
+                                })
+                            )}
+
+                            {renderAddRow({
+                                selectKey: 'individual',
+                                available: individualAvailableAssignments,
+                                onAdd: addIndividualAssessment,
+                                trailing: `Weights total ${individualTotalWeight}%`,
+                            })}
+                        </article>
+                    )}
+                </div>
+
+                <aside className={dashStyles.predictorSummary}>
+                    <div className={dashStyles.predictorResult}>
+                        <div className={dashStyles.predictorResultHeader}>
+                            <span className={dashStyles.predictorResultLabel}>Predicted result</span>
+                            <label className={dashStyles.predictorPassMark}>
+                                <span>Pass percent</span>
+                                <input
+                                    type="int"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                    value={passPercent}
+                                    aria-label="Pass mark percentage"
+                                    onChange={(event) => {
+                                        const value = Number(event.target.value);
+                                        setPassPercent(
+                                            event.target.value === ''
+                                                ? ''
+                                                : Number.isFinite(value)
+                                                  ? Math.min(100, Math.max(0, value))
+                                                  : passPercent
+                                        );
+                                    }}
+                                />
+                                <span>%</span>
+                            </label>
+                        </div>
+                        <strong className={dashStyles.predictorResultValue}>
+                            {predictedResult == null ? '--' : (
+                                <>
+                                    <span className={dashStyles.predictorGrade}>{finalGrade}</span>
+                                    {` ${predictedResult.toFixed(1)}%`}
+                                </>
+                            )}
+                        </strong>
+                        <div
+                            className={dashStyles.predictorMeter}
+                            data-state={resultState}
+                            aria-label={
+                                predictedResult == null
+                                    ? 'Predicted result is incomplete'
+                                    : `${predictedResult.toFixed(1)} percent predicted result`
+                            }
+                        >
+                            <div
+                                className={dashStyles.predictorMeterFill}
+                                style={{ width: `${predictedResult == null ? 0 : Math.min(100, predictedResult)}%` }}
+                            />
+                        </div>
+                        <small className={dashStyles.predictorMeterText} data-state={resultState}>
+                            {resultMessage}
+                        </small>
+                        <small className={dashStyles.predictorWeightMessage} data-state={weightState}>
+                            {weightMessage}
+                        </small>
+                    </div>
+
+                    {summaryRows.length > 0 && (
+                        <div className={dashStyles.predictorWeightSummary}>
+                            <h3>{predictionMode === 'groups' ? 'Group weights' : 'Assessment weights'}</h3>
+                            {summaryRows.map((row) => (
+                                <div key={row.id} className={dashStyles.predictorWeightSummaryRow}>
+                                    <span title={row.label}>{row.label}</span>
+                                    <strong>{row.weight}%</strong>
+                                </div>
+                            ))}
+                            <div className={dashStyles.predictorWeightSummaryTotal}>
+                                <span>Total</span>
+                                <strong>{weightTotal}%</strong>
+                            </div>
+                        </div>
+                    )}
+                </aside>
+            </div>
+        </section>
+    );
+});
+
+AssessmentPredictor.propTypes = {
+    dueData: PropTypes.shape({ terms: PropTypes.array }).isRequired,
+};
+
 // ─── MAIN DASHBOARD PAGE ───────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -2273,6 +2981,8 @@ export default function Dashboard() {
     const [nowTick, setNowTick] = useState(() => Date.now());
     const [selectedAssessment, setSelectedAssessment] = useState(null);
     const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+    const [showSearch, setShowSearch] = useState(false);
+    const searchInputRef = useRef(null);
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [filters, setFilters] = useState({
@@ -2404,6 +3114,10 @@ export default function Dashboard() {
         setSearchText('');
     };
 
+    useEffect(() => {
+        if (showSearch) searchInputRef.current?.focus();
+    }, [showSearch]);
+
     const fetchTimetableData = useCallback(async () => {
         setTimetableLoading(true);
         setTimetableError('');
@@ -2510,14 +3224,73 @@ export default function Dashboard() {
                         )}
 
                         <button
+                            className={styles.searchBtn}
+                            onClick={() => {
+                                setShowSearch((open) => !open);
+                                setShowHeaderMenu(false);
+                            }}
+                            aria-expanded={showSearch}
+                            aria-controls="dashboard-search"
+                        >
+                            <span aria-hidden="true">🔍</span>
+                            <span>Search</span>
+                        </button>
+
+                        <button
                             className={styles.menuBtn}
-                            onClick={() => setShowHeaderMenu((open) => !open)}
+                            onClick={() => {
+                                setShowHeaderMenu((open) => !open);
+                                setShowSearch(false);
+                            }}
                             aria-expanded={showHeaderMenu}
                             aria-haspopup="menu"
                         >
                             <span className={styles.desktopMenuLabel}>☰ Menu</span>
                             <span className={styles.mobileMenuLabel}>•••</span>
                         </button>
+
+                        {showSearch && (
+                            <div className={styles.searchPanel} id="dashboard-search">
+                                <div className={styles.searchForm}>
+                                    <div className={styles.inputWrapper}>
+                                        <span className={styles.inputIcon}>🔍</span>
+                                        <input
+                                            ref={searchInputRef}
+                                            type="text"
+                                            value={searchText}
+                                            onChange={(e) => setSearchText(e.target.value)}
+                                            placeholder="Search classes, quizzes, or semester"
+                                            aria-label="Search assessments"
+                                            className={styles.searchInput}
+                                        />
+                                    </div>
+                                    <div className={styles.btnGroup}>
+                                        <button
+                                            type="button"
+                                            onClick={handleClearFilter}
+                                            disabled={loading}
+                                            className={styles.btnSecondary}
+                                        >
+                                            Clear search
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleRefresh}
+                                            disabled={loading}
+                                            className={styles.btnPrimary}
+                                        >
+                                            {loading ? (
+                                                <>
+                                                    <span className={styles.spinner} /> Refreshing…
+                                                </>
+                                            ) : (
+                                                'Refresh'
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {showHeaderMenu && (
                             <>
@@ -2599,45 +3372,6 @@ export default function Dashboard() {
             <main className={styles.main}>
                 {activeTab !== 'settings' && (
                     <>
-                <section className={styles.controlPanel}>
-                    <div className={styles.searchForm}>
-                        <div className={styles.inputWrapper}>
-                            <span className={styles.inputIcon}>🔍</span>
-                            <input
-                                type="text"
-                                value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
-                                placeholder="Type to search classes, quizzes, or semester"
-                                className={styles.searchInput}
-                            />
-                        </div>
-                        <div className={styles.btnGroup}>
-                            <button
-                                type="button"
-                                onClick={handleClearFilter}
-                                disabled={loading}
-                                className={styles.btnSecondary}
-                            >
-                                Show All
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleRefresh}
-                                disabled={loading}
-                                className={styles.btnPrimary}
-                            >
-                                {loading ? (
-                                    <>
-                                        <span className={styles.spinner} /> Refreshing…
-                                    </>
-                                ) : (
-                                    'Refresh'
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </section>
-
                 <div className={dashStyles.tabsAndFilter}>
                     <div className={dashStyles.tabNavigation}>
                         <div className={`${styles.tabRow} ${dashStyles.primaryTabRow}`} aria-label="Main dashboard views">
@@ -2664,6 +3398,14 @@ export default function Dashboard() {
                                 }}
                             >
                                 🕐 Timetable
+                            </button>
+                            <button
+                                className={`${styles.tabBtn} ${activeTab === 'predictor' ? styles.tabBtnActive : ''}`}
+                                onClick={() => {
+                                    setActiveTab('predictor');
+                                }}
+                            >
+                                🧮 Result Predictor
                             </button>
                         </div>
 
@@ -2704,27 +3446,16 @@ export default function Dashboard() {
                                         {hiddenIds.size > 0 && <span className={dashStyles.hiddenBadge}>{hiddenIds.size}</span>}
                                     </button>
                                 </div>
-                                {isListOrCalendar && (
-                                    <button
-                                        className={`${dashStyles.filterToggleBtn} ${activeFilterCount > 0 ? dashStyles.filterToggleBtnActive : ''}`}
-                                        onClick={() => setSidebarOpen((o) => !o)}
-                                        aria-label="Toggle filters"
-                                    >
-                                        ⚡ Filters
-                                        {activeFilterCount > 0 && (
-                                            <span className={dashStyles.filterBadge}>{activeFilterCount}</span>
-                                        )}
-                                    </button>
-                                )}
                             </div>
                         )}
                     </div>
 
-                    {!isAssessmentView && activeTab !== 'hidden' && isListOrCalendar && (
+                    {isListOrCalendar && (
                         <button
                             className={`${dashStyles.filterToggleBtn} ${activeFilterCount > 0 ? dashStyles.filterToggleBtnActive : ''}`}
                             onClick={() => setSidebarOpen((o) => !o)}
-                            aria-label="Toggle filters"
+                            aria-expanded={sidebarOpen}
+                            aria-controls="dashboard-filters"
                         >
                             ⚡ Filters
                             {activeFilterCount > 0 && (
@@ -2751,6 +3482,7 @@ export default function Dashboard() {
                 >
                     {isListOrCalendar && sidebarOpen && (
                         <FilterSidebar
+                            id="dashboard-filters"
                             dueData={dueData}
                             filters={filters}
                             onFiltersChange={setFilters}
@@ -2811,6 +3543,7 @@ export default function Dashboard() {
                                 timetableError={timetableError}
                             />
                         )}
+                        {activeTab === 'predictor' && <AssessmentPredictor dueData={dueData} />}
                         {activeTab === 'settings' && (
                             <div className={dashStyles.settingsPageShell}>
                                 <SettingsModal
