@@ -1,12 +1,13 @@
-import { getAuthUser } from '../../../lib/middleware.js';
+import { getAuthUser, getCanvasAccessError } from '../../../lib/middleware.js';
 import { DEFAULT_CANVAS_BASE_URL, normalizeCanvasBaseUrl } from '../../../lib/canvas-url.js';
+import {
+    buildDueCacheKey,
+    createEmptyCacheEntry,
+    getDueCacheEntry,
+    setDueCacheEntry,
+} from '../../../lib/due-cache.js';
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const CACHE_VERSION = 3;
-const cacheStore = globalThis.__canvasDueCache || new Map();
-globalThis.__canvasDueCache = cacheStore;
-const refreshState = globalThis.__canvasDueRefreshState || { timer: null };
-globalThis.__canvasDueRefreshState = refreshState;
 
 const ENV_BASE_URL = normalizeCanvasBaseUrl(process.env.CANVAS_BASE_URL, {
     fallback: DEFAULT_CANVAS_BASE_URL,
@@ -15,15 +16,6 @@ const ENV_BASE_URL = normalizeCanvasBaseUrl(process.env.CANVAS_BASE_URL, {
 function resolveBaseUrl(user) {
     // Priority: per-user setting → env var default
     return normalizeCanvasBaseUrl(user?.canvasBaseUrl, { fallback: ENV_BASE_URL });
-}
-
-function getCacheKey(userId, baseUrl, termFilter, onlyActive) {
-    return JSON.stringify({
-        v: CACHE_VERSION,
-        userId: userId || 'anon',
-        baseUrl,
-        onlyActive: Boolean(onlyActive),
-    });
 }
 
 async function fetchPaginated(initialUrl, apiToken) {
@@ -58,16 +50,6 @@ function isActive(course) {
 
 function termName(course) {
     return course?.term?.name || 'Uncategorised Term';
-}
-
-function createEmptyCacheEntry() {
-    return {
-        data: null,
-        createdAt: 0,
-        updatedAt: 0,
-        isRefreshing: false,
-        error: null,
-    };
 }
 
 function matchesAssessmentFilter(assessment, normalizedFilter) {
@@ -208,15 +190,14 @@ async function buildDueAssessmentsResult({ canvasBaseUrl, apiToken, includeOnlyA
 }
 
 async function refreshCacheEntry(cacheKey, { canvasBaseUrl, apiToken, includeOnlyActive }) {
-    const entry = cacheStore.get(cacheKey) || createEmptyCacheEntry();
+    const entry = getDueCacheEntry(cacheKey) || createEmptyCacheEntry();
 
     if (entry.isRefreshing) {
         return entry;
     }
 
     entry.isRefreshing = true;
-    entry.__payload = { canvasBaseUrl, apiToken, includeOnlyActive };
-    cacheStore.set(cacheKey, entry);
+    setDueCacheEntry(cacheKey, entry);
 
     try {
         const data = await buildDueAssessmentsResult({ canvasBaseUrl, apiToken, includeOnlyActive });
@@ -227,39 +208,13 @@ async function refreshCacheEntry(cacheKey, { canvasBaseUrl, apiToken, includeOnl
     } catch (error) {
         entry.error = error?.message || String(error);
     } finally {
+        // The entry was stored above and is deliberately not stored again here: if a
+        // logout or token change cleared it while Canvas was responding, the finished
+        // request must not put that user's data back.
         entry.isRefreshing = false;
-        cacheStore.set(cacheKey, entry);
     }
 
     return entry;
-}
-
-function ensureRefreshLoop() {
-    if (refreshState.timer) {
-        return;
-    }
-
-    refreshState.timer = setInterval(() => {
-        for (const [cacheKey, entry] of cacheStore.entries()) {
-            if (!entry?.data || entry.isRefreshing) {
-                continue;
-            }
-
-            const payload = entry.__payload;
-            if (!payload) {
-                continue;
-            }
-
-            const ageMs = Date.now() - (entry.updatedAt || 0);
-            if (ageMs < CACHE_TTL_MS) {
-                continue;
-            }
-
-            refreshCacheEntry(cacheKey, payload).catch(() => { });
-        }
-    }, CACHE_TTL_MS);
-
-    refreshState.timer.unref?.();
 }
 
 async function processGet(req, res, user, apiToken, canvasBaseUrl) {
@@ -272,17 +227,11 @@ async function processGet(req, res, user, apiToken, canvasBaseUrl) {
         const includeOnlyActive = onlyActive !== 'false';
         const forceSync = sync === 'true' || sync === '1';
 
-        const cacheKey = getCacheKey(user?.id, canvasBaseUrl, termFilter, includeOnlyActive);
+        const cacheKey = buildDueCacheKey({ userId: user.id, baseUrl: canvasBaseUrl, onlyActive: includeOnlyActive });
         const now = Date.now();
         const normalizedFilter = termFilter?.toLowerCase().trim();
         const cachePayload = { canvasBaseUrl, apiToken, includeOnlyActive };
-        const cached = cacheStore.get(cacheKey) || createEmptyCacheEntry();
-
-        ensureRefreshLoop();
-
-        if (!cached.__payload) {
-            cached.__payload = cachePayload;
-        }
+        const cached = getDueCacheEntry(cacheKey) || createEmptyCacheEntry();
 
         const isFresh = cached.updatedAt && (now - cached.updatedAt < CACHE_TTL_MS);
 
@@ -322,27 +271,16 @@ async function processGet(req, res, user, apiToken, canvasBaseUrl) {
 
     } catch (error) {
         console.error('Fetch due assessments error:', error);
-        return res.status(500).json({ message: error.message || 'Internal server error' });
+        return res.status(500).json({ message: 'Failed to load assessments.' });
     }
 }
 
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).json({ message: 'Method not allowed' });
 
     const user = await getAuthUser(req);
-    const apiToken = user?.canvasApiToken || process.env.API_KEY || '';
-    const canvasBaseUrl = resolveBaseUrl(user);
+    const accessError = getCanvasAccessError(user);
+    if (accessError) return res.status(accessError.status).json(accessError.body);
 
-    if (!apiToken) {
-        return res.status(401).json({
-            message: 'No Canvas API token configured. Please add your token in Settings.',
-            requiresSetup: true,
-        });
-    }
-
-    return processGet(req, res, user, apiToken, canvasBaseUrl);
+    return processGet(req, res, user, user.canvasApiToken, resolveBaseUrl(user));
 }

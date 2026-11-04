@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildSecurityHeaders, getServerRuntimeConfig } from '../lib/config.js';
+import { buildContentSecurityPolicy, buildSecurityHeaders, getServerRuntimeConfig } from '../lib/config.js';
+
+test('production CSP does not allow inline or evaluated scripts', () => {
+    const directives = buildContentSecurityPolicy({ isProduction: true }).split('; ');
+
+    assert.ok(directives.includes("script-src 'self'"));
+    assert.ok(directives.includes("object-src 'none'"));
+    assert.ok(directives.includes("frame-ancestors 'none'"));
+});
 
 test('getServerRuntimeConfig resolves production defaults', () => {
     const config = getServerRuntimeConfig({
