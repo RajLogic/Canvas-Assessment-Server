@@ -9,10 +9,6 @@ dotenv.config();
 
 const runtimeConfig = getServerRuntimeConfig();
 
-if (!runtimeConfig.apiKeyConfigured) {
-    console.warn('Canvas API token is missing. Set API_KEY (or another supported token variable) before production use.');
-}
-
 if (!runtimeConfig.encryptionKeyConfigured) {
     console.warn('ENCRYPTION_KEY is not set. User tokens and links will not be encrypted in the database.');
 }

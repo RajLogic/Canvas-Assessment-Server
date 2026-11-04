@@ -2,8 +2,8 @@
 
 Final Reckoning is a Next.js web application that brings Canvas assessments,
 deadlines, grades, and timetable events into one student-focused dashboard.
-It is designed for institutions using the Canvas LMS and supports both a
-server-wide Canvas configuration and optional per-user Canvas settings.
+It is designed for institutions using the Canvas LMS. Each user connects their
+own Canvas account with a personal API token.
 
 The application includes:
 
@@ -45,8 +45,8 @@ The application includes:
 ## How it works
 
 1. A user creates an account or signs in with an email address or username.
-2. Canvas credentials are taken from the user's saved settings when present.
-   Otherwise, the server-wide Canvas environment variables are used.
+2. The user saves their own Canvas API token in Settings. Canvas data is only
+   ever requested with the signed-in user's token.
 3. The server requests the user's courses and assignments from Canvas,
    following Canvas pagination links until all pages have been collected.
 4. Assignments with due dates are normalized and grouped by Canvas term and
@@ -55,7 +55,9 @@ The application includes:
    assessment predictor. The browser stores hidden-assessment preferences
    locally.
 6. The assessment API keeps an in-memory cache for up to 30 minutes and
-   refreshes stale data in the background where possible.
+   refreshes stale data when the user next requests it. The cache holds
+   assessment data only, never tokens, and a user's entries are removed when
+   they log out or change their Canvas settings.
 
 Canvas tokens are never sent to the browser. The browser calls this
 application's API routes, and the server calls Canvas.
@@ -72,6 +74,11 @@ application's API routes, and the server calls Canvas.
 
 The project is an ES module package (`"type": "module"`). The configured
 runtime requirement is Node.js 20 or newer.
+
+`npm run dev` and `npm run build` use webpack rather than Turbopack. Turbopack
+adds an inline script to every page, which the production Content Security
+Policy blocks, so a Turbopack production build would load but not run any of its
+JavaScript. A deployment must use `npm run build`, not a plain `next build`.
 
 ## Requirements
 
@@ -112,10 +119,9 @@ DATABASE_URL=postgresql://...
 ENCRYPTION_KEY=generate-a-long-random-secret
 ```
 
-For a server-wide Canvas fallback, also configure:
+To change the default Canvas address for new users, also configure:
 
 ```env
-API_KEY=your_raw_canvas_api_token
 CANVAS_BASE_URL=https://your-school.instructure.com/api/v1/
 ```
 
@@ -132,9 +138,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### 5. Create an account and configure Canvas
 
-Register at `/register`, then open Settings in the dashboard. A user can save
-their own Canvas API token and Canvas base URL, which take precedence over the
-server-wide fallback values.
+Register at `/register`, then open Settings in the dashboard and save your
+Canvas API token. You can also choose your Canvas base URL and add a timetable
+link there.
 
 ## Environment variables
 
@@ -144,12 +150,7 @@ The complete template is in `.env.example`.
 | --- | --- | --- |
 | `DATABASE_URL` | Yes for accounts | Neon/Postgres connection string. It should normally include `sslmode=require`. |
 | `ENCRYPTION_KEY` | Yes for saved user settings | Secret used to derive the AES-256-GCM encryption key. It must contain at least 16 characters; use a long random value in practice. |
-| `API_KEY` | Recommended fallback | Server-wide raw Canvas API token. Per-user tokens override it. |
-| `CANVAS_API_TOKEN` | Alternative | Alias for `API_KEY`. |
-| `CANVAS_TOKEN` | Alternative | Alias for `API_KEY`. |
-| `CANVAS_ACCESS_TOKEN` | Alternative | Alias for `API_KEY`. |
-| `CANVAS_BASE_URL` | Optional | Server-wide Canvas API base URL. Defaults to `https://rmit.instructure.com/api/v1/`. It is normalized to the `/api/v1/` path. |
-| `TIMETABLE_LINK` | Optional | Server-wide iCalendar subscription URL. Per-user timetable links override it. |
+| `CANVAS_BASE_URL` | Optional | Default Canvas API base URL for users who have not chosen one. Defaults to `https://rmit.instructure.com/api/v1/`. It is normalized to the `/api/v1/` path. |
 | `NODE_ENV` | Optional | `development` or `production`. Production enables the `Secure` session cookie and HSTS. |
 | `PORT` | Optional | Local server port. The default is `3000`. |
 | `HOST` | Optional | Runtime host setting used by configuration diagnostics. The default is `0.0.0.0`. |
@@ -159,10 +160,6 @@ Generate an encryption key with Node.js:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
-
-`API_KEY` must be the token itself. Do not include an assignment such as
-`API_KEY=...`, surrounding quotes, or a `Bearer ` prefix. The Canvas token
-aliases are accepted for compatibility, but `API_KEY` is the preferred name.
 
 ### Encryption-key rotation
 
@@ -277,10 +274,11 @@ include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and, when blocked,
 
 | Method | Route | Authentication | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/courses` | No application session required | Returns Canvas courses using the server-wide Canvas configuration. |
-| `GET` | `/api/courses/[courseId]/assignments` | No application session required | Returns assignments for a Canvas course using the server-wide configuration. |
-| `GET` | `/api/assessments/due` | Optional; required for per-user settings | Aggregates due assignments by term and course. Uses the user's token/URL when authenticated and the server fallback otherwise. |
-| `GET` | `/api/assessments/export.ics` | Optional; required for per-user settings | Generates a downloadable calendar containing future assessments from active courses. |
+| `GET` | `/api/assessments/due` | Required | Aggregates the signed-in user's due assignments by term and course. |
+| `GET` | `/api/assessments/export.ics` | Required | Generates a downloadable calendar containing the signed-in user's future assessments from active courses. |
+
+Both routes return `401` without a session. A signed-in user who has not saved a
+Canvas token receives `401` with `requiresSetup: true`.
 
 `/api/assessments/due` supports these query parameters:
 
@@ -297,16 +295,11 @@ The response includes `generatedAt`, `totalAssessments`, `totalTerms`,
 results in process memory for 30 minutes. Cache entries are separated by user,
 Canvas base URL, and active/past selection.
 
-### Timetable and diagnostics
+### Timetable
 
-| Method | Route | Description |
-| --- | --- | --- |
-| `GET` | `/api/timetable` | Fetches and parses an iCalendar subscription. A query `link` takes precedence, followed by the authenticated user's link, then `TIMETABLE_LINK`. |
-| `GET` | `/api/health/canvas-auth` | Returns safe Canvas token diagnostics, runtime configuration flags, base URL status, token source, token length, and a short token fingerprint. |
-
-The health endpoint intentionally does not expose a token value. It is still
-diagnostic information and should not be exposed publicly without considering
-your deployment's access controls.
+| Method | Route | Authentication | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/timetable` | Required | Fetches and parses the signed-in user's saved iCalendar subscription. |
 
 ## Canvas integration
 
@@ -334,17 +327,19 @@ token and the dashboard asks the user to update Settings.
 
 ## Timetable integration
 
-Timetable URLs must be reachable over HTTP or HTTPS and return an iCalendar
-document containing `BEGIN:VCALENDAR`. The server:
+Timetable URLs must use HTTPS, point to a public address, and return an
+iCalendar document containing `BEGIN:VCALENDAR`. Redirects are not followed, so
+save the final address of the subscription. The server:
 
-- Fetches the subscription with a ten-second timeout
+- Fetches the subscription with a ten-second timeout and a 5 MB size limit
 - Parses `VEVENT` entries
 - Reads summary, location, description, start, end, and UID fields
 - Handles folded iCalendar lines and common escaped text values
 - Returns normalized JSON events for the dashboard
 
-The route returns `400` for missing/invalid configuration, `502` for fetch
-failures, and `504` for a subscription timeout.
+The route returns `401` without a session, `400` for missing or disallowed
+links, `502` for fetch failures and redirects, and `504` for a subscription
+timeout.
 
 ## Security and privacy
 
@@ -359,12 +354,15 @@ The application includes the following protections:
   database storage.
 - Canvas tokens remain server-side and are never returned by session APIs.
 - Login and registration requests are rate limited.
-- Next.js sends `X-Content-Type-Options`, `X-Frame-Options`,
-  `Referrer-Policy`, and `Permissions-Policy` headers. Production also sends
-  HSTS.
-- Canvas assignment descriptions are sanitized before being rendered in the
-  dashboard. Only a small allow-list of tags and safe `http`, `https`, and
-  `mailto` links is retained.
+- Next.js sends `Content-Security-Policy`, `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` headers.
+  Production also sends HSTS.
+- Canvas assignment descriptions are sanitized with DOMPurify before being
+  rendered in the dashboard. Only a small allow-list of tags and safe `http`,
+  `https`, and `mailto` links is retained.
+- Timetable links are fetched with server-side request forgery protections:
+  HTTPS only, public addresses only, no redirects, and time and size limits.
+- API routes do not send permissive CORS headers or internal error details.
 - SQL values are parameterized through the Neon client.
 
 Operational recommendations:
@@ -372,8 +370,6 @@ Operational recommendations:
 - Use HTTPS in every deployed environment.
 - Keep `DATABASE_URL`, `ENCRYPTION_KEY`, and Canvas tokens out of source
   control and logs.
-- Use per-user tokens where users should only see their own Canvas data.
-- Restrict or protect diagnostic endpoints in public deployments.
 - Do not enable insecure database TLS settings in production. If a local
   environment requires an insecure TLS workaround, fix the certificate chain
   instead of weakening production verification.
@@ -399,23 +395,26 @@ Operational recommendations:
 │       ├── assessments/
 │       │   ├── due.js                  # Aggregated assessments
 │       │   └── export.ics.js           # ICS export
-│       ├── courses.js                  # Course endpoint
-│       ├── timetable.js                # iCalendar parser endpoint
-│       └── health/
-│           └── canvas-auth.js          # Safe Canvas diagnostics
+│       └── timetable.js                # iCalendar parser endpoint
 ├── lib/
 │   ├── auth.js                         # Passwords, sessions, cookies, validation
 │   ├── canvas-url.js                   # Canvas URL validation/normalization
-│   ├── canvasApi.js                    # Server-wide Canvas client
 │   ├── config.js                       # Runtime configuration and headers
 │   ├── dashboard-route.js              # Dashboard route helper
 │   ├── db.js                            # Neon connection, schema, user/session queries
+│   ├── due-cache.js                    # In-memory assessment cache
 │   ├── encrypt.js                      # AES-256-GCM field encryption
 │   ├── middleware.js                   # Authenticated request helpers
-│   └── rate-limit.js                   # In-memory auth rate limiter
+│   ├── rate-limit.js                   # In-memory auth rate limiter
+│   ├── safe-fetch.js                   # Guarded fetching of user-supplied URLs
+│   └── sanitize-html.js                # Canvas description sanitizer
 ├── styles/                             # Global styles and CSS modules
 ├── tests/
-│   └── config.test.js                  # Runtime configuration/security-header tests
+│   ├── api-access.test.js              # Access rules for data routes
+│   ├── config.test.js                  # Runtime configuration/security-header tests
+│   ├── due-cache.test.js               # Assessment cache limits and clearing
+│   ├── safe-fetch.test.js              # URL and address safety checks
+│   └── sanitize-html.test.js           # Sanitizer attack and formatting cases
 ├── public/
 │   └── hell.png                        # Application logo/favicon
 ├── .env.example                        # Environment variable template
@@ -474,11 +473,10 @@ API routing. Prefer `npm run dev` and `npm start`.
 The repository includes `vercel.json` with the Next.js framework setting.
 
 1. Import the repository into Vercel.
-2. Add `DATABASE_URL`, `ENCRYPTION_KEY`, and the appropriate Canvas variables
-   under the Vercel project's Environment Variables.
-3. Add `TIMETABLE_LINK` only if a server-wide timetable fallback is wanted.
-4. Deploy.
-5. Open `/register` and verify database initialization, authentication, Canvas
+2. Add `DATABASE_URL` and `ENCRYPTION_KEY` under the Vercel project's
+   Environment Variables, plus `CANVAS_BASE_URL` if you want a different default.
+3. Deploy.
+4. Open `/register` and verify database initialization, authentication, Canvas
    loading, and timetable loading.
 
 Set `NODE_ENV=production` in the deployment environment. Vercel runs the
@@ -531,14 +529,13 @@ users to re-save encrypted settings.
 
 - Generate a new Canvas API token.
 - Ensure the value is the raw token only.
-- Do not include `Bearer`, quotes, or `API_KEY=`.
+- Do not include `Bearer` or quotes.
 - Confirm the Canvas URL belongs to the correct institution and ends in
   `/api/v1/`.
-- Check `/api/health/canvas-auth` for a safe token-presence and URL diagnostic.
 
 ### No assessments appear
 
-- Confirm the user has a valid token or that `API_KEY` is configured.
+- Confirm the user has saved a valid token in Settings.
 - Confirm the user is enrolled in courses recognized as active.
 - Confirm assignments have Canvas due dates.
 - Use the dashboard refresh control or request
@@ -548,11 +545,10 @@ users to re-save encrypted settings.
 ### Timetable is empty or fails to load
 
 - Confirm the URL is a subscription URL, not a calendar webpage.
+- Confirm it uses `https://` and does not redirect to another address.
 - Confirm it returns an iCalendar document containing `BEGIN:VCALENDAR`.
 - Verify that the URL is reachable from the deployed server.
 - Check that events include both `DTSTART` and `DTEND`.
-- Remember that a query `link` overrides the user's saved link, which
-  overrides `TIMETABLE_LINK`.
 
 ### Authentication appears to reset
 
@@ -570,9 +566,6 @@ users to re-save encrypted settings.
 - Hidden assessments are browser-local and are not synchronized to the server.
 - Timetable parsing supports the iCalendar fields needed by the dashboard but
   is not a full RFC 5545 recurrence engine.
-- The public `/api/courses` and course-assignment routes use the server-wide
-  Canvas token rather than the authenticated user's saved token. The
-  authenticated dashboard uses `/api/assessments/due` and per-user settings.
 - Per-course Canvas assignment fetches are performed concurrently. Institutions
   with many courses may need to consider Canvas rate limits and deployment
   function duration.

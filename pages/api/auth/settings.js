@@ -1,6 +1,8 @@
 import { getAuthUser } from '../../../lib/middleware.js';
 import { updateUserSettings } from '../../../lib/db.js';
 import { normalizeCanvasBaseUrl, validateCanvasBaseUrl } from '../../../lib/canvas-url.js';
+import { clearDueCacheForUser } from '../../../lib/due-cache.js';
+import { getUnsafeUrlReason } from '../../../lib/safe-fetch.js';
 
 function validateCanvasBaseUrlField(canvasBaseUrl) {
     if (canvasBaseUrl !== undefined && canvasBaseUrl !== null && canvasBaseUrl !== '') {
@@ -8,19 +10,19 @@ function validateCanvasBaseUrlField(canvasBaseUrl) {
         if (urlError) {
             return urlError;
         }
+        const unsafeReason = getUnsafeUrlReason(canvasBaseUrl.trim());
+        if (unsafeReason) {
+            return `Canvas ${unsafeReason}`;
+        }
     }
     return null;
 }
 
 function validateTimetableLinkField(timetableLink) {
     if (timetableLink !== undefined && timetableLink !== null && timetableLink !== '') {
-        try {
-            const parsed = new URL(timetableLink);
-            if (!['http:', 'https:'].includes(parsed.protocol)) {
-                return 'Timetable link must be a valid http/https URL.';
-            }
-        } catch {
-            return 'Timetable link is not a valid URL.';
+        const unsafeReason = getUnsafeUrlReason(timetableLink);
+        if (unsafeReason) {
+            return `Timetable ${unsafeReason}`;
         }
     }
     return null;
@@ -87,6 +89,10 @@ export default async function handler(req, res) {
         const updatePayload = buildUpdatePayload(req.body, canvasBaseUrl);
         const updated = await updateUserSettings(user.id, updatePayload);
 
+        if ('canvasApiToken' in updatePayload || 'canvasBaseUrl' in updatePayload) {
+            clearDueCacheForUser(user.id);
+        }
+
         return res.status(200).json({
             message: 'Settings saved successfully.',
             user: {
@@ -102,6 +108,6 @@ export default async function handler(req, res) {
         });
     } catch (err) {
         console.error('Update settings error:', err);
-        return res.status(500).json({ message: 'Failed to save settings. ' + (err.message || '') });
+        return res.status(500).json({ message: 'Failed to save settings.' });
     }
 }

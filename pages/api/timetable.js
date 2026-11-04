@@ -1,64 +1,50 @@
 import { getAuthUser } from '../../lib/middleware.js';
+import { safeHttpsGet, UnsafeUrlError } from '../../lib/safe-fetch.js';
 
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Cache-Control', 'private, max-age=60, stale-while-revalidate=300');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).json({ message: 'Method not allowed' });
 
     try {
-        const { link } = req.query;
-
-        // Per-user timetable link takes precedence
         const user = await getAuthUser(req);
-        const userLink = user?.timetableLink;
-        const envLink = process.env.TIMETABLE_LINK;
-        const rawLink = (typeof link === 'string' && link.trim() ? link : null)
-            || userLink
-            || envLink;
+        if (!user) {
+            return res.status(401).json({ message: 'Unauthorized', redirect: '/login' });
+        }
 
-        if (!rawLink || typeof rawLink !== 'string') {
+        if (!user.timetableLink) {
             return res.status(400).json({
                 message: 'No timetable link configured. Add your iCal subscription URL in Settings.',
                 requiresSetup: true,
             });
         }
 
-        let subscriptionUrl;
-        try {
-            subscriptionUrl = new URL(rawLink);
-        } catch {
-            return res.status(400).json({ message: 'Invalid URL format for timetable link.' });
-        }
-
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
         let icalContent;
         try {
-            const response = await fetch(subscriptionUrl.toString(), {
+            const response = await safeHttpsGet(user.timetableLink, {
                 headers: { 'User-Agent': 'Canvas-Tracker/1.0' },
-                signal: controller.signal,
             });
-            clearTimeout(timeout);
 
-            if (!response.ok) {
-                return res.status(response.status).json({
-                    message: `Failed to fetch timetable subscription: ${response.statusText}`,
+            if (response.redirected) {
+                return res.status(502).json({
+                    message: 'Your timetable link redirects to another address. Save the final https:// address in Settings.',
                 });
             }
 
-            icalContent = await response.text();
+            if (response.status < 200 || response.status >= 300) {
+                return res.status(502).json({ message: 'Failed to fetch timetable subscription link.' });
+            }
+
+            icalContent = response.body;
 
             if (!icalContent.includes('BEGIN:VCALENDAR')) {
                 return res.status(400).json({ message: 'Invalid iCalendar format at the provided URL.' });
             }
         } catch (fetchErr) {
-            clearTimeout(timeout);
-            if (fetchErr.name === 'AbortError') {
+            if (fetchErr instanceof UnsafeUrlError) {
+                return res.status(400).json({ message: `Timetable link not allowed: ${fetchErr.message}` });
+            }
+            if (fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError') {
                 return res.status(504).json({ message: 'Timetable subscription request timed out.' });
             }
             return res.status(502).json({ message: 'Failed to fetch timetable subscription link.' });
@@ -73,7 +59,7 @@ export default async function handler(req, res) {
         });
     } catch (error) {
         console.error('Timetable parse error:', error);
-        return res.status(500).json({ message: 'Internal server error', error: error.message });
+        return res.status(500).json({ message: 'Internal server error' });
     }
 }
 

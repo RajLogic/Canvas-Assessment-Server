@@ -6,6 +6,7 @@ import dashStyles from '../styles/Dashboard.module.css';
 import sidebarStyles from '../styles/FilterSidebar.module.css';
 import Image from 'next/image';
 import { normalizeCanvasBaseUrl } from '../lib/canvas-url.js';
+import { sanitizeBriefHtml } from '../lib/sanitize-html.js';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function SiteLogo({ size = 32 }) {
@@ -136,34 +137,6 @@ function formatScorePercentage(score, pointsPossible) {
 
     const percentage = Math.round((numericScore / numericPointsPossible) * 1000) / 10;
     return `${percentage}%`;
-}
-
-const briefAllowedTags = new Set(['a', 'br', 'em', 'h2', 'h3', 'h4', 'li', 'ol', 'p', 'strong', 'ul']);
-
-function sanitizeBriefHtml(description) {
-    if (!description) return '';
-
-    return String(description)
-        .replace(/<!--[\s\S]*?-->/g, '')
-        .replace(/<(?:script|style|iframe|object|embed|noscript|template)\b[^>]*>[\s\S]*?<\/(?:script|style|iframe|object|embed|noscript|template)\s*>/gi, '')
-        .replace(/<link\b[^>]*>/gi, '')
-        .replace(/<([a-z][\w-]*)(\s[^>]*)?>/gi, (match, tagName, rawAttributes = '') => {
-            const tag = tagName.toLowerCase();
-            if (!briefAllowedTags.has(tag)) return '';
-            if (tag === 'br') return '<br>';
-            if (tag !== 'a') return `<${tag}>`;
-
-            const hrefMatch = rawAttributes.match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i);
-            const href = hrefMatch && (hrefMatch[1] || hrefMatch[2] || hrefMatch[3]);
-            if (!href || !/^(?:https?:|mailto:)/i.test(href)) return '<a>';
-
-            const escapedHref = href.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
-            return `<a href="${escapedHref}" target="_blank" rel="noopener noreferrer">`;
-        })
-        .replace(/<\/([a-z][\w-]*)\s*>/gi, (match, tagName) => {
-            const tag = tagName.toLowerCase();
-            return briefAllowedTags.has(tag) ? `</${tag}>` : '';
-        });
 }
 
 function formatShortDate(dateString) {
@@ -2111,7 +2084,9 @@ function SettingsModal({
 
     const currentDisplayUrl = user?.canvasBaseUrl || defaultEnvUrl;
     const handleExportCalendar = () => {
-        globalThis.location.href = '/api/assessments/export.ics';
+        const exportLink = document.createElement('a');
+        exportLink.href = '/api/assessments/export.ics';
+        exportLink.click();
     };
 
     const content = (
@@ -2336,6 +2311,7 @@ function getAssessmentDetailStatus(assessment) {
     return {
         submittedAtTimestamp,
         isSubmitted,
+        isPast: assessment.dueTimestamp < Date.now(),
         statusCardClass,
         submissionStatus,
         statusLabel: getAssessmentStatusLabel(assessment, isMarked, isSubmitted),
@@ -2350,9 +2326,9 @@ function AssessmentDetailModal({ assessment, onClose }) {
     if (!assessment) return null;
 
     const briefHtml = sanitizeBriefHtml(assessment.description);
-    const isPast = assessment.dueTimestamp < Date.now();
     const scorePercentage = formatScorePercentage(assessment.score, assessment.pointsPossible);
     const {
+        isPast,
         statusCardClass,
         statusLabel,
         submissionStatus,
@@ -2750,6 +2726,8 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) { // 
         const saved = readPredictorCache(storageKey);
         const { courseId, cachedCourse, hasFreshCache } = getCachedPredictorCourse(courses, saved);
         try {
+            // Restores saved predictor state from localStorage once courses have loaded.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectedCourseId(courseId);
             if (hasFreshCache && Number.isFinite(Number(cachedCourse.passPercent))) {
                 setPassPercent(Math.min(100, Math.max(0, Number(cachedCourse.passPercent))));
@@ -2796,7 +2774,7 @@ const AssessmentPredictor = memo(function AssessmentPredictor({ dueData }) { // 
     };
 
     const selectedCourse = courses.find((course) => String(course.courseId) === String(selectedCourseId));
-    const assignments = selectedCourse?.assessments || [];
+    const assignments = useMemo(() => selectedCourse?.assessments || [], [selectedCourse?.assessments]);
     const assignmentById = useMemo(
         () => new Map(assignments.map((assessment) => [String(assessment.id), assessment])),
         [assignments]

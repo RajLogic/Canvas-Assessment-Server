@@ -1,15 +1,11 @@
-import { getSessionIdFromRequest, clearSessionCookie } from '../../../lib/auth.js';
-import { deleteSession, getSession } from '../../../lib/db.js';
+import { getSessionIdFromRequest } from '../../../lib/auth.js';
+import { getSession } from '../../../lib/db.js';
+import { endSession } from '../../../lib/middleware.js';
 import { DEFAULT_CANVAS_BASE_URL, normalizeCanvasBaseUrl } from '../../../lib/canvas-url.js';
 
 export default async function handler(req, res) {
     if (req.method === 'POST') {
-        const sessionId = getSessionIdFromRequest(req);
-        if (sessionId) {
-            try { await deleteSession(sessionId); } catch { /* ignore */ }
-        }
-        clearSessionCookie(res);
-        return res.status(200).json({ message: 'Logged out successfully.' });
+        return endSession(req, res);
     }
 
     if (req.method === 'GET') {

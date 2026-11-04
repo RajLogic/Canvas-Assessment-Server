@@ -1,4 +1,4 @@
-import { getAuthUser } from '../../../lib/middleware.js';
+import { getAuthUser, getCanvasAccessError } from '../../../lib/middleware.js';
 import { DEFAULT_CANVAS_BASE_URL, normalizeCanvasBaseUrl } from '../../../lib/canvas-url.js';
 
 function escapeIcsText(value) {
@@ -99,14 +99,13 @@ export default async function handler(req, res) {
     }
 
     const user = await getAuthUser(req);
-    const apiToken = user?.canvasApiToken || process.env.API_KEY || '';
-    const canvasBaseUrl = normalizeCanvasBaseUrl(user?.canvasBaseUrl, {
+    const accessError = getCanvasAccessError(user);
+    if (accessError) return res.status(accessError.status).json(accessError.body);
+
+    const apiToken = user.canvasApiToken;
+    const canvasBaseUrl = normalizeCanvasBaseUrl(user.canvasBaseUrl, {
         fallback: normalizeCanvasBaseUrl(process.env.CANVAS_BASE_URL, { fallback: DEFAULT_CANVAS_BASE_URL }),
     });
-
-    if (!apiToken) {
-        return res.status(401).json({ message: 'No Canvas API token configured.' });
-    }
 
     try {
         const coursesUrl = `${canvasBaseUrl}courses?per_page=100&include[]=enrollments&include[]=term&enrollment_state[]=active&enrollment_state[]=completed&enrollment_state[]=past`;
